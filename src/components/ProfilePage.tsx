@@ -134,12 +134,12 @@ export function ProfilePage({ onNavigate }: Props) {
           </div>
         </div>
 
-        {bonusTokens > 0 && (
+        {/* {bonusTokens > 0 && (
           <div className="profile-balance__breakdown">
             <span>Купленные: {tokenBalance.toLocaleString()}</span>
             <span>Бонусные: {bonusTokens.toLocaleString()}</span>
           </div>
-        )}
+        )} */}
 
         <div className="profile-balance__actions">
           <button

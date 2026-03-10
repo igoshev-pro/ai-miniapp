@@ -42,10 +42,11 @@ const examplePrompts = [
 interface Props {
   initialModel?: string
   chatId?: string
+  onBack?: () => void
 }
 
-export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
-  const { haptic, hapticNotification } = useTelegram()
+export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props) {
+  const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
   const {
     messages,
@@ -83,6 +84,18 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      const handler = () => { if (onBack) onBack() }
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack])
 
   useEffect(() => {
     scrollToBottom()
