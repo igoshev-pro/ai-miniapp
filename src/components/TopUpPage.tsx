@@ -94,14 +94,14 @@ export function TopUpPage({ onBack }: Props) {
 
   return (
     <div className="topup-page">
-      <div className="topup-page__header fade-in fade-in--1">
+     <div className="topup-page__header fade-in fade-in--1">
+        <div className="topup-page__title">Пополнить баланс</div>
         <button
           className="topup-page__back"
           onClick={() => (onBack ? onBack() : webApp?.close())}
         >
-          <ArrowLeft size={20} />
+          ‹ назад
         </button>
-        <div className="topup-page__title">Пополнить баланс</div>
       </div>
 
       {/* Текущий баланс */}
