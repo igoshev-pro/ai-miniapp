@@ -93,17 +93,16 @@ export function useBilling() {
   // Загрузить пакеты токенов
   const loadPackages = useCallback(async () => {
     try {
-      const { data } = await apiClient.get<PackagesResponse>(ENDPOINTS.BILLING_PACKAGES)
-      setPackages(data.packages)
-      return data.packages
+      const response = await apiClient.get<{ success: boolean, data: TokenPackage[] }>(ENDPOINTS.BILLING_PACKAGES)
+      setPackages(response.data.data)
     } catch {
       // Fallback — захардкоженные пакеты
       const fallback: TokenPackage[] = [
-        { id: 'p1', name: 'Старт',      tokens: 100,  price: 99,   currency: '₽' },
-        { id: 'p2', name: 'Базовый',    tokens: 300,  price: 249,  currency: '₽', bonus: 50 },
-        { id: 'p3', name: 'Популярный', tokens: 700,  price: 499,  currency: '₽', bonus: 150, popular: true },
-        { id: 'p4', name: 'Продвинутый', tokens: 1500, price: 999,  currency: '₽', bonus: 400 },
-        { id: 'p5', name: 'Максимум',   tokens: 4000, price: 2499, currency: '₽', bonus: 1200 },
+        { id: 'p1', name: 'Старт', tokens: 100, price: 99, currency: '₽' },
+        { id: 'p2', name: 'Базовый', tokens: 300, price: 249, currency: '₽', bonus: 50 },
+        { id: 'p3', name: 'Популярный', tokens: 700, price: 499, currency: '₽', bonus: 150, popular: true },
+        { id: 'p4', name: 'Продвинутый', tokens: 1500, price: 999, currency: '₽', bonus: 400 },
+        { id: 'p5', name: 'Максимум', tokens: 4000, price: 2499, currency: '₽', bonus: 1200 },
       ]
       setPackages(fallback)
       return fallback
@@ -140,31 +139,28 @@ export function useBilling() {
   }, [])
 
   // Купить пакет токенов
-  const purchaseTokens = useCallback(async (packageId: string): Promise<string | null> => {
-    try {
-      setIsLoading(true)
-      const { data } = await apiClient.post<PaymentResponse>(ENDPOINTS.BILLING_PAY, {
-        packageId,
-      })
-
-      if (data.paymentUrl) {
-        return data.paymentUrl
+  const purchaseTokens = useCallback(
+    async (packageId: string, provider: 'yookassa' | 'cryptomus' | 'stars' = 'cryptomus'): Promise<string | null> => {
+      try {
+        setIsLoading(true)
+        const { data } = await apiClient.post<{ success: boolean, data: PaymentResponse }>(
+          ENDPOINTS.BILLING_PAY,
+          { packageId, provider }
+        )
+        if (data.data.paymentUrl) {
+          return data.data.paymentUrl
+        }
+        toast.success('Оплата обрабатывается...')
+        return null
+      } catch (err) {
+        if (isApiError(err)) toast.error(err.message || 'Ошибка оплаты')
+        else toast.error('Ошибка соединения')
+        return null
+      } finally {
+        setIsLoading(false)
       }
-
-      // Если оплата через TG Stars — баланс обновится через WS
-      toast.success('Оплата обрабатывается...')
-      return null
-    } catch (err) {
-      if (isApiError(err)) {
-        toast.error(err.message || 'Ошибка оплаты')
-      } else {
-        toast.error('Ошибка соединения')
-      }
-      return null
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    }, []
+  )
 
   // Купить подписку
   const subscribe = useCallback(async (planId: string): Promise<string | null> => {

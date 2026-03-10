@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Sparkles,
   Tag,
+  ArrowLeft,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling } from '@/hooks'
@@ -23,7 +24,7 @@ interface Props {
 }
 
 export function TopUpPage({ onBack }: Props) {
-  const { haptic, hapticNotification, webApp } = useTelegram()
+  const { haptic, hapticNotification, webApp, showBackButton, hideBackButton } = useTelegram()
   const { balance } = useUser()
   const {
     packages,
@@ -37,6 +38,19 @@ export function TopUpPage({ onBack }: Props) {
   const [promoCode, setPromoCode] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
   const [promoApplied, setPromoApplied] = useState(false)
+  const [provider, setProvider] = useState<'yookassa' | 'cryptomus' | 'stars'>('stars')
+
+  useEffect(() => {
+    // Показывать Back Button Telegram если в нужной среде
+    if (webApp && webApp.BackButton) {
+      webApp.BackButton.show()
+      webApp.BackButton.onClick(() => {
+        if (onBack) onBack()
+        else webApp.close()
+      })
+      return () => webApp.BackButton.hide()
+    }
+  }, [webApp, onBack])
 
   useEffect(() => {
     loadPackages()
@@ -47,10 +61,8 @@ export function TopUpPage({ onBack }: Props) {
       toast.warning('Выберите пакет')
       return
     }
-
     haptic('medium')
-
-    const paymentUrl = await purchaseTokens(selectedPackage)
+    const paymentUrl = await purchaseTokens(selectedPackage, provider)
 
     if (paymentUrl) {
       // Открываем ссылку оплаты
@@ -60,7 +72,7 @@ export function TopUpPage({ onBack }: Props) {
         window.open(paymentUrl, '_blank')
       }
     }
-  }, [selectedPackage, purchaseTokens, haptic, webApp])
+  }, [selectedPackage, provider, purchaseTokens, haptic, webApp])
 
   const handlePromo = useCallback(async () => {
     const code = promoCode.trim()
@@ -83,6 +95,12 @@ export function TopUpPage({ onBack }: Props) {
   return (
     <div className="topup-page">
       <div className="topup-page__header fade-in fade-in--1">
+        <button
+          className="topup-page__back"
+          onClick={() => (onBack ? onBack() : webApp?.close())}
+        >
+          <ArrowLeft size={20} />
+        </button>
         <div className="topup-page__title">Пополнить баланс</div>
       </div>
 
