@@ -1,10 +1,10 @@
-// src/stores/user.store.ts
-
 import { create } from 'zustand'
 
 export interface UserProfile {
   id: string
-  telegramId: number
+  telegramId: number | null
+  authProvider: 'telegram' | 'email' | 'google'
+  email: string | null
   firstName: string
   lastName?: string
   username?: string
@@ -19,7 +19,7 @@ export interface UserProfile {
     isActive: boolean
   }
   referralCode: string
-  createdAt: string
+  createdAt: string | null
 }
 
 interface UserState {

@@ -1,5 +1,3 @@
-// src/hooks/useAuth.ts
-
 'use client'
 
 import { useEffect, useRef } from 'react'
@@ -8,9 +6,12 @@ import { useAuthStore, useUserStore, type UserProfile } from '@/stores'
 import { toast } from '@/stores/toast.store'
 import { useTelegram } from '@/context/TelegramContext'
 
-interface AuthResponse {
-  token: string
-  user: UserProfile
+interface AuthApiResponse {
+  success: boolean
+  data: {
+    token: string
+    user: UserProfile
+  }
 }
 
 export function useAuth() {
@@ -25,7 +26,7 @@ export function useAuth() {
 
     const initData = webApp?.initData
 
-    // Нет initData — dev-режим, пропускаем
+    // No initData — not in Telegram, skip auth
     if (!initData) {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[Auth] No initData — dev mode, skipping auth')
@@ -34,16 +35,17 @@ export function useAuth() {
       return
     }
 
-    // Тихий обмен initData → JWT
+    xchange initData → JWT
     apiClient
-      .post<AuthResponse>(ENDPOINTS.AUTH_TELEGRAM, { initData })
-      .then(({ data }) => {
-        setToken(data.token)
-        setUser(data.user)
+      .post<AuthApiResponse>(ENDPOINTS.AUTH_TELEGRAM, { initData })
+      .then((res) => {
+        const { token: jwt, user } = res.data.data
+        setToken(jwt)
+        setUser(user)
       })
       .catch((err) => {
         console.error('[Auth] Failed:', err)
-        toast.error('Не удалось подключиться')
+        toast.error('Не удалось авторизоваться')
         setReady()
       })
   }, [isReady, webApp, setToken, setUser, setReady])

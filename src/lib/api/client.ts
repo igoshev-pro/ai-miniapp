@@ -1,5 +1,3 @@
-// src/lib/api/client.ts
-
 import axios, { type InternalAxiosRequestConfig, type AxiosError } from 'axios'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
@@ -23,14 +21,19 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 // Обработка ошибок
 apiClient.interceptors.response.use(
-  (res: any) => res,
+  (res) => res,
   (error: AxiosError<{ message?: string }>) => {
     const status = error.response?.status
     const message = error.response?.data?.message || error.message
 
+    // 401 — токен невалиден, очищаем
+    if (status === 401 && typeof window !== ')
+    }
+
     return Promise.reject({
       status: status || 0,
       message,
+      isAuth: status === 401,
       isBalance: status === 402,
       isRateLimit: status === 429,
       isServer: !!status && status >= 500,
@@ -41,6 +44,7 @@ apiClient.interceptors.response.use(
 export interface ApiError {
   status: number
   message: string
+  isAuth: boolean
   isBalance: boolean
   isRateLimit: boolean
   isServer: boolean
