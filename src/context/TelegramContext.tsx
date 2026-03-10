@@ -61,6 +61,20 @@ const TelegramContext = createContext<TelegramContextValue>({
   sendData: () => {},
 })
 
+function applySafeArea(wa: WebApp) {
+  const safeTop = wa.safeAreaInset?.top ?? 0
+  const contentTop = wa.contentSafeAreaInset?.top ?? 0
+  const total = safeTop + contentTop
+
+  // Минимум 44px на iOS (статус-бар), 0 на десктопе
+  const platform = (wa.platform || '').toLowerCase()
+  const isPhone = platform.includes('ios') || platform.includes('android')
+  const minOffset = isPhone ? 44 : 0
+  const offset = Math.max(total, minOffset)
+
+  document.documentElement.style.setProperty('--safe-area-top', offset + 'px')
+}
+
 export function TelegramProvider({ children }: { children: ReactNode }) {
   const [webApp, setWebApp] = useState<WebApp | null>(null)
   const [isReady, setIsReady] = useState(false)
@@ -79,11 +93,27 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
 
       wa.enableClosingConfirmation()
 
+      // Fullscreen
       if (wa.isVersionAtLeast('8.0')) {
         try {
           wa.requestFullscreen()
         } catch {}
       }
+
+      // Считаем safe area
+      applySafeArea(wa)
+
+      // Слушаем изменения safe area (при fullscreen они меняются)
+      if (wa.onEvent) {
+        try {
+          wa.onEvent('safeAreaChanged' as any, () => applySafeArea(wa))
+          wa.onEvent('contentSafeAreaChanged' as any, () => applySafeArea(wa))
+        } catch {}
+      }
+
+      // Фоллбек: пересчитываем через 500ms (после fullscreen)
+      setTimeout(() => applySafeArea(wa), 500)
+      setTimeout(() => applySafeArea(wa), 1500)
 
       setWebApp(wa)
     }
@@ -102,6 +132,8 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         '--tg-viewport-stable-height',
         `${webApp.viewportStableHeight}px`
       )
+      // Пересчитываем safe area при изменении viewport
+      applySafeArea(webApp)
     }
 
     handleViewport()

@@ -1,11 +1,8 @@
-// src/app/layout.tsx
-
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { TelegramProvider } from '@/context/TelegramContext'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 import './globals.css'
-import { TelegramSafeArea } from '@/components/TelegramSafeArea'
 
 export const metadata: Metadata = {
   title: 'Спички — Агрегатор ИИ',
@@ -35,7 +32,6 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <TelegramProvider>
-          <TelegramSafeArea />
           {children}
           <ToastContainer />
         </TelegramProvider>

@@ -61,7 +61,7 @@ body {
   min-height: 100vh;
   min-height: var(--tg-viewport-stable-height, 100dvh);
   background: var(--bg-primary);
-  padding-top: calc(var(--header-height) + var(--safe-area-top, 0px));
+  padding-top: var(--header-height);
   padding-bottom: calc(84px + var(--safe-bottom));
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
@@ -148,13 +148,13 @@ button,
 
 /* ═══════════════ STICKY HEADER ═══════════════ */
 .sticky-header {
-  
+  padding-top: var(--safe-area-top, 0px);
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  height: calc(var(--header-height) + var(--safe-area-top, 0px));
+  height: var(--header-height);
   backdrop-filter: var(--blur-heavy);
   -webkit-backdrop-filter: var(--blur-heavy);
   background: var(--bg-glass-heavy);
@@ -162,7 +162,7 @@ button,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--safe-area-top, 0px) 16px 0 16px;
+  padding: 0 16px;
 }
 
 .sticky-header__logo-img {
@@ -198,7 +198,7 @@ button,
 .content {
   position: relative;
   z-index: 1;
-  padding: var(--safe-area-top, 0px) 16px 0 16px;
+  padding: 0 16px;
   padding-top: 12px;
 }
 
@@ -5085,87 +5085,20 @@ button,
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-
 /* Стили для SPICHKI */
-:root {
-  --tg-top: 0px;
-}
-
-body.tg-app {
-  padding-top: calc(var(--header-height) + var(--tg-top)) !important;
-}
-
-body.tg-app .sticky-header {
-  top: var(--tg-top) !important;
+.sticky-header__logo {
+  font-weight: 700;
+  color: var(--accent-red);
+  font-size: 1.1rem;
 }
 
 
-/* Desktop container */
-@media (min-width: 768px) {
-  .sticky-header {
-    max-width: 480px;
-    left: 0;
-    right: 0;
-    margin-left: auto;
-    margin-right: auto;
-    border-left: 1px solid var(--border-glass);
-    border-right: 1px solid var(--border-glass);
-  }
+  position: relative !important;
+.tg-mini-app .home {
+  padding-top: 70px; /* Увеличенный отступ для шапки Telegram */
+}
 
-  .content {
-    max-width: 480px;
-    margin: 0 auto;
-  }
-
-  .bottom-nav {
-    max-width: 480px;
-    left: 0;
-    right: 0;
-    margin-left: auto;
-    margin-right: auto;
-    border-left: 1px solid var(--border-glass);
-    border-right: 1px solid var(--border-glass);
-  }
-
-  .chat-page__input-area,
-  .support-reply,
-  .gen-page__input-area {
-    max-width: 480px;
-    left: 0;
-    right: 0;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .bg-scene {
-    max-width: 480px;
-    left: 0;
-    right: 0;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .gen-settings-modal__content,
-  .toast-container {
-    max-width: 480px;
-    margin: 0 auto;
-  }
-
-  body {
-    background: #000;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    max-width: 480px;
-    margin: 0 auto;
-    height: 100vh;
-    background: var(--bg-primary);
-    z-index: -2;
-    box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
-  }
+/* Telegram Mini App стили */
+.tg-mini-app .home {
+  padding-top: 70px;
 }
