@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   ChevronDown, Send, Check, X, Music, Mic, Settings, Wand2,
   Clock, Loader2, Shuffle, Volume2, Languages,
+  Paperclip,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useUser } from '@/hooks'
@@ -97,6 +98,7 @@ export function AudioGenerationPage({ onBack }: Props) {
   const [voice, setVoice] = useState('Rachel')
   const [stability, setStability] = useState(50)
   const [similarity, setSimilarity] = useState(75)
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -257,7 +259,12 @@ export function AudioGenerationPage({ onBack }: Props) {
 
       <div className="gen-page__input-area">
         <div className="chat-input__row">
-          <button className="gen-page__dice-btn" onClick={insertExample}><Shuffle size={16} /></button>
+          <button
+            className={`chat-input__attach ${showAttachMenu ? 'chat-input__attach--active' : ''}`}
+            onClick={() => { setShowAttachMenu(!showAttachMenu); haptic('light') }}
+          >
+            <Paperclip size={18} />
+          </button>
           <div className="chat-input__field-wrap">
             <textarea ref={inputRef} className="chat-input__field"
               placeholder={isMusic ? 'Опишите песню или напишите текст...' : 'Введите текст для озвучки...'}

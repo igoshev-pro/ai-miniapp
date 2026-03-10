@@ -64,49 +64,53 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
 
   return (
     <div className="models-page">
-      <div className="models-page__header fade-in fade-in--1">
-        <div className="models-page__title">Все модели</div>
-        <div className="models-page__count">{allModels.length}</div>
-      </div>
+      {/* ── Фиксированный блок: заголовок + поиск + фильтры ── */}
+      <div className="models-page__sticky">
+        <div className="models-page__header fade-in fade-in--1">
+          <div className="models-page__title">Все модели</div>
+          <div className="models-page__count">{allModels.length}</div>
+        </div>
 
-      <div className="models-page__search fade-in fade-in--1">
-        <Search size={16} className="models-page__search-icon" />
-        <input
-          type="text"
-          placeholder="Найти модель..."
-          className="models-page__search-input"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+        <div className="models-page__search fade-in fade-in--1">
+          <Search size={16} className="models-page__search-icon" />
+          <input
+            type="text"
+            placeholder="Найти модель..."
+            className="models-page__search-input"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
-      <div className="models-page__filters fade-in fade-in--2">
-        <button
-          className={`models-filter ${activeFilter === null ? 'models-filter--active' : ''}`}
-          onClick={() => {
-            setActiveFilter(null)
-            haptic('light')
-          }}
-        >
-          Все
-        </button>
-        {modelCategories.map((cat) => (
+        <div className="models-page__filters fade-in fade-in--2">
           <button
-            key={cat.id}
-            className={`models-filter ${activeFilter === cat.id ? 'models-filter--active' : ''}`}
+            className={`models-filter ${activeFilter === null ? 'models-filter--active' : ''}`}
             onClick={() => {
-              setActiveFilter(activeFilter === cat.id ? null : cat.id)
+              setActiveFilter(null)
               haptic('light')
             }}
           >
-            {categoryIcons[cat.id]}
-            {cat.label}
-            <span className="models-filter__count">{cat.count}</span>
+            Все
           </button>
-        ))}
+          {modelCategories.map((cat) => (
+            <button
+              key={cat.id}
+              className={`models-filter ${activeFilter === cat.id ? 'models-filter--active' : ''}`}
+              onClick={() => {
+                setActiveFilter(activeFilter === cat.id ? null : cat.id)
+                haptic('light')
+              }}
+            >
+              {categoryIcons[cat.id]}
+              {cat.label}
+              <span className="models-filter__count">{cat.count}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="fade-in fade-in--3">
+      {/* ── Скроллируемый список моделей ── */}
+      <div className="models-page__list fade-in fade-in--3">
         {grouped.map((group) => (
           <div key={group.category} className="models-group">
             <div className="models-group__label">{categoryLabels[group.category]}</div>

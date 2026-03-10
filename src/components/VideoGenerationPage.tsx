@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   ChevronDown, Send, Check, X, Video, Settings, Wand2,
   Clock, Maximize2, Zap, Loader2, Shuffle,
+  Paperclip,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useUser } from '@/hooks'
@@ -104,6 +105,7 @@ export function VideoGenerationPage({ onBack }: Props) {
   const [quality, setQuality] = useState('standard')
   const [camera, setCamera] = useState('none')
   const [fps, setFps] = useState(24)
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -254,7 +256,12 @@ export function VideoGenerationPage({ onBack }: Props) {
 
       <div className="gen-page__input-area">
         <div className="chat-input__row">
-          <button className="gen-page__dice-btn" onClick={insertExample}><Shuffle size={16} /></button>
+          <button
+            className={`chat-input__attach ${showAttachMenu ? 'chat-input__attach--active' : ''}`}
+            onClick={() => { setShowAttachMenu(!showAttachMenu); haptic('light') }}
+          >
+            <Paperclip size={18} />
+          </button>
           <div className="chat-input__field-wrap">
             <textarea ref={inputRef} className="chat-input__field" placeholder="Опишите видео..."
               value={input} onChange={(e) => setInput(e.target.value)}

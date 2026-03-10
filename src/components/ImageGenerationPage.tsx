@@ -16,6 +16,7 @@ import {
   Layers,
   Loader2,
   Shuffle,
+  Paperclip,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useUser } from '@/hooks'
@@ -124,6 +125,7 @@ export function ImageGenerationPage({ onBack }: Props) {
   const [style, setStyle] = useState('')
   const [count, setCount] = useState(1)
   const [seed, setSeed] = useState<number | undefined>(undefined)
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -290,8 +292,11 @@ export function ImageGenerationPage({ onBack }: Props) {
 
       <div className="gen-page__input-area">
         <div className="chat-input__row">
-          <button className="gen-page__dice-btn" onClick={insertExample}>
-            <Shuffle size={16} />
+          <button
+            className={`chat-input__attach ${showAttachMenu ? 'chat-input__attach--active' : ''}`}
+            onClick={() => { setShowAttachMenu(!showAttachMenu); haptic('light') }}
+          >
+            <Paperclip size={18} />
           </button>
           <div className="chat-input__field-wrap">
             <textarea

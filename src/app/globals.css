@@ -760,14 +760,27 @@ button,
 .models-page {
   position: relative;
   z-index: 1;
-  padding: 16px 16px 0;
+  padding: 0;
+}
+
+.models-page__sticky {
+  position: fixed;
+  top: calc(var(--header-height) + var(--safe-area-top, 0px));
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 12px 16px 0;
+  background: rgba(8, 8, 10, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .models-page__header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 0 14px;
+  padding: 0 0 10px;
 }
 
 .models-page__title {
@@ -787,7 +800,7 @@ button,
 
 .models-page__search {
   position: relative;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .models-page__search-icon {
@@ -804,9 +817,7 @@ button,
   padding: 10px 12px 10px 38px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-glass);
-  background: var(--bg-glass);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--white);
   font-size: 13px;
   outline: none;
@@ -827,11 +838,17 @@ button,
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  margin-bottom: 12px;
+  padding-bottom: 12px;
 }
 
 .models-page__filters::-webkit-scrollbar {
   display: none;
+}
+
+.models-page__list {
+  padding: 0 16px;
+  /* высота sticky блока: header(~40) + search(~42) + filters(~42) + paddings ≈ 148px */
+  padding-top: 148px;
 }
 
 .models-filter {
@@ -1050,7 +1067,7 @@ button,
   backdrop-filter: var(--blur-heavy);
   -webkit-backdrop-filter: var(--blur-heavy);
   overflow: hidden;
-  max-height: 260px;
+  max-height: 400px;
   overflow-y: auto;
   flex-shrink: 0;
 }
@@ -1124,6 +1141,64 @@ button,
   gap: 14px;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.chat-page__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 24px;
+  text-align: center;
+  flex: 1;
+}
+
+.chat-page__empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.15);
+  margin-bottom: 4px;
+}
+
+.chat-page__empty-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.chat-page__empty-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.3);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.chat-page__example-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 20px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+}
+
+.chat-page__example-btn:active {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .chat-msg {
@@ -1361,7 +1436,7 @@ button,
 /* Ряд ввода */
 .chat-input__row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
 }
 
@@ -4739,5 +4814,13 @@ body.tg-app .sticky-header {
     margin-right: auto;
     left: 16px;
     right: 16px;
+  }
+
+  .models-page__sticky {
+    max-width: 480px;
+    left: 0;
+    right: 0;
+    margin-left: auto;
+    margin-right: auto;
   }
 }

@@ -1,5 +1,3 @@
-// src/components/ChatPage.tsx
-
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -14,7 +12,7 @@ import {
   X,
   Check,
   Copy,
-  RotateCcw,
+  Wand2,
   MessageSquare,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
@@ -33,9 +31,17 @@ interface Attachment {
 
 const textModels = allModels.filter((m) => m.category === 'text')
 
+const examplePrompts = [
+  'Объясни квантовые вычисления простыми словами',
+  'Напиши стихотворение о закате над морем',
+  'Помоги составить план тренировок на неделю',
+  'Переведи на английский: "Искусственный интеллект меняет мир"',
+  'Придумай 5 идей для мобильного приложения',
+]
+
 interface Props {
   initialModel?: string
-  chatId?: string // если открываем существующий чат
+  chatId?: string
 }
 
 export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
@@ -64,19 +70,16 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Находим slug выбранной модели
   const currentModel = textModels.find((m) => m.name === selectedModel)
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
 
-  // Загрузка существующего чата
   useEffect(() => {
     if (existingChatId) {
       loadMessages(existingChatId)
     }
   }, [existingChatId, loadMessages])
 
-  // Автоскролл
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
@@ -85,7 +88,6 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
     scrollToBottom()
   }, [messages, streamingContent, scrollToBottom])
 
-  // Авто-высота textarea
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
@@ -98,13 +100,11 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
   }
 
-  // Отправка сообщения
   const handleSend = useCallback(async () => {
     const text = input.trim()
     if (!text && attachments.length === 0) return
     if (isStreaming || isInitializing) return
 
-    // Проверка баланса
     if (balance < modelCost) {
       toast.warning(`Недостаточно спичек. Нужно ${modelCost}, у вас ${balance}`)
       hapticNotification('error')
@@ -122,17 +122,14 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
 
     let chatId = activeChatId
 
-    // Если чата ещё нет — создаём
     if (!chatId) {
       setIsInitializing(true)
       const newChat = await createChat(modelSlug)
       setIsInitializing(false)
-
       if (!newChat) return
       chatId = newChat.id
     }
 
-    // Отправляем и стримим
     await sendChatMessage(chatId, modelSlug, fullText)
     hapticNotification('success')
   }, [
@@ -176,7 +173,11 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }, [haptic])
 
-  // Есть ли сообщения (или это новый чат)
+  const insertExample = useCallback(() => {
+    setInput(examplePrompts[Math.floor(Math.random() * examplePrompts.length)])
+    haptic('light')
+  }, [haptic])
+
   const hasMessages = messages.length > 0
 
   return (
@@ -235,15 +236,19 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
 
       {/* Сообщения */}
       <div className="chat-page__messages">
-        {/* Приветствие для нового чата */}
+        {/* Empty state для нового чата */}
         {!hasMessages && !isStreaming && (
-          <div className="chat-msg chat-msg--ai fade-in">
-            <div className="chat-msg__model-tag">{selectedModel}</div>
-            <div className="chat-msg__bubble">
-              <div className="chat-msg__text">
-                Привет! Я готов помочь. Напишите ваш вопрос или загрузите файл для анализа.
-              </div>
+          <div className="chat-page__empty fade-in fade-in--2">
+            <div className="chat-page__empty-icon">
+              <MessageSquare size={36} strokeWidth={1.5} />
             </div>
+            <div className="chat-page__empty-title">Чат с ИИ</div>
+            <div className="chat-page__empty-text">
+              Задайте вопрос, попросите помощь с кодом, текстом или переводом. ИИ готов помочь.
+            </div>
+            <button className="chat-page__example-btn" onClick={insertExample}>
+              <Wand2 size={14} /> Пример промпта
+            </button>
           </div>
         )}
 
@@ -283,7 +288,6 @@ export function ChatPage({ initialModel, chatId: existingChatId }: Props) {
           </div>
         ))}
 
-        {/* Стриминг текущего ответа */}
         {isStreaming && (
           <div className="chat-msg chat-msg--ai">
             <div className="chat-msg__model-tag">{selectedModel}</div>
