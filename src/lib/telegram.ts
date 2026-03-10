@@ -59,6 +59,13 @@ interface HapticFeedback {
   selectionChanged: () => void
 }
 
+interface SafeAreaInset {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
 export interface WebApp {
   initData: string
   initDataUnsafe: InitDataUnsafe
@@ -74,6 +81,8 @@ export interface WebApp {
   BackButton: BackButton
   MainButton: MainButton
   HapticFeedback: HapticFeedback
+  safeAreaInset?: SafeAreaInset
+  contentSafeAreaInset?: SafeAreaInset
   ready: () => void
   expand: () => void
   close: () => void
@@ -83,6 +92,8 @@ export interface WebApp {
   setBottomBarColor: (color: string) => void
   enableClosingConfirmation: () => void
   disableClosingConfirmation: () => void
+  disableVerticalSwipes?: () => void
+  enableVerticalSwipes?: () => void
   isVersionAtLeast: (version: string) => boolean
   requestFullscreen: () => void
   onEvent: (eventType: string, callback: (...args: unknown[]) => void) => void
@@ -94,9 +105,7 @@ export interface WebApp {
 
 declare global {
   interface Window {
-    Telegram?: {
-      WebApp?: WebApp
-    }
+    Telegram?: any
   }
 }
 
@@ -104,7 +113,7 @@ declare global {
 
 export function getWebApp(): WebApp | null {
   if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-    return window.Telegram.WebApp
+    return window.Telegram.WebApp as WebApp
   }
   return null
 }

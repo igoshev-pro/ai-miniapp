@@ -50,15 +50,15 @@ const TelegramContext = createContext<TelegramContextValue>({
   startParam: null,
   isReady: false,
   isTelegram: false,
-  haptic: () => {},
-  hapticNotification: () => {},
-  hapticSelection: () => {},
-  showBackButton: () => {},
-  hideBackButton: () => {},
-  showMainButton: () => {},
-  hideMainButton: () => {},
-  close: () => {},
-  sendData: () => {},
+  haptic: () => { },
+  hapticNotification: () => { },
+  hapticSelection: () => { },
+  showBackButton: () => { },
+  hideBackButton: () => { },
+  showMainButton: () => { },
+  hideMainButton: () => { },
+  close: () => { },
+  sendData: () => { },
 })
 
 function applySafeArea(wa: WebApp) {
@@ -84,6 +84,12 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
     if (wa) {
       wa.ready()
       wa.expand()
+
+      // отключаем сворачивание по свайпу вниз
+      if (wa.disableVerticalSwipes) {
+        wa.disableVerticalSwipes()
+      }
+
       wa.setHeaderColor('#0a0a0a')
       wa.setBackgroundColor('#0a0a0a')
 
@@ -97,7 +103,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       if (wa.isVersionAtLeast('8.0')) {
         try {
           wa.requestFullscreen()
-        } catch {}
+        } catch { }
       }
 
       // Считаем safe area
@@ -108,7 +114,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         try {
           wa.onEvent('safeAreaChanged' as any, () => applySafeArea(wa))
           wa.onEvent('contentSafeAreaChanged' as any, () => applySafeArea(wa))
-        } catch {}
+        } catch { }
       }
 
       // Фоллбек: пересчитываем через 500ms (после fullscreen)
