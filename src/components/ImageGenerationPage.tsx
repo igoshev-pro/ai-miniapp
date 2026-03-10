@@ -23,9 +23,12 @@ import { MediaResult } from '@/components/ui/MediaResult'
 import { allModels } from '@/lib/data'
 import { toast } from '@/stores/toast.store'
 
+interface Props {
+  onBack?: () => void
+}
+
 const imageModels = allModels.filter((m) => m.category === 'image')
 
-// Каждая модель имеет свои возможности
 const modelCapabilities: Record<string, {
   sizes: string[]
   qualities: string[]
@@ -38,99 +41,61 @@ const modelCapabilities: Record<string, {
     sizes: ['1024x1024', '1024x1536', '1536x1024', '1024x1792', '1792x1024'],
     qualities: ['standard', 'hd'],
     styles: ['raw', 'cute', 'scenic', 'expressive', 'creative'],
-    maxCount: 4,
-    supportsNegativePrompt: false,
-    supportsAspectRatio: true,
+    maxCount: 4, supportsNegativePrompt: false, supportsAspectRatio: true,
   },
   'dall-e-3': {
     sizes: ['1024x1024', '1024x1792', '1792x1024'],
     qualities: ['standard', 'hd'],
     styles: ['vivid', 'natural'],
-    maxCount: 1,
-    supportsNegativePrompt: false,
-    supportsAspectRatio: false,
+    maxCount: 1, supportsNegativePrompt: false, supportsAspectRatio: false,
   },
   'chatgpt-images': {
     sizes: ['1024x1024', '1536x1024', '1024x1536'],
-    qualities: ['auto'],
-    styles: [],
-    maxCount: 1,
-    supportsNegativePrompt: false,
-    supportsAspectRatio: false,
+    qualities: ['auto'], styles: [],
+    maxCount: 1, supportsNegativePrompt: false, supportsAspectRatio: false,
   },
   'flux-pro': {
     sizes: ['512x512', '768x768', '1024x1024', '768x1344', '1344x768'],
-    qualities: ['standard', 'hd'],
-    styles: [],
-    maxCount: 4,
-    supportsNegativePrompt: true,
-    supportsAspectRatio: true,
+    qualities: ['standard', 'hd'], styles: [],
+    maxCount: 4, supportsNegativePrompt: true, supportsAspectRatio: true,
   },
   'stable-diffusion-xl': {
     sizes: ['512x512', '768x768', '1024x1024', '768x1344', '1344x768', '896x1152', '1152x896'],
     qualities: ['standard'],
     styles: ['photographic', 'digital-art', 'anime', 'comic-book', '3d-model', 'pixel-art', 'fantasy-art', 'neon-punk'],
-    maxCount: 4,
-    supportsNegativePrompt: true,
-    supportsAspectRatio: false,
+    maxCount: 4, supportsNegativePrompt: true, supportsAspectRatio: false,
   },
   'seedream': {
     sizes: ['1024x1024', '1024x1536', '1536x1024'],
-    qualities: ['standard', 'hd'],
-    styles: [],
-    maxCount: 4,
-    supportsNegativePrompt: true,
-    supportsAspectRatio: true,
+    qualities: ['standard', 'hd'], styles: [],
+    maxCount: 4, supportsNegativePrompt: true, supportsAspectRatio: true,
   },
   'imagen-3': {
     sizes: ['1024x1024', '1024x1536', '1536x1024'],
-    qualities: ['standard'],
-    styles: [],
-    maxCount: 4,
-    supportsNegativePrompt: false,
-    supportsAspectRatio: true,
+    qualities: ['standard'], styles: [],
+    maxCount: 4, supportsNegativePrompt: false, supportsAspectRatio: true,
   },
   'nano-banana': {
     sizes: ['512x512', '768x768', '1024x1024'],
-    qualities: ['standard'],
-    styles: [],
-    maxCount: 4,
-    supportsNegativePrompt: true,
-    supportsAspectRatio: false,
+    qualities: ['standard'], styles: [],
+    maxCount: 4, supportsNegativePrompt: true, supportsAspectRatio: false,
   },
 }
 
-// Размеры в человекочитаемом формате
 const sizeLabels: Record<string, string> = {
-  '512x512': '512²',
-  '768x768': '768²',
-  '1024x1024': '1:1',
-  '1024x1536': '2:3',
-  '1536x1024': '3:2',
-  '1024x1792': '9:16',
-  '1792x1024': '16:9',
-  '768x1344': '9:16',
-  '1344x768': '16:9',
-  '896x1152': '3:4',
-  '1152x896': '4:3',
+  '512x512': '512²', '768x768': '768²', '1024x1024': '1:1',
+  '1024x1536': '2:3', '1536x1024': '3:2', '1024x1792': '9:16',
+  '1792x1024': '16:9', '768x1344': '9:16', '1344x768': '16:9',
+  '896x1152': '3:4', '1152x896': '4:3',
 }
 
 const styleLabels: Record<string, string> = {
-  'raw': 'Raw',
-  'cute': 'Cute',
-  'scenic': 'Scenic',
-  'expressive': 'Экспрессия',
-  'creative': 'Креатив',
-  'vivid': 'Яркий',
-  'natural': 'Натуральный',
-  'photographic': 'Фото',
-  'digital-art': 'Диджитал',
-  'anime': 'Аниме',
-  'comic-book': 'Комикс',
-  '3d-model': '3D',
-  'pixel-art': 'Пиксельарт',
-  'fantasy-art': 'Фэнтези',
-  'neon-punk': 'Неон-панк',
+  'raw': 'Raw', 'cute': 'Cute', 'scenic': 'Scenic',
+  'expressive': 'Экспрессия', 'creative': 'Креатив',
+  'vivid': 'Яркий', 'natural': 'Натуральный',
+  'photographic': 'Фото', 'digital-art': 'Диджитал',
+  'anime': 'Аниме', 'comic-book': 'Комикс', '3d-model': '3D',
+  'pixel-art': 'Пиксельарт', 'fantasy-art': 'Фэнтези', 'neon-punk': 'Неон-панк',
 }
 
 const examplePrompts = [
@@ -142,8 +107,8 @@ const examplePrompts = [
   'Дракон летит над горами, эпичный свет заката',
 ]
 
-export function ImageGenerationPage() {
-  const { haptic, hapticNotification } = useTelegram()
+export function ImageGenerationPage({ onBack }: Props) {
+  const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
 
@@ -154,7 +119,6 @@ export function ImageGenerationPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  // Настройки
   const [size, setSize] = useState('1024x1024')
   const [quality, setQuality] = useState('standard')
   const [style, setStyle] = useState('')
@@ -168,6 +132,19 @@ export function ImageGenerationPage() {
   const modelSlug = currentModel?.slug || 'midjourney'
   const modelCost = currentModel?.cost || 5
   const caps = modelCapabilities[modelSlug] || modelCapabilities['midjourney']
+
+  // ─── Telegram BackButton ───────────────────────────
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      const handler = () => { if (onBack) onBack() }
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack])
 
   // Сбрасываем настройки при смене модели
   useEffect(() => {
@@ -202,10 +179,7 @@ export function ImageGenerationPage() {
     haptic('medium')
     setIsGenerating(true)
 
-    const settings: Record<string, unknown> = {
-      size,
-      count,
-    }
+    const settings: Record<string, unknown> = { size, count }
     if (quality !== 'auto') settings.quality = quality
     if (style) settings.style = style
     if (negativePrompt.trim() && caps.supportsNegativePrompt) {
@@ -214,10 +188,7 @@ export function ImageGenerationPage() {
     if (seed !== undefined) settings.seed = seed
 
     const result = await generate({
-      type: 'image',
-      model: modelSlug,
-      prompt,
-      settings,
+      type: 'image', model: modelSlug, prompt, settings,
     })
 
     setIsGenerating(false)
@@ -230,15 +201,11 @@ export function ImageGenerationPage() {
   }, [input, negativePrompt, balance, modelCost, modelSlug, size, quality, style, count, seed, caps, haptic, hapticNotification, generate])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleGenerate()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate() }
   }
 
   const insertExample = () => {
-    const random = examplePrompts[Math.floor(Math.random() * examplePrompts.length)]
-    setInput(random)
+    setInput(examplePrompts[Math.floor(Math.random() * examplePrompts.length)])
     haptic('light')
   }
 
@@ -249,7 +216,6 @@ export function ImageGenerationPage() {
 
   return (
     <div className="gen-page">
-      {/* Хедер — выбор модели */}
       <div className="gen-page__header fade-in fade-in--1">
         <div className="gen-page__model-select-container">
           <button
@@ -261,7 +227,6 @@ export function ImageGenerationPage() {
             <span className="gen-page__model-cost">{modelCost * count} 🔥</span>
             <ChevronDown size={14} className={showModelPicker ? 'rotate-180' : ''} />
           </button>
-
           <button className="gen-page__settings-button" onClick={() => { setShowSettings(true); haptic('light') }}>
             <Settings size={18} />
           </button>
@@ -273,11 +238,7 @@ export function ImageGenerationPage() {
               <button
                 key={m.id}
                 className={`gen-page__model-list-item ${selectedModel === m.name ? 'selected' : ''}`}
-                onClick={() => {
-                  setSelectedModel(m.name)
-                  setShowModelPicker(false)
-                  haptic('light')
-                }}
+                onClick={() => { setSelectedModel(m.name); setShowModelPicker(false); haptic('light') }}
               >
                 <div className="gen-page__model-list-info">
                   <span className="gen-page__model-name">{m.name}</span>
@@ -293,7 +254,6 @@ export function ImageGenerationPage() {
         )}
       </div>
 
-      {/* Результаты */}
       <div className="gen-page__results">
         {imageGenerations.length === 0 && (
           <div className="gen-page__empty fade-in fade-in--2">
@@ -320,27 +280,19 @@ export function ImageGenerationPage() {
             <MediaResult
               generation={gen}
               onRetry={() => {
-                generate({
-                  type: 'image',
-                  model: gen.modelSlug,
-                  prompt: gen.prompt,
-                  settings: gen.settings,
-                })
+                generate({ type: 'image', model: gen.modelSlug, prompt: gen.prompt, settings: gen.settings })
               }}
             />
           </div>
         ))}
-
         <div ref={resultsRef} />
       </div>
 
-      {/* Ввод */}
       <div className="gen-page__input-area">
         <div className="chat-input__row">
           <button className="gen-page__dice-btn" onClick={insertExample}>
             <Shuffle size={16} />
           </button>
-
           <div className="chat-input__field-wrap">
             <textarea
               ref={inputRef}
@@ -353,7 +305,6 @@ export function ImageGenerationPage() {
               disabled={isGenerating}
             />
           </div>
-
           <button
             className="chat-input__send"
             onClick={handleGenerate}
@@ -364,7 +315,6 @@ export function ImageGenerationPage() {
         </div>
       </div>
 
-      {/* Настройки */}
       {showSettings && (
         <div className="gen-settings-modal" onClick={() => setShowSettings(false)}>
           <div className="gen-settings-modal__content" onClick={(e) => e.stopPropagation()}>
@@ -379,39 +329,25 @@ export function ImageGenerationPage() {
             </div>
 
             <div className="gen-settings-modal__body">
-              {/* Размер */}
               <div className="gen-field">
-                <label className="gen-field__label">
-                  <Maximize2 size={13} />
-                  Размер
-                </label>
+                <label className="gen-field__label"><Maximize2 size={13} /> Размер</label>
                 <div className="gen-field__chips">
                   {caps.sizes.map((s) => (
-                    <button
-                      key={s}
-                      className={`gen-chip ${size === s ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setSize(s); haptic('light') }}
-                    >
+                    <button key={s} className={`gen-chip ${size === s ? 'gen-chip--active' : ''}`}
+                      onClick={() => { setSize(s); haptic('light') }}>
                       {sizeLabels[s] || s}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Качество */}
               {caps.qualities.length > 1 && (
                 <div className="gen-field">
-                  <label className="gen-field__label">
-                    <Layers size={13} />
-                    Качество
-                  </label>
+                  <label className="gen-field__label"><Layers size={13} /> Качество</label>
                   <div className="gen-field__chips">
                     {caps.qualities.map((q) => (
-                      <button
-                        key={q}
-                        className={`gen-chip ${quality === q ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setQuality(q); haptic('light') }}
-                      >
+                      <button key={q} className={`gen-chip ${quality === q ? 'gen-chip--active' : ''}`}
+                        onClick={() => { setQuality(q); haptic('light') }}>
                         {q === 'standard' ? 'Стандарт' : q === 'hd' ? 'HD' : q}
                       </button>
                     ))}
@@ -419,26 +355,15 @@ export function ImageGenerationPage() {
                 </div>
               )}
 
-              {/* Стиль */}
               {caps.styles.length > 0 && (
                 <div className="gen-field">
-                  <label className="gen-field__label">
-                    <Palette size={13} />
-                    Стиль
-                  </label>
+                  <label className="gen-field__label"><Palette size={13} /> Стиль</label>
                   <div className="gen-field__chips gen-field__chips--wrap">
-                    <button
-                      className={`gen-chip ${!style ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setStyle(''); haptic('light') }}
-                    >
-                      Авто
-                    </button>
+                    <button className={`gen-chip ${!style ? 'gen-chip--active' : ''}`}
+                      onClick={() => { setStyle(''); haptic('light') }}>Авто</button>
                     {caps.styles.map((s) => (
-                      <button
-                        key={s}
-                        className={`gen-chip ${style === s ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setStyle(s); haptic('light') }}
-                      >
+                      <button key={s} className={`gen-chip ${style === s ? 'gen-chip--active' : ''}`}
+                        onClick={() => { setStyle(s); haptic('light') }}>
                         {styleLabels[s] || s}
                       </button>
                     ))}
@@ -446,55 +371,38 @@ export function ImageGenerationPage() {
                 </div>
               )}
 
-              {/* Количество */}
               {caps.maxCount > 1 && (
                 <div className="gen-field">
                   <label className="gen-field__label">
                     Количество: {count}
                     <span className="gen-field__hint">× {modelCost} = {modelCost * count} 🔥</span>
                   </label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={caps.maxCount}
-                    value={count}
-                    onChange={(e) => setCount(Number(e.target.value))}
-                    className="gen-range"
-                  />
+                  <input type="range" min={1} max={caps.maxCount} value={count}
+                    onChange={(e) => setCount(Number(e.target.value))} className="gen-range" />
                 </div>
               )}
 
-              {/* Negative prompt */}
               {caps.supportsNegativePrompt && (
                 <div className="gen-field">
                   <label className="gen-field__label">
                     Исключить из генерации
                     <span className="gen-field__hint">Negative prompt</span>
                   </label>
-                  <textarea
-                    className="gen-field__textarea"
+                  <textarea className="gen-field__textarea"
                     placeholder="ugly, blurry, bad anatomy, watermark..."
                     value={negativePrompt}
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    rows={2}
-                  />
+                    onChange={(e) => setNegativePrompt(e.target.value)} rows={2} />
                 </div>
               )}
 
-              {/* Seed */}
               <div className="gen-field">
                 <label className="gen-field__label">
-                  Seed
-                  <span className="gen-field__hint">Для воспроизводимости</span>
+                  Seed <span className="gen-field__hint">Для воспроизводимости</span>
                 </label>
                 <div className="gen-field__seed-row">
-                  <input
-                    type="number"
-                    className="gen-field__seed-input"
-                    placeholder="Случайный"
+                  <input type="number" className="gen-field__seed-input" placeholder="Случайный"
                     value={seed ?? ''}
-                    onChange={(e) => setSeed(e.target.value ? Number(e.target.value) : undefined)}
-                  />
+                    onChange={(e) => setSeed(e.target.value ? Number(e.target.value) : undefined)} />
                   <button className="gen-field__seed-random" onClick={randomSeed}>
                     <Shuffle size={14} />
                   </button>

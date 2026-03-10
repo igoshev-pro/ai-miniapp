@@ -1,5 +1,3 @@
-// src/components/SubscriptionPage.tsx
-
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -22,11 +20,30 @@ import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'
 import { toast } from '@/stores/toast.store'
 
-export function SubscriptionPage() {
+interface Props {
+  onBack?: () => void
+}
+
+export function SubscriptionPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { subscription } = useUser()
   const { plans, isLoading, loadPlans, subscribe } = useBilling()
   const [subscribingPlan, setSubscribingPlan] = useState<string | null>(null)
+
+  // ─── Telegram BackButton ───────────────────────────
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      const handler = () => {
+        if (onBack) onBack()
+      }
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack])
 
   useEffect(() => {
     loadPlans()
@@ -69,14 +86,10 @@ export function SubscriptionPage() {
   const handleSubscribe = useCallback(
     async (planId: string) => {
       if (planId === currentPlan) return
-
       haptic('medium')
       setSubscribingPlan(planId)
-
       const paymentUrl = await subscribe(planId)
-
       setSubscribingPlan(null)
-
       if (paymentUrl) {
         if (webApp?.openLink) {
           webApp.openLink(paymentUrl)
@@ -99,7 +112,6 @@ export function SubscriptionPage() {
         </div>
       </div>
 
-      {/* Текущий план */}
       <div className="subscription-current fade-in fade-in--1">
         <div className="subscription-current__label">Текущий план</div>
         <div className="subscription-current__plan">
@@ -115,7 +127,6 @@ export function SubscriptionPage() {
         )}
       </div>
 
-      {/* Карточки планов */}
       <div className="subscription-plans fade-in fade-in--2">
         {isLoading && plans.length === 0 ? (
           <div className="chats-history__loading">
@@ -125,7 +136,6 @@ export function SubscriptionPage() {
           plans.map((plan) => {
             const isCurrent = currentPlan === plan.plan
             const color = planColors[plan.plan] || '#fff'
-
             return (
               <div
                 key={plan.id}
@@ -138,7 +148,6 @@ export function SubscriptionPage() {
                     Популярный
                   </div>
                 )}
-
                 <div className="subscription-card__header">
                   <div className="subscription-card__icon" style={{ color }}>
                     {planIcons[plan.plan]}
@@ -150,12 +159,10 @@ export function SubscriptionPage() {
                     <span className="subscription-card__period">{plan.period}</span>
                   </div>
                 </div>
-
                 <div className="subscription-card__tokens">
                   <Sparkles size={14} style={{ color }} />
                   {plan.tokensPerMonth.toLocaleString()} спичек / мес
                 </div>
-
                 <ul className="subscription-card__features">
                   {plan.features.map((f, i) => (
                     <li key={i} className="subscription-card__feature">
@@ -166,7 +173,6 @@ export function SubscriptionPage() {
                     </li>
                   ))}
                 </ul>
-
                 <button
                   className={`subscription-card__btn ${isCurrent ? 'subscription-card__btn--current' : ''}`}
                   onClick={() => handleSubscribe(plan.plan)}
@@ -192,7 +198,6 @@ export function SubscriptionPage() {
         )}
       </div>
 
-      {/* Free tier */}
       <div className="subscription-free fade-in fade-in--3">
         <div className="subscription-free__title">Free</div>
         <div className="subscription-free__desc">

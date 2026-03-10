@@ -11,15 +11,17 @@ import {
   Share2,
   Flame,
   Loader2,
-  ChevronRight,
   Link,
-  Star,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'
 import { toast } from '@/stores/toast.store'
 
-export function ReferralPage() {
+interface Props {
+  onBack?: () => void
+}
+
+export function ReferralPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp, user: tgUser } = useTelegram()
   const { referralCode } = useUser()
   const { referralInfo, loadReferralInfo } = useBilling()
@@ -30,6 +32,21 @@ export function ReferralPage() {
   const code = referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
   const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || 'SpichkiBot'
   const referralLink = `https://t.me/${botUsername}?start=ref_${code}`
+
+  // ─── Telegram BackButton ───────────────────────────
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      const handler = () => {
+        if (onBack) onBack()
+      }
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack])
 
   useEffect(() => {
     loadReferralInfo().then(() => setIsLoading(false))
@@ -56,7 +73,6 @@ export function ReferralPage() {
     const text = `🔥 Спички — все нейросети в одном месте! Регистрируйся и получи бонусные спички: ${referralLink}`
 
     if (webApp?.openTelegramLink) {
-      // Шарим через Telegram
       webApp.openTelegramLink(
         `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('🔥 Спички — все нейросети в одном месте! Получи бонус при регистрации')}`
       )
@@ -86,7 +102,6 @@ export function ReferralPage() {
         </div>
       </div>
 
-      {/* Условия */}
       <div className="referral-rewards fade-in fade-in--2">
         <div className="referral-reward">
           <div className="referral-reward__value">+100 🔥</div>
@@ -107,7 +122,6 @@ export function ReferralPage() {
         </div>
       </div>
 
-      {/* Код и ссылка */}
       <div className="referral-share fade-in fade-in--2">
         <div className="referral-share__title">Ваш реферальный код</div>
 
@@ -137,7 +151,6 @@ export function ReferralPage() {
         </button>
       </div>
 
-      {/* Статистика */}
       <div className="referral-stats fade-in fade-in--3">
         <div className="referral-stats__title">Статистика</div>
 
@@ -164,7 +177,6 @@ export function ReferralPage() {
               </div>
             </div>
 
-            {/* Список рефералов */}
             {referralInfo?.referrals && referralInfo.referrals.length > 0 && (
               <div className="referral-list">
                 <div className="referral-list__title">Приглашённые друзья</div>

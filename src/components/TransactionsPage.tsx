@@ -4,7 +4,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Flame,
   ShoppingCart,
   Crown,
   Gift,
@@ -14,7 +13,12 @@ import {
   Loader2,
   Search,
 } from 'lucide-react'
+import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, type Transaction } from '@/hooks/useBilling'
+
+interface Props {
+  onBack?: () => void
+}
 
 const typeIcons: Record<string, React.ReactNode> = {
   purchase: <ShoppingCart size={14} />,
@@ -40,10 +44,26 @@ const statusLabels: Record<string, string> = {
   failed: 'Ошибка',
 }
 
-export function TransactionsPage() {
+export function TransactionsPage({ onBack }: Props) {
+  const { webApp } = useTelegram()
   const { transactions, transactionsTotal, loadTransactions } = useBilling()
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
+
+  // ─── Telegram BackButton ───────────────────────────
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      const handler = () => {
+        if (onBack) onBack()
+      }
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack])
 
   useEffect(() => {
     loadTransactions(1).then(() => setIsLoading(false))

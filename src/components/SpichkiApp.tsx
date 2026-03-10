@@ -209,15 +209,15 @@ export function SpichkiApp() {
         <ChatPage key={chatId || chatModel} initialModel={chatModel} chatId={chatId} />
       )}
 
-      {page === 'image-generation' && <ImageGenerationPage />}
-      {page === 'video-generation' && <VideoGenerationPage />}
-      {page === 'audio-generation' && <AudioGenerationPage />}
+      {page === 'image-generation' && <ImageGenerationPage onBack={goBack}/>}
+      {page === 'video-generation' && <VideoGenerationPage onBack={goBack}/>}
+      {page === 'audio-generation' && <AudioGenerationPage onBack={goBack}/>}
       {page === 'chats-history' && <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />}
       {page === 'profile' && <ProfilePage onNavigate={handleProfileNavigate} />}
       {page === 'topup' && <TopUpPage onBack={goBack} />}
-      {page === 'transactions' && <TransactionsPage />}
-      {page === 'subscription' && <SubscriptionPage />}
-      {page === 'referral' && <ReferralPage />}
+      {page === 'transactions' && <TransactionsPage onBack={goBack} />}
+      {page === 'subscription' && <SubscriptionPage onBack={goBack} />}
+      {page === 'referral' && <ReferralPage onBack={goBack}/>}
       {page === 'favorites' && (
         <FavoritesPage
           onOpenChat={(id, model) => openChat(model, id)}
