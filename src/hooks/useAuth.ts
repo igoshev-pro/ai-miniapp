@@ -1,56 +1,54 @@
-import axios, { type InternalAxiosRequestConfig, type AxiosError } from 'axios'
+'use client'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+import { useEffect, useRef } from 'react'
+import { apiClient, ENDPOINTS } from '@/lib/api'
+import { useAuthStore, useUserStore, type UserProfile } from '@/stores'
+import { toast } from '@/stores/toast.store'
+import { useTelegram } from '@/context/TelegramContext'
 
-export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
-})
-
-// JWT в каждый запрос
-apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
-    const token = sessionStorage.getItem('jwt')
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+interface AuthApiResponse {
+  success: boolean
+  data: {
+    token: string
+    user: UserProfile
   }
-  return config
-})
-
-// Обработка ошибок
-apiClient.interceptors.response.use(
-  (res) => res,
-  (error: AxiosError<{ message?: string }>) => {
-    const status = error.response?.status
-    const message = error.response?.data?.message || error.message
-
-    // 401 — токен невалиден, очищаем
-    if (status === 401 && typeof window !== 'undefined') {
-      sessionStorage.removeItem('jwt')
-    }
-
-    return Promise.reject({
-      status: status || 0,
-      message,
-      isAuth: status === 401,
-      isBalance: status === 402,
-      isRateLimit: status === 429,
-      isServer: !!status && status >= 500,
-    } satisfies ApiError)
-  },
-)
-
-export interface ApiError {
-  status: number
-  message: string
-  isAuth: boolean
-  isBalance: boolean
-  isRateLimit: boolean
-  isServer: boolean
 }
 
-export function isApiError(err: unknown): err is ApiError {
-  return typeof err === 'object' && err !== null && 'isBalance' in err
+export function useAuth() {
+  const { webApp, isReady } = useTelegram()
+  const { token, isReady: authReady, setToken, setReady } = useAuthStore()
+  const { setUser } = useUserStore()
+  const attempted = useRef(false)
+
+  useEffect(() => {
+    if (!isReady || attempted.current) return
+    attempted.current = true
+
+    const initData = webApp?.initData
+
+    // No initData — not in Telegram, skip auth
+    if (!initData) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Auth] No initData — dev mode, skipping auth')
+      }
+      setReady()
+      return
+    }
+
+    // Exchange initData → JWT
+    apiClient
+      .post<AuthApiResponse>(ENDPOINTS.AUTH_TELEGRAM, { initData })
+      .then((res) => {
+        const { token: jwt, user } = res.data.data
+        setToken(jwt)
+        setUser(user)
+      })
+      .catch((err) => {
+        console.error('[Auth] Failed:', err)
+        toast.error('Не удалось авторизоваться')
+        setReady()
+      })
+  }, [isReady, webApp, setToken, setUser, setReady])
+
+  return { isReady: authReady, token }
 }

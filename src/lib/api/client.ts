@@ -27,7 +27,8 @@ apiClient.interceptors.response.use(
     const message = error.response?.data?.message || error.message
 
     // 401 — токен невалиден, очищаем
-    if (status === 401 && typeof window !== ')
+    if (status === 401 && typeof window !== 'undefined') {
+      sessionStorage.removeItem('jwt')
     }
 
     return Promise.reject({
