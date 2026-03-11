@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   ShoppingCart,
   Crown,
@@ -49,6 +49,8 @@ export function TransactionsPage({ onBack }: Props) {
   const { transactions, transactionsTotal, loadTransactions } = useBilling()
   const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const loaderRef = useRef<HTMLDivElement>(null)
 
   // ─── Telegram BackButton ───────────────────────────
   useEffect(() => {
@@ -65,15 +67,31 @@ export function TransactionsPage({ onBack }: Props) {
     }
   }, [webApp, onBack])
 
+  // Первоначальная загрузка
   useEffect(() => {
-    loadTransactions(1).then(() => setIsLoading(false))
+    setIsLoading(true)
+    loadTransactions(1).finally(() => setIsLoading(false))
   }, [loadTransactions])
 
-  const loadMore = useCallback(async () => {
-    const nextPage = page + 1
-    setPage(nextPage)
-    await loadTransactions(nextPage)
-  }, [page, loadTransactions])
+  // Infinite scroll
+  useEffect(() => {
+    const hasMore = transactions.length < transactionsTotal
+    if (!loaderRef.current || !hasMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingMore) {
+          setIsLoadingMore(true)
+          const nextPage = page + 1
+          setPage(nextPage)
+          loadTransactions(nextPage).finally(() => setIsLoadingMore(false))
+        }
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(loaderRef.current)
+    return () => observer.disconnect()
+  }, [transactions.length, transactionsTotal, isLoadingMore, page, loadTransactions])
 
   const hasMore = transactions.length < transactionsTotal
 
@@ -109,10 +127,11 @@ export function TransactionsPage({ onBack }: Props) {
               <TransactionRow key={tx.id} tx={tx} formatDate={formatDate} />
             ))}
 
+            {/* Infinite scroll trigger */}
             {hasMore && (
-              <button className="transactions-page__load-more" onClick={loadMore}>
-                Загрузить ещё
-              </button>
+              <div ref={loaderRef} className="chats-history__loading" style={{ padding: '16px 0' }}>
+                <Loader2 size={16} className="spin" />
+              </div>
             )}
           </>
         ) : (
@@ -126,8 +145,14 @@ export function TransactionsPage({ onBack }: Props) {
   )
 }
 
-function TransactionRow({ tx, formatDate }: { tx: Transaction; formatDate: (d: string) => string }) {
-  const isIncome = ['purchase', 'bonus', 'referral', 'refund'].includes(tx.type)
+function TransactionRow({
+  tx,
+  formatDate,
+}: {
+  tx: Transaction
+  formatDate: (d: string) => string
+}) {
+  const isIncome = ['purchase', 'bonus', 'referral', 'refund', 'subscription'].includes(tx.type)
 
   return (
     <div className="tx-row">
@@ -137,19 +162,28 @@ function TransactionRow({ tx, formatDate }: { tx: Transaction; formatDate: (d: s
       <div className="tx-row__body">
         <div className="tx-row__top">
           <span className="tx-row__desc">{tx.description}</span>
-          <span className={`tx-row__amount ${isIncome ? 'tx-row__amount--plus' : 'tx-row__amount--minus'}`}>
+          <span
+            className={`tx-row__amount ${isIncome ? 'tx-row__amount--plus' : 'tx-row__amount--minus'}`}
+          >
             {isIncome ? '+' : '-'}
-            {tx.tokens ? `${tx.tokens} 🔥` : `${tx.amount} ₽`}
+            {tx.tokens || tx.amount} 🔥
           </span>
         </div>
         <div className="tx-row__bottom">
-          <span className="tx-row__type">{typeLabels[tx.type]}</span>
+          <span className="tx-row__type">{typeLabels[tx.type] || tx.type}</span>
           <span className="tx-row__dot">·</span>
           <span className="tx-row__date">{formatDate(tx.createdAt)}</span>
-          <span className={`tx-row__status tx-row__status--${tx.status}`}>
-            {statusLabels[tx.status]}
-          </span>
+          {tx.status && (
+            <span className={`tx-row__status tx-row__status--${tx.status}`}>
+              {statusLabels[tx.status] || tx.status}
+            </span>
+          )}
         </div>
+        {tx.paymentAmountRub && tx.paymentAmountRub > 0 && (
+          <div className="tx-row__bottom" style={{ marginTop: '2px' }}>
+            <span className="tx-row__date">{tx.paymentAmountRub} ₽</span>
+          </div>
+        )}
       </div>
     </div>
   )

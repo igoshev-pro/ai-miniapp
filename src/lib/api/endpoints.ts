@@ -2,7 +2,7 @@ export const ENDPOINTS = {
   AUTH_TELEGRAM: '/auth/telegram',
   USER_ME: '/users/me',
 
-  // Chat — соответствие бекенду /chat/*
+  // Chat
   CHAT_CONVERSATIONS: '/chat/conversations',
   CHAT_MESSAGES: (chatId: string) => `/chat/conversations/${chatId}/messages`,
   CHAT_DELETE: (chatId: string) => `/chat/conversations/${chatId}`,
@@ -17,12 +17,14 @@ export const ENDPOINTS = {
   GENERATION_AUDIO: '/generation/audio',
   GENERATION_STATUS: (id: string) => `/generation/${id}/status`,
 
-  // Billing
+  // Billing — соответствие бекенду
   BILLING_PACKAGES: '/billing/packages',
-  BILLING_PAY: '/billing/pay/tokens',
-  BILLING_SUBSCRIBE: '/billing/subscribe',
+  BILLING_PLANS: '/billing/plans',
+  BILLING_BALANCE: '/billing/balance',
+  BILLING_PAY_TOKENS: '/billing/pay/tokens',
+  BILLING_PAY_SUBSCRIPTION: '/billing/pay/subscription',
+  BILLING_PROMO: '/billing/promo',
   BILLING_TRANSACTIONS: '/billing/transactions',
-  BILLING_PROMO: '/billing/promo/apply',
 
   // Favorites
   FAVORITES: '/favorites',
