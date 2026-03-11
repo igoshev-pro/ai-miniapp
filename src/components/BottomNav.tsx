@@ -9,11 +9,11 @@ interface Props {
 }
 
 const navItems = [
-  { id: 'feed', icon: Newspaper, label: 'Лента' },
-  { id: 'models', icon: Layers, label: 'Модели' },
-  { id: 'create', icon: Plus, label: '' },
-  { id: 'favorites', icon: Star, label: 'Избранное' },
-  { id: 'profile', icon: User, label: 'Профиль' },
+  { id: 'feed',      icon: Newspaper, label: 'Лента' },
+  { id: 'favorites', icon: Star,      label: 'Избранное' },
+  { id: 'create',    icon: Plus,      label: '' },
+  { id: 'models',    icon: Layers,    label: 'Модели' },
+  { id: 'profile',   icon: User,      label: 'Профиль' },
 ]
 
 export function BottomNav({ active, onChange }: Props) {
