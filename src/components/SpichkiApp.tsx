@@ -228,8 +228,16 @@ export function SpichkiApp() {
       {page === 'referral' && <ReferralPage onBack={goBack} />}
       {page === 'favorites' && (
         <FavoritesPage
-          onOpenChat={(id, model) => openChat(model, id)}
+          onBack={goBack}
+          onOpenChat={(modelSlug, chatId) => openChat(modelSlug, chatId)}
           onOpenGeneration={(type) => openGeneration(type as 'image' | 'video' | 'audio')}
+          onOpenModel={(slug, category) => {
+            if (category === 'image' || category === 'video' || category === 'audio') {
+              openGeneration(category)
+            } else {
+              openChat(slug)
+            }
+          }}
         />
       )}
       {/* {page === 'support' && <SupportPage onBack={goBack} />} */}

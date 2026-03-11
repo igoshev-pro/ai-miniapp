@@ -64,7 +64,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const { toggle: toggleFavorite } = useFavorites()
 
   const [input, setInput] = useState('')
-  const [selectedModel, setSelectedModel] = useState(initialModel || 'ChatGPT 4o')
+  const foundModel = allModels.find(
+    (m) => m.name === initialModel || m.slug === initialModel
+  ) || allModels.find((m) => m.category === 'text')
+  const [selectedModel, setSelectedModel] = useState(foundModel?.name || 'ChatGPT 4o')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -73,12 +76,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const currentModel = allModels.find(
-    (m) => m.name === initialModel || m.slug === initialModel
-  ) || allModels.find((m) => m.category === 'text')
+  const currentModel = allModels.find((m) => m.name === selectedModel) || foundModel
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
-
+  
   useEffect(() => {
     if (existingChatId) {
       loadMessages(existingChatId)

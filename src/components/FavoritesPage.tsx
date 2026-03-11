@@ -8,10 +8,9 @@ import {
   Trash2,
   MessageSquare,
   Image as ImageIcon,
-  Video,
-  Music,
   Loader2,
   Filter,
+  Layers,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
@@ -54,8 +53,10 @@ interface FavoritesResponse {
 }
 
 interface Props {
-  onOpenChat?: (chatId: string, model: string) => void
+  onBack?: () => void
+  onOpenChat?: (modelSlug: string, chatId: string) => void
   onOpenGeneration?: (type: string) => void
+  onOpenModel?: (modelSlug: string, category: string) => void
 }
 
 function mapFavorite(fav: BackendFavorite): FavoriteItem {
@@ -72,15 +73,28 @@ function mapFavorite(fav: BackendFavorite): FavoriteItem {
   }
 }
 
-export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
-  const { haptic } = useTelegram()
+export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenModel }: Props) {
+  const { haptic, webApp } = useTelegram()
   const [favorites, setFavorites] = useState<FavoriteItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<FavoriteType>('all')
-  const [page, setPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const loaderRef = useRef<HTMLDivElement>(null)
+
+  // ─── Telegram BackButton ───────────────────────────
+  useEffect(() => {
+    if (webApp?.BackButton && onBack) {
+      webApp.BackButton.show()
+      const handler = () => onBack()
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack])
 
   const loadFavorites = useCallback(async (pageNum: number, append: boolean) => {
     try {
@@ -105,7 +119,7 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
       }
 
       setHasMore(pageNum < totalPages)
-      setPage(pageNum)
+      setCurrentPage(pageNum)
     } catch {
       if (!append) setFavorites([])
     } finally {
@@ -114,25 +128,23 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
     }
   }, [filter])
 
-  // Загрузка при смене фильтра
   useEffect(() => {
     loadFavorites(1, false)
   }, [loadFavorites])
 
-  // Infinite scroll
   useEffect(() => {
     if (!loaderRef.current || !hasMore) return
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && !isLoadingMore) {
-          loadFavorites(page + 1, true)
+          loadFavorites(currentPage + 1, true)
         }
       },
       { threshold: 0.1 },
     )
     observer.observe(loaderRef.current)
     return () => observer.disconnect()
-  }, [hasMore, isLoadingMore, page, loadFavorites])
+  }, [hasMore, isLoadingMore, currentPage, loadFavorites])
 
   const removeFavorite = useCallback(
     async (item: FavoriteItem) => {
@@ -156,20 +168,25 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
   const handleTap = useCallback(
     (item: FavoriteItem) => {
       haptic('light')
-      if (item.type === 'conversation' && onOpenChat) {
-        onOpenChat(item.itemId, item.model || '')
-      } else if (item.type === 'generation' && onOpenGeneration) {
-        onOpenGeneration('image')
+
+      if (item.type === 'conversation') {
+        // onOpenChat(modelSlug, chatId) — порядок как в openChat
+        onOpenChat?.(item.model || 'gpt-4o-mini', item.itemId)
+      } else if (item.type === 'generation') {
+        onOpenGeneration?.('image')
+      } else if (item.type === 'model') {
+        // itemId — это slug модели
+        onOpenModel?.(item.itemId, 'text')
       }
     },
-    [haptic, onOpenChat, onOpenGeneration],
+    [haptic, onOpenChat, onOpenGeneration, onOpenModel],
   )
 
   const typeIcon = (type: string) => {
     switch (type) {
       case 'conversation': return <MessageSquare size={14} />
       case 'generation': return <ImageIcon size={14} />
-      case 'model': return <Star size={14} />
+      case 'model': return <Layers size={14} />
       default: return <Star size={14} />
     }
   }
@@ -285,7 +302,6 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
               </div>
             ))}
 
-            {/* Infinite scroll trigger */}
             {hasMore && (
               <div ref={loaderRef} className="chats-history__loading" style={{ padding: '16px 0' }}>
                 <Loader2 size={16} className="spin" />
