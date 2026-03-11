@@ -1,5 +1,3 @@
-// src/components/ProfilePage.tsx
-
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -39,10 +37,9 @@ export function ProfilePage({ onNavigate }: Props) {
     isLoaded,
     refetch,
   } = useUser()
-  const { referralInfo, loadReferralInfo, plans, loadPlans } = useBilling()
+  const { referralInfo, loadReferralInfo } = useBilling()
 
   const [copiedRef, setCopiedRef] = useState(false)
-  const [showPlans, setShowPlans] = useState(false)
 
   useEffect(() => {
     if (!isLoaded) refetch()
@@ -63,14 +60,6 @@ export function ProfilePage({ onNavigate }: Props) {
     hapticNotification('success')
     setTimeout(() => setCopiedRef(false), 2000)
   }, [referralCode, tgUser, hapticNotification])
-
-  const handleShowPlans = useCallback(() => {
-    if (!showPlans && plans.length === 0) {
-      loadPlans()
-    }
-    setShowPlans(!showPlans)
-    haptic('light')
-  }, [showPlans, plans, loadPlans, haptic])
 
   const openSupport = useCallback(() => {
     haptic('light')
@@ -186,42 +175,16 @@ export function ProfilePage({ onNavigate }: Props) {
               </div>
             )}
           </div>
-          <button className="profile-plan-card__btn" onClick={handleShowPlans}>
-            {showPlans ? 'Скрыть' : 'Сменить'}
+          <button
+            className="profile-plan-card__btn"
+            onClick={() => {
+              haptic('light')
+              onNavigate?.('subscription')
+            }}
+          >
+            Сменить
           </button>
         </div>
-
-        {showPlans && (
-          <div className="profile-plans fade-in">
-            {plans.map((plan) => (
-              <div
-                key={plan.id}
-                className={`profile-plans__item ${
-                  currentPlan === plan.plan ? 'profile-plans__item--current' : ''
-                }`}
-                onClick={() => {
-                  haptic('light')
-                  if (currentPlan !== plan.plan) {
-                    onNavigate?.(`subscribe:${plan.plan}`)
-                  }
-                }}
-              >
-                <div className="profile-plans__head">
-                  <span className="profile-plans__name">{plan.name}</span>
-                  <span className="profile-plans__price">
-                    {plan.price} ₽
-                    <span className="profile-plans__period">{plan.period}</span>
-                  </span>
-                </div>
-                <ul className="profile-plans__features">
-                  {plan.features.map((f, i) => (
-                    <li key={i}>{f}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Реферальная программа */}
@@ -278,8 +241,6 @@ export function ProfilePage({ onNavigate }: Props) {
 
       {/* Меню */}
       <div className="profile-section fade-in fade-in--4">
-        {/* Избранное убрано — теперь в нижнем меню */}
-
         <button className="profile-menu-item" onClick={openSupport}>
           <HelpCircle size={16} />
           <span>Поддержка</span>
