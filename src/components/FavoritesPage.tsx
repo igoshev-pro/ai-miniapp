@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Star,
   Trash2,
@@ -11,24 +11,46 @@ import {
   Video,
   Music,
   Loader2,
-  Search,
   Filter,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
 import { toast } from '@/stores/toast.store'
 
-type FavoriteType = 'all' | 'chat' | 'image' | 'video' | 'audio'
+type FavoriteType = 'all' | 'conversation' | 'generation' | 'model'
+
+interface BackendFavorite {
+  _id: string
+  userId: string
+  type: string
+  itemId: string
+  title: string
+  previewUrl?: string
+  metadata?: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
 
 interface FavoriteItem {
   id: string
-  type: 'chat' | 'image' | 'video' | 'audio'
-  model: string
+  favoriteId: string
+  type: string
+  itemId: string
   title: string
   preview?: string
   thumbnailUrl?: string
-  resultUrl?: string
+  model?: string
   createdAt: string
+}
+
+interface FavoritesResponse {
+  success: boolean
+  data: {
+    favorites: BackendFavorite[]
+    total: number
+    page: number
+    pages: number
+  }
 }
 
 interface Props {
@@ -36,38 +58,91 @@ interface Props {
   onOpenGeneration?: (type: string) => void
 }
 
+function mapFavorite(fav: BackendFavorite): FavoriteItem {
+  return {
+    id: fav.itemId,
+    favoriteId: fav._id,
+    type: fav.type,
+    itemId: fav.itemId,
+    title: fav.title || 'Без названия',
+    preview: fav.metadata?.preview || undefined,
+    thumbnailUrl: fav.previewUrl || undefined,
+    model: fav.metadata?.model || fav.metadata?.modelSlug || undefined,
+    createdAt: fav.createdAt,
+  }
+}
+
 export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
-  const { haptic, hapticNotification } = useTelegram()
+  const { haptic } = useTelegram()
   const [favorites, setFavorites] = useState<FavoriteItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<FavoriteType>('all')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const loaderRef = useRef<HTMLDivElement>(null)
 
-  const loadFavorites = useCallback(async () => {
+  const loadFavorites = useCallback(async (pageNum: number, append: boolean) => {
     try {
-      setIsLoading(true)
-      const params = filter !== 'all' ? `?type=${filter}` : ''
-      const { data } = await apiClient.get<{ favorites: FavoriteItem[] }>(
-        `${ENDPOINTS.FAVORITES}${params}`,
+      if (pageNum === 1) setIsLoading(true)
+      else setIsLoadingMore(true)
+
+      const params: Record<string, string | number> = { page: pageNum, limit: 20 }
+      if (filter !== 'all') params.type = filter
+
+      const { data } = await apiClient.get<FavoritesResponse>(
+        ENDPOINTS.FAVORITES,
+        { params },
       )
-      setFavorites(data.favorites)
+
+      const items = (data.data?.favorites || []).map(mapFavorite)
+      const totalPages = data.data?.pages || 1
+
+      if (append) {
+        setFavorites((prev) => [...prev, ...items])
+      } else {
+        setFavorites(items)
+      }
+
+      setHasMore(pageNum < totalPages)
+      setPage(pageNum)
     } catch {
-      // Fallback — пустой список
-      setFavorites([])
+      if (!append) setFavorites([])
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
     }
   }, [filter])
 
+  // Загрузка при смене фильтра
   useEffect(() => {
-    loadFavorites()
+    loadFavorites(1, false)
   }, [loadFavorites])
 
+  // Infinite scroll
+  useEffect(() => {
+    if (!loaderRef.current || !hasMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingMore) {
+          loadFavorites(page + 1, true)
+        }
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(loaderRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, isLoadingMore, page, loadFavorites])
+
   const removeFavorite = useCallback(
-    async (id: string) => {
+    async (item: FavoriteItem) => {
       haptic('medium')
       try {
-        await apiClient.delete(`${ENDPOINTS.FAVORITES}/${id}`)
-        setFavorites((prev) => prev.filter((f) => f.id !== id))
+        await apiClient.post(ENDPOINTS.FAVORITES_TOGGLE, {
+          type: item.type,
+          itemId: item.itemId,
+        })
+        setFavorites((prev) => prev.filter((f) => f.favoriteId !== item.favoriteId))
         toast.info('Удалено из избранного')
       } catch (err) {
         if (isApiError(err)) {
@@ -81,10 +156,10 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
   const handleTap = useCallback(
     (item: FavoriteItem) => {
       haptic('light')
-      if (item.type === 'chat' && onOpenChat) {
-        onOpenChat(item.id, item.model)
-      } else if (onOpenGeneration) {
-        onOpenGeneration(item.type)
+      if (item.type === 'conversation' && onOpenChat) {
+        onOpenChat(item.itemId, item.model || '')
+      } else if (item.type === 'generation' && onOpenGeneration) {
+        onOpenGeneration('image')
       }
     },
     [haptic, onOpenChat, onOpenGeneration],
@@ -92,20 +167,28 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
 
   const typeIcon = (type: string) => {
     switch (type) {
-      case 'chat': return <MessageSquare size={14} />
-      case 'image': return <ImageIcon size={14} />
-      case 'video': return <Video size={14} />
-      case 'audio': return <Music size={14} />
+      case 'conversation': return <MessageSquare size={14} />
+      case 'generation': return <ImageIcon size={14} />
+      case 'model': return <Star size={14} />
       default: return <Star size={14} />
     }
   }
 
   const typeLabel = (type: string) => {
     switch (type) {
-      case 'chat': return 'Чат'
-      case 'image': return 'Картинка'
-      case 'video': return 'Видео'
-      case 'audio': return 'Аудио'
+      case 'conversation': return 'Чат'
+      case 'generation': return 'Генерация'
+      case 'model': return 'Модель'
+      default: return type
+    }
+  }
+
+  const filterLabel = (type: FavoriteType) => {
+    switch (type) {
+      case 'all': return 'Все'
+      case 'conversation': return 'Чаты'
+      case 'generation': return 'Генерации'
+      case 'model': return 'Модели'
       default: return type
     }
   }
@@ -125,8 +208,6 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
     return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
   }
 
-  const filtered = favorites
-
   return (
     <div className="favorites-page">
       <div className="favorites-page__header fade-in fade-in--1">
@@ -137,9 +218,8 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
         <div className="favorites-page__count">{favorites.length}</div>
       </div>
 
-      {/* Фильтры */}
       <div className="favorites-page__filters fade-in fade-in--1">
-        {(['all', 'chat', 'image', 'video', 'audio'] as FavoriteType[]).map((f) => (
+        {(['all', 'conversation', 'generation', 'model'] as FavoriteType[]).map((f) => (
           <button
             key={f}
             className={`favorites-filter ${filter === f ? 'favorites-filter--active' : ''}`}
@@ -148,70 +228,70 @@ export function FavoritesPage({ onOpenChat, onOpenGeneration }: Props) {
               haptic('light')
             }}
           >
-            {f === 'all' ? (
-              <>
-                <Filter size={12} />
-                Все
-              </>
-            ) : (
-              <>
-                {typeIcon(f)}
-                {typeLabel(f)}
-              </>
-            )}
+            {f === 'all' ? <Filter size={12} /> : typeIcon(f)}
+            {filterLabel(f)}
           </button>
         ))}
       </div>
 
-      {/* Список */}
       <div className="favorites-page__list fade-in fade-in--2">
         {isLoading ? (
           <div className="chats-history__loading">
             <Loader2 size={20} className="spin" />
             <span>Загрузка...</span>
           </div>
-        ) : filtered.length > 0 ? (
-          filtered.map((item) => (
-            <div key={item.id} className="favorite-card" onClick={() => handleTap(item)}>
-              {/* Превью */}
-              {item.thumbnailUrl && (
-                <div className="favorite-card__thumb">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={item.thumbnailUrl} alt="" />
-                </div>
-              )}
-
-              <div className="favorite-card__body">
-                <div className="favorite-card__top">
-                  <span className="favorite-card__type-badge">
-                    {typeIcon(item.type)}
-                    {typeLabel(item.type)}
-                  </span>
-                  <span className="favorite-card__model">{item.model}</span>
-                </div>
-
-                <div className="favorite-card__title">{item.title}</div>
-
-                {item.preview && (
-                  <div className="favorite-card__preview">{item.preview}</div>
+        ) : favorites.length > 0 ? (
+          <>
+            {favorites.map((item) => (
+              <div key={item.favoriteId} className="favorite-card" onClick={() => handleTap(item)}>
+                {item.thumbnailUrl && (
+                  <div className="favorite-card__thumb">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.thumbnailUrl} alt="" />
+                  </div>
                 )}
 
-                <div className="favorite-card__bottom">
-                  <span className="favorite-card__date">{formatDate(item.createdAt)}</span>
-                </div>
-              </div>
+                <div className="favorite-card__body">
+                  <div className="favorite-card__top">
+                    <span className="favorite-card__type-badge">
+                      {typeIcon(item.type)}
+                      {typeLabel(item.type)}
+                    </span>
+                    {item.model && (
+                      <span className="favorite-card__model">{item.model}</span>
+                    )}
+                  </div>
 
-              <button
-                className="favorite-card__remove"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  removeFavorite(item.id)
-                }}
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))
+                  <div className="favorite-card__title">{item.title}</div>
+
+                  {item.preview && (
+                    <div className="favorite-card__preview">{item.preview}</div>
+                  )}
+
+                  <div className="favorite-card__bottom">
+                    <span className="favorite-card__date">{formatDate(item.createdAt)}</span>
+                  </div>
+                </div>
+
+                <button
+                  className="favorite-card__remove"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeFavorite(item)
+                  }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+
+            {/* Infinite scroll trigger */}
+            {hasMore && (
+              <div ref={loaderRef} className="chats-history__loading" style={{ padding: '16px 0' }}>
+                <Loader2 size={16} className="spin" />
+              </div>
+            )}
+          </>
         ) : (
           <div className="favorites-page__empty">
             <Star size={32} />

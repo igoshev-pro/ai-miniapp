@@ -1,5 +1,3 @@
-// src/hooks/useChat.ts
-
 'use client'
 
 import { useCallback, useRef } from 'react'
@@ -8,16 +6,114 @@ import { useChatStore, type Chat, type ChatMessage } from '@/stores/chat.store'
 import { useUserStore } from '@/stores/user.store'
 import { toast } from '@/stores/toast.store'
 
-interface CreateChatResponse {
-  chat: Chat
+/**
+ * Бекенд возвращает conversations в формате:
+ * { success: true, data: { conversations: [...], total, page, pages } }
+ */
+interface ConversationsResponse {
+  success: boolean
+  data: {
+    conversations: BackendConversation[]
+    total: number
+    page: number
+    pages: number
+  }
 }
 
+interface BackendConversation {
+  _id: string
+  userId: string
+  modelSlug: string
+  title: string
+  isPinned: boolean
+  isArchived: boolean
+  messageCount: number
+  totalTokensUsed: number
+  systemPrompt?: string
+  settings?: Record<string, unknown>
+  lastMessageAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Бекенд возвращает messages в формате:
+ * { success: true, data: { messages: [...], total, page, pages } }
+ */
 interface MessagesResponse {
-  messages: ChatMessage[]
+  success: boolean
+  data: {
+    messages: BackendMessage[]
+    total: number
+    page: number
+    pages: number
+  }
 }
 
-interface ChatsListResponse {
-  chats: Chat[]
+interface BackendMessage {
+  _id: string
+  conversationId: string
+  userId: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  imageUrls?: string[]
+  modelSlug?: string
+  providerSlug?: string
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number }
+  responseTimeMs?: number
+  tokensCost?: number
+  isError?: boolean
+  errorMessage?: string
+  isStreaming?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// Маппинг slug → категория (для отображения иконок)
+function slugToCategory(slug: string): 'text' | 'image' | 'video' | 'audio' {
+  // Все чаты — текстовые
+  return 'text'
+}
+
+// Маппинг slug → человекопонятное имя модели
+const modelNameMap: Record<string, string> = {
+  'gpt-4o': 'ChatGPT 4o',
+  'gpt-4o-mini': 'ChatGPT 4o Mini',
+  'claude-3.5-sonnet': 'Claude 3.5 Sonnet',
+  'claude-3-haiku': 'Claude 3 Haiku',
+  'gemini-2.0-flash': 'Gemini 2.0 Flash',
+  'gemini-1.5-pro': 'Gemini 1.5 Pro',
+  'deepseek-v3': 'DeepSeek V3',
+  'deepseek-r1': 'DeepSeek R1',
+  'grok-3': 'Grok 3',
+  'perplexity-sonar': 'Perplexity Sonar',
+  'qwen-2.5-72b': 'Qwen 2.5 72B',
+}
+
+function mapConversationToChat(conv: BackendConversation): Chat {
+  return {
+    id: conv._id,
+    title: conv.title || 'Новый чат',
+    model: modelNameMap[conv.modelSlug] || conv.modelSlug,
+    modelSlug: conv.modelSlug,
+    category: slugToCategory(conv.modelSlug),
+    lastMessage: undefined, // Бекенд не возвращает — заполнится при загрузке сообщений
+    messageCount: conv.messageCount,
+    createdAt: conv.createdAt,
+    updatedAt: conv.updatedAt || conv.lastMessageAt || conv.createdAt,
+  }
+}
+
+function mapBackendMessage(msg: BackendMessage): ChatMessage {
+  return {
+    id: msg._id,
+    chatId: msg.conversationId,
+    role: msg.role === 'system' ? 'assistant' : msg.role,
+    content: msg.content,
+    model: msg.modelSlug ? (modelNameMap[msg.modelSlug] || msg.modelSlug) : undefined,
+    tokensUsed: msg.tokensCost || msg.usage?.totalTokens,
+    createdAt: msg.createdAt,
+  }
 }
 
 export function useChat() {
@@ -28,27 +124,17 @@ export function useChat() {
   // Загрузить список чатов
   const loadChats = useCallback(async () => {
     try {
-      const { data } = await apiClient.get<ChatsListResponse>(ENDPOINTS.CHAT_LIST)
-      store.setChats(data.chats)
+      const { data } = await apiClient.get<ConversationsResponse>(
+        ENDPOINTS.CHAT_CONVERSATIONS,
+        { params: { page: 1, limit: 50 } },
+      )
+
+      const chats = (data.data?.conversations || []).map(mapConversationToChat)
+      store.setChats(chats)
     } catch (err) {
       console.error('[useChat] loadChats failed:', err)
-      toast.error('Не удалось загрузить чаты')
-    }
-  }, [store])
-
-  // Создать новый чат
-  const createChat = useCallback(async (modelSlug: string): Promise<Chat | null> => {
-    try {
-      const { data } = await apiClient.post<CreateChatResponse>(ENDPOINTS.CHAT_CREATE, {
-        model: modelSlug,
-      })
-      store.addChat(data.chat)
-      store.setActiveChatId(data.chat.id)
-      return data.chat
-    } catch (err) {
-      console.error('[useChat] createChat failed:', err)
-      toast.error('Не удалось создать чат')
-      return null
+      // Не показываем ошибку если просто нет чатов
+      store.setChats([])
     }
   }, [store])
 
@@ -56,8 +142,16 @@ export function useChat() {
   const loadMessages = useCallback(async (chatId: string) => {
     try {
       store.setActiveChatId(chatId)
-      const { data } = await apiClient.get<MessagesResponse>(ENDPOINTS.CHAT_MESSAGES(chatId))
-      store.setMessages(data.messages)
+      const { data } = await apiClient.get<MessagesResponse>(
+        ENDPOINTS.CHAT_MESSAGES(chatId),
+        { params: { page: 1, limit: 50 } },
+      )
+
+      const messages = (data.data?.messages || [])
+        .filter((m) => !m.isStreaming && !m.isError) // фильтруем незавершённые
+        .map(mapBackendMessage)
+
+      store.setMessages(messages)
     } catch (err) {
       console.error('[useChat] loadMessages failed:', err)
       toast.error('Не удалось загрузить сообщения')
@@ -65,9 +159,10 @@ export function useChat() {
   }, [store])
 
   // Отправить сообщение + получить SSE стрим
+  // chatId может быть null — тогда бекенд создаст новый чат
   const sendMessage = useCallback(async (
-    chatId: string,
-    model: string,
+    chatId: string | null,
+    modelSlug: string,
     content: string,
   ) => {
     // Проверка баланса на клиенте (грубая)
@@ -77,9 +172,10 @@ export function useChat() {
     }
 
     // Добавляем сообщение пользователя в UI
+    const tempChatId = chatId || 'pending'
     const userMessage: ChatMessage = {
       id: 'temp-' + Date.now(),
-      chatId,
+      chatId: tempChatId,
       role: 'user',
       content,
       createdAt: new Date().toISOString(),
@@ -90,8 +186,36 @@ export function useChat() {
 
     // Запускаем SSE стрим
     abortRef.current = streamChat(
-      { chatId, model, message: content },
       {
+        conversationId: chatId || undefined,
+        modelSlug,
+        content,
+      },
+      {
+        onConversation: (data) => {
+          // Бекенд создал/вернул conversation
+          store.setActiveChatId(data.id)
+
+          // Добавляем новый чат в список если его нет
+          const exists = useChatStore.getState().chats.find((c) => c.id === data.id)
+          if (!exists) {
+            store.addChat({
+              id: data.id,
+              title: data.title || 'Новый чат',
+              model: modelNameMap[modelSlug] || modelSlug,
+              modelSlug,
+              category: 'text',
+              messageCount: 0,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            })
+          }
+        },
+
+        onMessageStart: (_data) => {
+          // Можно использовать messageId если нужно
+        },
+
         onToken: (token) => {
           store.appendStreamingContent(token)
         },
@@ -99,11 +223,11 @@ export function useChat() {
         onDone: (data) => {
           // Добавляем финальное сообщение ассистента
           const assistantMessage: ChatMessage = {
-            id: data.messageId,
-            chatId,
+            id: data.messageId || 'msg-' + Date.now(),
+            chatId: useChatStore.getState().activeChatId || tempChatId,
             role: 'assistant',
             content: useChatStore.getState().streamingContent,
-            model,
+            model: modelNameMap[modelSlug] || modelSlug,
             tokensUsed: data.tokensUsed,
             createdAt: new Date().toISOString(),
           }
@@ -123,7 +247,7 @@ export function useChat() {
         onError: (error) => {
           store.resetStreaming()
 
-          if (error.includes('спичек')) {
+          if (error.includes('спичек') || error.includes('баланс')) {
             toast.warning(error)
           } else {
             toast.error(error)
@@ -133,12 +257,32 @@ export function useChat() {
     )
   }, [store, user, updateBalance])
 
+  // Создать чат — теперь не нужен отдельный endpoint,
+  // бекенд создаёт чат при первом сообщении.
+  // Оставляем для совместимости с ChatPage, но просто возвращаем фейковый объект
+  const createChat = useCallback(async (modelSlug: string): Promise<Chat | null> => {
+    // Бекенд создаёт чат при первом sendMessage/streamMessage,
+    // поэтому мы просто возвращаем заготовку.
+    // Реальный ID придёт в SSE event "conversation".
+    const tempChat: Chat = {
+      id: 'pending-' + Date.now(),
+      title: 'Новый чат',
+      model: modelNameMap[modelSlug] || modelSlug,
+      modelSlug,
+      category: 'text',
+      messageCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    store.setActiveChatId(tempChat.id)
+    return tempChat
+  }, [store])
+
   // Остановить стриминг
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
 
-    // Сохраняем то что уже пришло как сообщение
     const currentContent = useChatStore.getState().streamingContent
     if (currentContent.trim()) {
       const assistantMessage: ChatMessage = {
@@ -156,7 +300,7 @@ export function useChat() {
   // Удалить чат
   const deleteChat = useCallback(async (chatId: string) => {
     try {
-      await apiClient.delete(`${ENDPOINTS.CHAT_LIST}/${chatId}`)
+      await apiClient.delete(ENDPOINTS.CHAT_DELETE(chatId))
       store.removeChat(chatId)
       toast.success('Чат удалён')
     } catch {
@@ -165,7 +309,6 @@ export function useChat() {
   }, [store])
 
   return {
-    // Данные
     chats: store.chats,
     chatsLoaded: store.chatsLoaded,
     activeChatId: store.activeChatId,
@@ -174,7 +317,6 @@ export function useChat() {
     isStreaming: store.isStreaming,
     streamingContent: store.streamingContent,
 
-    // Действия
     loadChats,
     createChat,
     loadMessages,

@@ -1,25 +1,43 @@
-// src/lib/api/sse.ts
-
 /**
  * SSE стриминг через fetch + ReadableStream
- * Бэкенд отправляет: POST /chat/stream → SSE (Server-Sent Events)
+ * Бэкенд: POST /chat/stream → SSE
  *
- * Формат событий от бэкенда:
- * data: {"type":"token","content":"Привет"}
- * data: {"type":"done","messageId":"...","tokensUsed":3}
- * data: {"type":"error","message":"..."}
+ * Формат событий от бэкенда (named events):
+ *   event: conversation
+ *   data: {"id":"...","title":"Новый чат"}
+ *
+ *   event: message_start
+ *   data: {"messageId":"..."}
+ *
+ *   event: text_delta
+ *   data: {"content":"chunk"}
+ *
+ *   event: message_end
+ *   data: {"messageId":"...","usage":{...},"tokensCost":3}
+ *
+ *   event: error
+ *   data: {"message":"..."}
+ *
+ *   event: done
+ *   data: {}
  */
 
 export interface SSECallbacks {
+  onConversation?: (data: { id: string; title: string }) => void
+  onMessageStart?: (data: { messageId: string }) => void
   onToken: (token: string) => void
-  onDone: (data: { messageId: string; tokensUsed?: number }) => void
+  onDone: (data: { messageId: string; tokensUsed?: number; usage?: Record<string, number> }) => void
   onError: (error: string) => void
 }
 
 export interface SSERequest {
-  chatId: string
-  model: string
-  message: string
+  conversationId?: string
+  modelSlug: string
+  content: string
+  imageUrls?: string[]
+  systemPrompt?: string
+  temperature?: number
+  maxTokens?: number
 }
 
 export function streamChat(
@@ -53,7 +71,7 @@ export function streamChat(
         }
 
         callbacks.onError(
-          (errorData as { message?: string }).message || `Ошибка сервера (${response.status})`
+          (errorData as { message?: string }).message || `Ошибка сервера (${response.status})`,
         )
         return
       }
@@ -66,6 +84,8 @@ export function streamChat(
 
       const decoder = new TextDecoder()
       let buffer = ''
+      let currentEvent = ''
+      let messageId = ''
 
       while (true) {
         const { done, value } = await reader.read()
@@ -77,38 +97,82 @@ export function streamChat(
 
         for (const line of lines) {
           const trimmed = line.trim()
-          if (!trimmed || !trimmed.startsWith('data: ')) continue
 
-          const jsonStr = trimmed.slice(6) // убираем "data: "
-          if (jsonStr === '[DONE]') {
-            return
+          if (!trimmed) {
+            // Пустая строка = конец SSE блока, сброс
+            currentEvent = ''
+            continue
           }
 
-          try {
-            const event = JSON.parse(jsonStr)
+          // Парсим "event: <name>"
+          if (trimmed.startsWith('event:')) {
+            currentEvent = trimmed.slice(6).trim()
+            continue
+          }
 
-            switch (event.type) {
-              case 'token':
-                callbacks.onToken(event.content || '')
-                break
-              case 'done':
-                callbacks.onDone({
-                  messageId: event.messageId,
-                  tokensUsed: event.tokensUsed,
-                })
-                return
-              case 'error':
-                callbacks.onError(event.message || 'Ошибка генерации')
-                return
+          // Парсим "data: <json>"
+          if (trimmed.startsWith('data:')) {
+            const jsonStr = trimmed.slice(5).trim()
+            if (!jsonStr || jsonStr === '[DONE]') continue
+
+            try {
+              const data = JSON.parse(jsonStr)
+
+              switch (currentEvent) {
+                case 'conversation':
+                  callbacks.onConversation?.(data)
+                  break
+
+                case 'message_start':
+                  messageId = data.messageId || ''
+                  callbacks.onMessageStart?.(data)
+                  break
+
+                case 'text_delta':
+                  callbacks.onToken(data.content || '')
+                  break
+
+                case 'message_end':
+                  callbacks.onDone({
+                    messageId: data.messageId || messageId,
+                    tokensUsed: data.tokensCost || data.usage?.totalTokens,
+                    usage: data.usage,
+                  })
+                  return
+
+                case 'error':
+                  callbacks.onError(data.message || 'Ошибка генерации')
+                  return
+
+                case 'done':
+                  // Финальное событие, стрим завершён
+                  return
+
+                default:
+                  // Fallback: если бекенд шлёт без event (legacy format)
+                  if (data.type === 'token') {
+                    callbacks.onToken(data.content || '')
+                  } else if (data.type === 'done') {
+                    callbacks.onDone({
+                      messageId: data.messageId || messageId,
+                      tokensUsed: data.tokensUsed,
+                    })
+                    return
+                  } else if (data.type === 'error') {
+                    callbacks.onError(data.message || 'Ошибка')
+                    return
+                  }
+                  break
+              }
+            } catch {
+              // Некорректный JSON — пропускаем
             }
-          } catch {
-            // некорректный JSON — пропускаем
           }
         }
       }
     })
     .catch((err) => {
-      if (err.name === 'AbortError') return // отмена пользователем
+      if (err.name === 'AbortError') return
       callbacks.onError('Ошибка соединения')
     })
 

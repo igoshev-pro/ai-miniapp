@@ -1,31 +1,38 @@
-// src/lib/api/endpoints.ts
-
 export const ENDPOINTS = {
   AUTH_TELEGRAM: '/auth/telegram',
   USER_ME: '/users/me',
 
-  CHAT_LIST: '/chat',
-  CHAT_CREATE: '/chat',
-  CHAT_MESSAGES: (chatId: string) => `/chat/${chatId}/messages`,
+  // Chat — соответствие бекенду /chat/*
+  CHAT_CONVERSATIONS: '/chat/conversations',
+  CHAT_MESSAGES: (chatId: string) => `/chat/conversations/${chatId}/messages`,
+  CHAT_DELETE: (chatId: string) => `/chat/conversations/${chatId}`,
+  CHAT_RENAME: (chatId: string) => `/chat/conversations/${chatId}/rename`,
+  CHAT_PIN: (chatId: string) => `/chat/conversations/${chatId}/pin`,
+  CHAT_SEND: '/chat/send',
   CHAT_STREAM: '/chat/stream',
 
+  // Generation
   GENERATION_IMAGE: '/generation/image',
   GENERATION_VIDEO: '/generation/video',
   GENERATION_AUDIO: '/generation/audio',
   GENERATION_STATUS: (id: string) => `/generation/${id}/status`,
 
+  // Billing
   BILLING_PACKAGES: '/billing/packages',
   BILLING_PAY: '/billing/pay/tokens',
   BILLING_SUBSCRIBE: '/billing/subscribe',
   BILLING_TRANSACTIONS: '/billing/transactions',
   BILLING_PROMO: '/billing/promo/apply',
 
+  // Favorites
   FAVORITES: '/favorites',
-  FAVORITE_TOGGLE: (id: string) => `/favorites/${id}`,
+  FAVORITES_TOGGLE: '/favorites/toggle',
 
+  // Support
   SUPPORT_TICKETS: '/support/tickets',
   SUPPORT_TICKET: (id: string) => `/support/tickets/${id}`,
 
+  // Referral
   REFERRAL_INFO: '/referral/info',
   REFERRAL_STATS: '/referral/stats',
 } as const

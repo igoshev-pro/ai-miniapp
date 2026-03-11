@@ -14,9 +14,10 @@ import {
   Copy,
   Wand2,
   MessageSquare,
+  Star,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useChat } from '@/hooks'
+import { useChat, useFavorites } from '@/hooks'
 import { useUser } from '@/hooks'
 import { MessageContent } from '@/components/ui/MessageContent'
 import { allModels } from '@/lib/data'
@@ -60,13 +61,14 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     loadMessages,
   } = useChat()
 
+  const { toggle: toggleFavorite } = useFavorites()
+
   const [input, setInput] = useState('')
   const [selectedModel, setSelectedModel] = useState(initialModel || 'ChatGPT 4o')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [isInitializing, setIsInitializing] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -116,7 +118,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const handleSend = useCallback(async () => {
     const text = input.trim()
     if (!text && attachments.length === 0) return
-    if (isStreaming || isInitializing) return
+    if (isStreaming) return
 
     if (balance < modelCost) {
       toast.warning(`Недостаточно спичек. Нужно ${modelCost}, у вас ${balance}`)
@@ -133,22 +135,17 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     setAttachments([])
     setShowAttachMenu(false)
 
-    let chatId = activeChatId
-
-    if (!chatId) {
-      setIsInitializing(true)
-      const newChat = await createChat(modelSlug)
-      setIsInitializing(false)
-      if (!newChat) return
-      chatId = newChat.id
-    }
+    // activeChatId может быть null или "pending-..." — в обоих случаях
+    // передаём null, бекенд создаст новый чат
+    const chatId = activeChatId && !activeChatId.startsWith('pending-')
+      ? activeChatId
+      : null
 
     await sendChatMessage(chatId, modelSlug, fullText)
     hapticNotification('success')
   }, [
-    input, attachments, isStreaming, isInitializing, balance, modelCost,
-    activeChatId, modelSlug, haptic, hapticNotification,
-    createChat, sendChatMessage,
+    input, attachments, isStreaming, balance, modelCost,
+    activeChatId, modelSlug, haptic, hapticNotification, sendChatMessage,
   ])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -216,6 +213,19 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             }`}
           />
         </button>
+
+        {/* Кнопка избранного — показываем только если есть реальный чат */}
+        {activeChatId && !activeChatId.startsWith('pending-') && (
+          <button
+            className="chat-page__favorite-btn"
+            onClick={() => {
+              haptic('light')
+              toggleFavorite('conversation', activeChatId, selectedModel)
+            }}
+          >
+            <Star size={16} />
+          </button>
+        )}
       </div>
 
       {showModelPicker && (
@@ -374,7 +384,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
-              disabled={isInitializing}
+              disabled={false}
             />
           </div>
 
@@ -386,7 +396,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             <button
               className="chat-input__send"
               onClick={handleSend}
-              disabled={(!input.trim() && attachments.length === 0) || isInitializing}
+              disabled={(!input.trim() && attachments.length === 0) || isStreaming}
             >
               <Send size={18} />
             </button>

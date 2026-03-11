@@ -9,6 +9,7 @@ import { StickyHeader } from './StickyHeader'
 import { Background } from './Background'
 import { ActionCards } from './ActionCards'
 import { Categories } from './Categories'
+import { ChatFeed } from './ChatFeed'
 import { BottomNav } from './BottomNav'
 import { AllModelsPage } from './AllModelsPage'
 import { ChatPage } from './ChatPage'
@@ -108,7 +109,11 @@ export function SpichkiApp() {
     [navigateTo],
   )
 
-  // Обработка навигации с ActionCards на главной
+  const openChatsHistory = useCallback(() => {
+    navigateTo('chats-history')
+    setActiveNav('chats')
+  }, [navigateTo])
+
   const handleActionNavigate = useCallback(
     (target: string) => {
       if (target === 'topup') navigateTo('topup')
@@ -118,7 +123,6 @@ export function SpichkiApp() {
     [navigateTo],
   )
 
-  // Обработка навигации из ProfilePage
   const handleProfileNavigate = useCallback(
     (target: string) => {
       if (target === 'topup') navigateTo('topup')
@@ -186,6 +190,10 @@ export function SpichkiApp() {
             <Categories
               onViewAll={() => openAllModels()}
               onCategoryTap={(categoryId) => openAllModels(categoryId)}
+            />
+            <ChatFeed
+              onChatTap={(model, chatId) => openChat(model, chatId)}
+              onViewAll={openChatsHistory}
             />
           </div>
         </PullToRefresh>

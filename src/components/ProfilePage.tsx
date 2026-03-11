@@ -64,7 +64,7 @@ export function ProfilePage({ onNavigate }: Props) {
 
   const copyReferral = useCallback(() => {
     const code = referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
-    navigator.clipboard.writeText(code).catch(() => {})
+    navigator.clipboard.writeText(code).catch(() => { })
     setCopiedRef(true)
     hapticNotification('success')
     setTimeout(() => setCopiedRef(false), 2000)
@@ -199,9 +199,8 @@ export function ProfilePage({ onNavigate }: Props) {
             {plans.map((plan) => (
               <div
                 key={plan.id}
-                className={`profile-plans__item ${
-                  currentPlan === plan.plan ? 'profile-plans__item--current' : ''
-                }`}
+                className={`profile-plans__item ${currentPlan === plan.plan ? 'profile-plans__item--current' : ''
+                  }`}
                 onClick={() => {
                   haptic('light')
                   if (currentPlan !== plan.plan) {
@@ -266,12 +265,12 @@ export function ProfilePage({ onNavigate }: Props) {
         </div>
         <div className="profile-stats-grid">
           <div className="profile-stat-card">
+            <div className="profile-stat-card__label">С нами с</div>
             <div className="profile-stat-card__value">
               {user?.createdAt
                 ? new Date(user.createdAt).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
                 : '—'}
             </div>
-            <div className="profile-stat-card__label">С нами с</div>
           </div>
         </div>
       </div>
