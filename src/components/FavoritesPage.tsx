@@ -15,7 +15,7 @@ import {
 import { useTelegram } from '@/context/TelegramContext'
 import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
 import { toast } from '@/stores/toast.store'
-import { allModels } from '@/lib/data'
+import { useModels } from '@/hooks'
 
 type FavoriteType = 'all' | 'conversation' | 'generation' | 'model'
 
@@ -76,6 +76,8 @@ function mapFavorite(fav: BackendFavorite): FavoriteItem {
 
 export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenModel }: Props) {
   const { haptic, webApp } = useTelegram()
+  const { models: allModels } = useModels()
+  
   const [favorites, setFavorites] = useState<FavoriteItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<FavoriteType>('all')

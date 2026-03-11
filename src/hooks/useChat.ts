@@ -5,6 +5,8 @@ import { apiClient, ENDPOINTS, streamChat, isApiError } from '@/lib/api'
 import { useChatStore, type Chat, type ChatMessage } from '@/stores/chat.store'
 import { useUserStore } from '@/stores/user.store'
 import { toast } from '@/stores/toast.store'
+import { useModelsStore } from '@/stores/models.store'
+import { allModels as fallbackModels } from '@/lib/data'
 
 /**
  * Бекенд возвращает conversations в формате:
@@ -69,32 +71,24 @@ interface BackendMessage {
   updatedAt: string
 }
 
+function getModelName(slug: string): string {
+  const storeModels = useModelsStore.getState().models
+  const models = storeModels.length > 0 ? storeModels : fallbackModels
+  const found = models.find((m) => m.slug === slug)
+  return found?.name || slug
+}
+
 // Маппинг slug → категория (для отображения иконок)
 function slugToCategory(slug: string): 'text' | 'image' | 'video' | 'audio' {
   // Все чаты — текстовые
   return 'text'
 }
 
-// Маппинг slug → человекопонятное имя модели
-const modelNameMap: Record<string, string> = {
-  'gpt-4o': 'ChatGPT 4o',
-  'gpt-4o-mini': 'ChatGPT 4o Mini',
-  'claude-3.5-sonnet': 'Claude 3.5 Sonnet',
-  'claude-3-haiku': 'Claude 3 Haiku',
-  'gemini-2.0-flash': 'Gemini 2.0 Flash',
-  'gemini-1.5-pro': 'Gemini 1.5 Pro',
-  'deepseek-v3': 'DeepSeek V3',
-  'deepseek-r1': 'DeepSeek R1',
-  'grok-3': 'Grok 3',
-  'perplexity-sonar': 'Perplexity Sonar',
-  'qwen-2.5-72b': 'Qwen 2.5 72B',
-}
-
 function mapConversationToChat(conv: BackendConversation): Chat {
   return {
     id: conv._id,
     title: conv.title || 'Новый чат',
-    model: modelNameMap[conv.modelSlug] || conv.modelSlug,
+    model: getModelName(conv.modelSlug),
     modelSlug: conv.modelSlug,
     category: slugToCategory(conv.modelSlug),
     lastMessage: undefined, // Бекенд не возвращает — заполнится при загрузке сообщений
@@ -110,7 +104,7 @@ function mapBackendMessage(msg: BackendMessage): ChatMessage {
     chatId: msg.conversationId,
     role: msg.role === 'system' ? 'assistant' : msg.role,
     content: msg.content,
-    model: msg.modelSlug ? (modelNameMap[msg.modelSlug] || msg.modelSlug) : undefined,
+    model: msg.modelSlug ? (getModelName(msg.modelSlug)) : undefined,
     tokensUsed: msg.tokensCost || msg.usage?.totalTokens,
     createdAt: msg.createdAt,
   }
@@ -202,7 +196,7 @@ export function useChat() {
             store.addChat({
               id: data.id,
               title: data.title || 'Новый чат',
-              model: modelNameMap[modelSlug] || modelSlug,
+              model: getModelName(modelSlug),
               modelSlug,
               category: 'text',
               messageCount: 0,
@@ -227,7 +221,7 @@ export function useChat() {
             chatId: useChatStore.getState().activeChatId || tempChatId,
             role: 'assistant',
             content: useChatStore.getState().streamingContent,
-            model: modelNameMap[modelSlug] || modelSlug,
+            model: getModelName(modelSlug),
             tokensUsed: data.tokensUsed,
             createdAt: new Date().toISOString(),
           }
@@ -267,7 +261,7 @@ export function useChat() {
     const tempChat: Chat = {
       id: 'pending-' + Date.now(),
       title: 'Новый чат',
-      model: modelNameMap[modelSlug] || modelSlug,
+      model: getModelName(modelSlug),
       modelSlug,
       category: 'text',
       messageCount: 0,

@@ -12,7 +12,8 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useFavorites } from '@/hooks'
-import { allModels, modelCategories, type ModelItem } from '@/lib/data'
+import { useModels } from '@/hooks'
+import type { ModelItem } from '@/lib/data'
 
 const categoryIcons: Record<string, React.ReactNode> = {
   text: <MessageSquare size={13} />,
@@ -44,6 +45,7 @@ interface Props {
 export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
   const { haptic } = useTelegram()
   const { toggle: toggleFavorite } = useFavorites()
+  const { models: allModels, categories: modelCategories } = useModels()  
   const [activeFilter, setActiveFilter] = useState<string | null>(initialCategory ?? null)
   const [search, setSearch] = useState('')
 

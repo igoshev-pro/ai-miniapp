@@ -19,16 +19,13 @@ import {
   Paperclip,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useGeneration, useUser } from '@/hooks'
+import { useGeneration, useModels, useUser } from '@/hooks'
 import { MediaResult } from '@/components/ui/MediaResult'
-import { allModels } from '@/lib/data'
 import { toast } from '@/stores/toast.store'
 
 interface Props {
   onBack?: () => void
 }
-
-const imageModels = allModels.filter((m) => m.category === 'image')
 
 const modelCapabilities: Record<string, {
   sizes: string[]
@@ -112,6 +109,9 @@ export function ImageGenerationPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
+  const { models: allModels } = useModels()
+  
+  const imageModels = allModels.filter((m) => m.category === 'image')
 
   const [input, setInput] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
@@ -130,7 +130,7 @@ export function ImageGenerationPage({ onBack }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  const currentModel = imageModels.find((m) => m.name === selectedModel)
+  const currentModel = imageModels.find((m: any) => m.name === selectedModel)
   const modelSlug = currentModel?.slug || 'midjourney'
   const modelCost = currentModel?.cost || 5
   const caps = modelCapabilities[modelSlug] || modelCapabilities['midjourney']
@@ -236,7 +236,7 @@ export function ImageGenerationPage({ onBack }: Props) {
 
         {showModelPicker && (
           <div className="gen-page__model-list fade-in">
-            {imageModels.map((m) => (
+            {imageModels.map((m: any) => (
               <button
                 key={m.id}
                 className={`gen-page__model-list-item ${selectedModel === m.name ? 'selected' : ''}`}

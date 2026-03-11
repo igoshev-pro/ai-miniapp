@@ -2,7 +2,7 @@
 
 import { ChevronRight } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { categoriesData } from '@/lib/data'
+import { useModels } from '@/hooks'
 
 interface Props {
   onViewAll: () => void
@@ -11,6 +11,17 @@ interface Props {
 
 export function Categories({ onViewAll, onCategoryTap }: Props) {
   const { haptic } = useTelegram()
+  const { models, categories } = useModels()
+
+  const categoriesData = [
+    { id: 'text', title: 'Текстовые ИИ', description: 'ChatGPT, Claude, Gemini и другие', coverUrl: '/covers/text.webp' },
+    { id: 'image', title: 'Генерация картинок', description: 'Midjourney, DALL-E, Flux и другие', coverUrl: '/covers/image.webp' },
+    { id: 'video', title: 'Генерация видео', description: 'Sora, Kling, Runway и другие', coverUrl: '/covers/video.webp' },
+    { id: 'audio', title: 'Генерация аудио', description: 'Suno, ElevenLabs', coverUrl: '/covers/audio.webp' },
+  ].map((c) => ({
+    ...c,
+    modelCount: models.filter((m) => m.category === c.id).length,
+  }))
 
   const totalModels = categoriesData.reduce((sum, c) => sum + c.modelCount, 0)
 

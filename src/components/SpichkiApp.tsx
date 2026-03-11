@@ -2,9 +2,9 @@
 
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useAuth, useUser } from '@/hooks'
+import { useAuth, useModels, useUser } from '@/hooks'
 import { StickyHeader } from './StickyHeader'
 import { Background } from './Background'
 import { ActionCards } from './ActionCards'
@@ -47,6 +47,7 @@ export function SpichkiApp() {
   const { isReady } = useTelegram()
   const { isReady: authReady } = useAuth()
   const { refetch: refetchUser } = useUser()
+  const { loadModels } = useModels()
 
   const [activeNav, setActiveNav] = useState('feed')
   const [page, setPage] = useState<Page>('home')
@@ -101,6 +102,12 @@ export function SpichkiApp() {
     },
     [navigateTo],
   )
+
+  useEffect(() => {
+    if (authReady) {
+      loadModels()
+    }
+  }, [authReady, loadModels])
 
   const openGeneration = useCallback(
     (type: 'image' | 'video' | 'audio') => {

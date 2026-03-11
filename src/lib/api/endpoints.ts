@@ -2,6 +2,10 @@ export const ENDPOINTS = {
   AUTH_TELEGRAM: '/auth/telegram',
   USER_ME: '/users/me',
 
+  // Models
+  MODELS: '/models',
+  MODEL_DETAIL: (slug: string) => `/models/${slug}`,
+
   // Chat
   CHAT_CONVERSATIONS: '/chat/conversations',
   CHAT_MESSAGES: (chatId: string) => `/chat/conversations/${chatId}/messages`,
@@ -17,7 +21,7 @@ export const ENDPOINTS = {
   GENERATION_AUDIO: '/generation/audio',
   GENERATION_STATUS: (id: string) => `/generation/${id}/status`,
 
-  // Billing — соответствие бекенду
+  // Billing
   BILLING_PACKAGES: '/billing/packages',
   BILLING_PLANS: '/billing/plans',
   BILLING_BALANCE: '/billing/balance',

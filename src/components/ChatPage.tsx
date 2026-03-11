@@ -20,7 +20,7 @@ import { useTelegram } from '@/context/TelegramContext'
 import { useChat, useFavorites } from '@/hooks'
 import { useUser } from '@/hooks'
 import { MessageContent } from '@/components/ui/MessageContent'
-import { allModels } from '@/lib/data'
+import { useModels } from '@/hooks'
 import { toast } from '@/stores/toast.store'
 
 interface Attachment {
@@ -29,8 +29,6 @@ interface Attachment {
   type: 'image' | 'file'
   size: string
 }
-
-const textModels = allModels.filter((m) => m.category === 'text')
 
 const examplePrompts = [
   'Объясни квантовые вычисления простыми словами',
@@ -49,6 +47,7 @@ interface Props {
 export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
+  const { models: allModels } = useModels() 
   const {
     messages,
     messagesLoaded,
@@ -62,6 +61,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   } = useChat()
 
   const { toggle: toggleFavorite, isFavorite } = useFavorites()
+  const textModels = allModels.filter((m) => m.category === 'text')
 
   // ─── Найти модель по name ИЛИ slug ───
   const resolveModel = useCallback((nameOrSlug: string | undefined) => {
