@@ -339,8 +339,7 @@ button,
   font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0px;
-  margin-top: 24px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 8px;

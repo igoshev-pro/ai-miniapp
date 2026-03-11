@@ -44,7 +44,7 @@ export function ChatFeed({ onChatTap, onViewAll }: Props) {
   if (!chatsLoaded) {
     return (
       <div className="fade-in fade-in--4">
-        <div className="section-title">
+        <div className="section-title" style={{ marginTop: 24 }}>
           Последние чаты
           <span className="section-title__badge">...</span>
         </div>
@@ -62,7 +62,7 @@ export function ChatFeed({ onChatTap, onViewAll }: Props) {
 
   return (
     <div className="fade-in fade-in--4">
-      <div className="section-title">
+      <div className="section-title" style={{ marginTop: 24 }}>
         Последние чаты
         <span className="section-title__badge">{chats.length}</span>
         {chats.length > 6 && (
