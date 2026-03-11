@@ -15,6 +15,7 @@ import {
 import { useTelegram } from '@/context/TelegramContext'
 import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
 import { toast } from '@/stores/toast.store'
+import { allModels } from '@/lib/data'
 
 type FavoriteType = 'all' | 'conversation' | 'generation' | 'model'
 
@@ -170,16 +171,24 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
       haptic('light')
 
       if (item.type === 'conversation') {
-        // onOpenChat(modelSlug, chatId) — порядок как в openChat
+        // Передаём modelSlug и chatId
         onOpenChat?.(item.model || 'gpt-4o-mini', item.itemId)
       } else if (item.type === 'generation') {
         onOpenGeneration?.('image')
       } else if (item.type === 'model') {
-        // itemId — это slug модели
-        onOpenModel?.(item.itemId, 'text')
+        // Определяем категорию модели по slug из allModels
+        const modelData = allModels.find((m: any) => m.slug === item.itemId)
+        const category = modelData?.category || 'text'
+
+        if (category === 'text') {
+          // Открываем чат с этой моделью (без существующего chatId)
+          onOpenChat?.(item.itemId, '')
+        } else {
+          onOpenGeneration?.(category)
+        }
       }
     },
-    [haptic, onOpenChat, onOpenGeneration, onOpenModel],
+    [haptic, onOpenChat, onOpenGeneration],
   )
 
   const typeIcon = (type: string) => {

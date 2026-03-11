@@ -94,7 +94,8 @@ export function SpichkiApp() {
   const openChat = useCallback(
     (modelNameOrSlug?: string, existingChatId?: string) => {
       setChatModel(modelNameOrSlug || 'gpt-4o-mini')
-      setChatId(existingChatId)
+      // Пустая строка = новый чат, не передаём
+      setChatId(existingChatId && existingChatId.length > 0 ? existingChatId : undefined)
       navigateTo('chat')
       setActiveNav('create')
     },
@@ -231,13 +232,6 @@ export function SpichkiApp() {
           onBack={goBack}
           onOpenChat={(modelSlug, chatId) => openChat(modelSlug, chatId)}
           onOpenGeneration={(type) => openGeneration(type as 'image' | 'video' | 'audio')}
-          onOpenModel={(slug, category) => {
-            if (category === 'image' || category === 'video' || category === 'audio') {
-              openGeneration(category)
-            } else {
-              openChat(slug)
-            }
-          }}
         />
       )}
       {/* {page === 'support' && <SupportPage onBack={goBack} />} */}

@@ -85,7 +85,7 @@ export function ChatFeed({ onChatTap, onViewAll }: Props) {
                   className="feed-item"
                   onClick={() => {
                     haptic('light')
-                    onChatTap?.(chat.modelSlug, chat.id)
+                    onChatTap?.(chat.modelSlug || chat.model, chat.id)
                   }}
                   role="button"
                   tabIndex={0}

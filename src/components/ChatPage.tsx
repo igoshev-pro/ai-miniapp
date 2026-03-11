@@ -61,13 +61,22 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     loadMessages,
   } = useChat()
 
-  const { toggle: toggleFavorite } = useFavorites()
+  const { toggle: toggleFavorite, isFavorite } = useFavorites()
+
+  // ─── Найти модель по name ИЛИ slug ───
+  const resolveModel = useCallback((nameOrSlug: string | undefined) => {
+    if (!nameOrSlug) return textModels[0]
+    return (
+      allModels.find((m) => m.name === nameOrSlug) ||
+      allModels.find((m) => m.slug === nameOrSlug) ||
+      textModels[0]
+    )
+  }, [])
+
+  const initialResolved = resolveModel(initialModel)
 
   const [input, setInput] = useState('')
-  const foundModel = allModels.find(
-    (m) => m.name === initialModel || m.slug === initialModel
-  ) || allModels.find((m) => m.category === 'text')
-  const [selectedModel, setSelectedModel] = useState(foundModel?.name || 'ChatGPT 4o')
+  const [selectedModel, setSelectedModel] = useState(initialResolved?.name || 'ChatGPT 4o')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -76,10 +85,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const currentModel = allModels.find((m) => m.name === selectedModel) || foundModel
+  // Текущая модель — всегда ищем по selectedModel (это display name)
+  const currentModel = allModels.find((m) => m.name === selectedModel) || initialResolved
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
-  
+
   useEffect(() => {
     if (existingChatId) {
       loadMessages(existingChatId)
