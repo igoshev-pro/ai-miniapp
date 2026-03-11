@@ -4854,3 +4854,37 @@ body.tg-app .sticky-header {
   transform: scale(0.9);
   color: var(--accent-yellow);
 }
+
+/* ── Модель — actions и star ── */
+.model-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.model-row__star {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.model-row__star:active {
+  transform: scale(0.85);
+  color: var(--accent-yellow, #fbbf24);
+}
+
+.model-row__arrow {
+  color: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+}

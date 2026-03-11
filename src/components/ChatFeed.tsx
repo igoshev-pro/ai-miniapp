@@ -63,7 +63,7 @@ export function ChatFeed({ onChatTap, onViewAll }: Props) {
   }
 
   return (
-    <div className="fade-in fade-in--4">
+    <div className="fade-in fade-in--4" style={{ marginTop: 10 }}>
       <div className="section-title">
         Последние чаты
         <span className="section-title__badge">{chats.length}</span>

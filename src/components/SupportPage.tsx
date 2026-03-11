@@ -19,12 +19,46 @@ import { useTelegram } from '@/context/TelegramContext'
 import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
 import { toast } from '@/stores/toast.store'
 
+// --- Типы бекенда ---
+
 type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+
+interface BackendTicketMessage {
+  role: 'user' | 'support'
+  content: string
+  createdAt: string
+}
+
+interface BackendTicket {
+  _id: string
+  userId: string
+  subject: string
+  messages: BackendTicketMessage[]
+  status: TicketStatus
+  priority: string
+  assignedTo?: string
+  resolvedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface ApiResponse<T> {
+  success: boolean
+  data: T
+}
+
+interface TicketsListData {
+  tickets: BackendTicket[]
+  total: number
+  page: number
+  pages: number
+}
+
+// --- Типы фронтенда ---
 
 interface Ticket {
   id: string
   subject: string
-  category: string
   status: TicketStatus
   createdAt: string
   updatedAt: string
@@ -38,16 +72,31 @@ interface TicketMessage {
   createdAt: string
 }
 
-type View = 'list' | 'ticket' | 'new'
+// --- Маппинг ---
 
-const categories = [
-  { id: 'billing', label: '💰 Оплата и баланс' },
-  { id: 'generation', label: '🤖 Генерация не работает' },
-  { id: 'bug', label: '🐛 Баг / Ошибка' },
-  { id: 'feature', label: '💡 Предложение' },
-  { id: 'account', label: '👤 Аккаунт' },
-  { id: 'other', label: '📝 Другое' },
-]
+function mapTicketMessage(msg: BackendTicketMessage, index: number): TicketMessage {
+  return {
+    id: `msg-${index}-${new Date(msg.createdAt).getTime()}`,
+    text: msg.content,
+    sender: msg.role === 'support' ? 'admin' : 'user',
+    createdAt: msg.createdAt,
+  }
+}
+
+function mapTicket(bt: BackendTicket): Ticket {
+  return {
+    id: bt._id,
+    subject: bt.subject,
+    status: bt.status as TicketStatus,
+    createdAt: bt.createdAt,
+    updatedAt: bt.updatedAt,
+    messages: (bt.messages || []).map(mapTicketMessage),
+  }
+}
+
+// --- Конфигурация ---
+
+type View = 'list' | 'ticket' | 'new'
 
 const statusConfig: Record<TicketStatus, { label: string; icon: React.ReactNode; color: string }> = {
   open: { label: 'Открыт', icon: <Clock size={12} />, color: '#fbbf24' },
@@ -56,8 +105,14 @@ const statusConfig: Record<TicketStatus, { label: string; icon: React.ReactNode;
   closed: { label: 'Закрыт', icon: <AlertCircle size={12} />, color: 'rgba(255,255,255,0.3)' },
 }
 
-export function SupportPage() {
-  const { haptic, hapticNotification } = useTelegram()
+// --- Компонент ---
+
+interface Props {
+  onBack?: () => void
+}
+
+export function SupportPage({ onBack }: Props) {
+  const { haptic, hapticNotification, webApp } = useTelegram()
   const [view, setView] = useState<View>('list')
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null)
@@ -65,7 +120,6 @@ export function SupportPage() {
 
   // Новый тикет
   const [newSubject, setNewSubject] = useState('')
-  const [newCategory, setNewCategory] = useState('other')
   const [newMessage, setNewMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -74,12 +128,38 @@ export function SupportPage() {
   const [isSending, setIsSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // ─── Telegram BackButton ───────────────────────────
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      const handler = () => {
+        if (view === 'ticket' || view === 'new') {
+          setView('list')
+        } else if (onBack) {
+          onBack()
+        }
+      }
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack, view])
+
   // Загрузить тикеты
   const loadTickets = useCallback(async () => {
     try {
       setIsLoading(true)
-      const { data } = await apiClient.get<{ tickets: Ticket[] }>(ENDPOINTS.SUPPORT_TICKETS)
-      setTickets(data.tickets)
+      const { data } = await apiClient.get<ApiResponse<TicketsListData>>(
+        ENDPOINTS.SUPPORT_TICKETS,
+        { params: { page: 1, limit: 50 } },
+      )
+
+      const ticketsData = data.data
+      // Бекенд может вернуть { tickets, total, page, pages } или массив напрямую
+      const raw = ticketsData?.tickets || (Array.isArray(ticketsData) ? ticketsData : [])
+      setTickets(raw.map(mapTicket))
     } catch {
       setTickets([])
     } finally {
@@ -98,18 +178,11 @@ export function SupportPage() {
     }
   }, [activeTicket?.messages, view])
 
-  // Открыть тикет
+  // Открыть тикет — используем данные из списка (нет отдельного GET /:id)
   const openTicket = useCallback(
-    async (ticket: Ticket) => {
+    (ticket: Ticket) => {
       haptic('light')
-      try {
-        const { data } = await apiClient.get<{ ticket: Ticket }>(
-          `${ENDPOINTS.SUPPORT_TICKETS}/${ticket.id}`,
-        )
-        setActiveTicket(data.ticket)
-      } catch {
-        setActiveTicket(ticket)
-      }
+      setActiveTicket(ticket)
       setView('ticket')
     },
     [haptic],
@@ -126,33 +199,34 @@ export function SupportPage() {
     setIsSubmitting(true)
 
     try {
-      const { data } = await apiClient.post<{ ticket: Ticket }>(
+      const { data } = await apiClient.post<ApiResponse<BackendTicket>>(
         ENDPOINTS.SUPPORT_TICKETS,
         {
           subject: newSubject.trim(),
-          category: newCategory,
           message: newMessage.trim(),
         },
       )
 
-      setTickets((prev) => [data.ticket, ...prev])
-      setActiveTicket(data.ticket)
+      const newTicket = mapTicket(data.data)
+      setTickets((prev) => [newTicket, ...prev])
+      setActiveTicket(newTicket)
       setView('ticket')
       setNewSubject('')
-      setNewCategory('other')
       setNewMessage('')
       hapticNotification('success')
       toast.success('Тикет создан')
     } catch (err) {
       if (isApiError(err)) {
         toast.error(err.message || 'Ошибка создания тикета')
+      } else {
+        toast.error('Ошибка соединения')
       }
     } finally {
       setIsSubmitting(false)
     }
-  }, [newSubject, newCategory, newMessage, haptic, hapticNotification])
+  }, [newSubject, newMessage, haptic, hapticNotification])
 
-  // Отправить ответ
+  // Отправить ответ в тикет
   const sendReply = useCallback(async () => {
     if (!replyText.trim() || !activeTicket) return
 
@@ -160,20 +234,27 @@ export function SupportPage() {
     setIsSending(true)
 
     try {
-      const { data } = await apiClient.post<{ message: TicketMessage }>(
-        `${ENDPOINTS.SUPPORT_TICKETS}/${activeTicket.id}/messages`,
-        { text: replyText.trim() },
+      // POST /support/tickets/:id/message с body { content: "..." }
+      const { data } = await apiClient.post<ApiResponse<BackendTicket>>(
+        `${ENDPOINTS.SUPPORT_TICKETS}/${activeTicket.id}/message`,
+        { content: replyText.trim() },
       )
 
-      setActiveTicket((prev) =>
-        prev
-          ? { ...prev, messages: [...prev.messages, data.message] }
-          : prev,
+      // Бекенд возвращает обновлённый тикет целиком
+      const updatedTicket = mapTicket(data.data)
+      setActiveTicket(updatedTicket)
+
+      // Обновляем в списке тоже
+      setTickets((prev) =>
+        prev.map((t) => (t.id === updatedTicket.id ? updatedTicket : t)),
       )
+
       setReplyText('')
     } catch (err) {
       if (isApiError(err)) {
         toast.error(err.message || 'Ошибка отправки')
+      } else {
+        toast.error('Ошибка соединения')
       }
     } finally {
       setIsSending(false)
@@ -222,6 +303,7 @@ export function SupportPage() {
           ) : tickets.length > 0 ? (
             tickets.map((ticket) => {
               const sc = statusConfig[ticket.status]
+              const lastMsg = ticket.messages[ticket.messages.length - 1]
               return (
                 <div
                   key={ticket.id}
@@ -240,10 +322,13 @@ export function SupportPage() {
                       </span>
                     </div>
                     <div className="support-ticket-row__bottom">
-                      <span className="support-ticket-row__category">
-                        {categories.find((c) => c.id === ticket.category)?.label || ticket.category}
+                      <span className="support-ticket-row__date">
+                        {ticket.messages.length} сообщ.
                       </span>
-                      <span className="support-ticket-row__date">{formatDate(ticket.updatedAt)}</span>
+                      <span className="support-ticket-row__date">·</span>
+                      <span className="support-ticket-row__date">
+                        {formatDate(ticket.updatedAt)}
+                      </span>
                     </div>
                   </div>
                   <ChevronRight size={16} className="support-ticket-row__arrow" />
@@ -272,29 +357,12 @@ export function SupportPage() {
           <button className="support-page__back" onClick={() => setView('list')}>
             <ArrowLeft size={18} />
           </button>
-          <div className="support-page__title">Новое обращение</div>
+          <div className="support-page__header-info">
+            <div className="support-page__title">Новое обращение</div>
+          </div>
         </div>
 
         <div className="support-new fade-in fade-in--2">
-          {/* Категория */}
-          <div className="support-new__field">
-            <label className="support-new__label">Категория</label>
-            <div className="support-new__categories">
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  className={`gen-chip ${newCategory === c.id ? 'gen-chip--active' : ''}`}
-                  onClick={() => {
-                    setNewCategory(c.id)
-                    haptic('light')
-                  }}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Тема */}
           <div className="support-new__field">
             <label className="support-new__label">Тема</label>

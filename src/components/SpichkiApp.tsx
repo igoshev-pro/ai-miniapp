@@ -148,9 +148,9 @@ export function SpichkiApp() {
         setChatModel('ChatGPT 4o')
         setPage('chat')
         setActiveNav('create')
-      } else if (id === 'chats') {
-        setPage('chats-history')
-        setActiveNav('chats')
+      } else if (id === 'favorites') {
+        setPage('favorites')
+        setActiveNav('favorites')
       } else if (id === 'profile') {
         setPage('profile')
         setActiveNav('profile')
@@ -232,7 +232,7 @@ export function SpichkiApp() {
           onOpenGeneration={(type) => openGeneration(type as 'image' | 'video' | 'audio')}
         />
       )}
-      {page === 'support' && <SupportPage />}
+      {page === 'support' && <SupportPage onBack={goBack} />}
 
       <BottomNav active={activeNav} onChange={handleNavChange} />
     </>

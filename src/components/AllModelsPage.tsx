@@ -8,8 +8,10 @@ import {
   Music,
   ChevronRight,
   Search,
+  Star,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
+import { useFavorites } from '@/hooks'
 import { allModels, modelCategories, type ModelItem } from '@/lib/data'
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -41,6 +43,7 @@ interface Props {
 
 export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
   const { haptic } = useTelegram()
+  const { toggle: toggleFavorite } = useFavorites()
   const [activeFilter, setActiveFilter] = useState<string | null>(initialCategory ?? null)
   const [search, setSearch] = useState('')
 
@@ -64,7 +67,6 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
 
   return (
     <div className="models-page">
-      {/* ── Фиксированный блок: заголовок + поиск + фильтры ── */}
       <div className="models-page__sticky">
         <div className="models-page__header fade-in fade-in--1">
           <div className="models-page__title">Все модели</div>
@@ -109,7 +111,6 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
         </div>
       </div>
 
-      {/* ── Скроллируемый список моделей ── */}
       <div className="models-page__list fade-in fade-in--3">
         {grouped.map((group) => (
           <div key={group.category} className="models-group">
@@ -121,6 +122,10 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
                 onTap={() => {
                   haptic('light')
                   onModelTap?.(model.name, model.category)
+                }}
+                onFavorite={() => {
+                  haptic('light')
+                  toggleFavorite('model', model.slug, model.name)
                 }}
               />
             ))}
@@ -141,9 +146,11 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
 function ModelCard({
   model,
   onTap,
+  onFavorite,
 }: {
   model: ModelItem
   onTap: () => void
+  onFavorite: () => void
 }) {
   return (
     <div className="model-row" onClick={onTap} role="button" tabIndex={0}>
@@ -156,8 +163,20 @@ function ModelCard({
           <span className="model-row__desc">{model.description}</span>
         </div>
       </div>
-      <div className="model-row__arrow">
-        <ChevronRight size={16} />
+      <div className="model-row__actions">
+        <button
+          className="model-row__star"
+          onClick={(e) => {
+            e.stopPropagation()
+            onFavorite()
+          }}
+          aria-label="В избранное"
+        >
+          <Star size={14} />
+        </button>
+        <div className="model-row__arrow">
+          <ChevronRight size={16} />
+        </div>
       </div>
     </div>
   )

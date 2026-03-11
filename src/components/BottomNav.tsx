@@ -1,6 +1,6 @@
 'use client'
 
-import { Newspaper, Layers, Plus, MessageSquare, User, Clock } from 'lucide-react'
+import { Newspaper, Layers, Plus, Star, User } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 
 interface Props {
@@ -12,7 +12,7 @@ const navItems = [
   { id: 'feed', icon: Newspaper, label: 'Лента' },
   { id: 'models', icon: Layers, label: 'Модели' },
   { id: 'create', icon: Plus, label: '' },
-  { id: 'chats', icon: Clock, label: 'Чаты' },
+  { id: 'favorites', icon: Star, label: 'Избранное' },
   { id: 'profile', icon: User, label: 'Профиль' },
 ]
 

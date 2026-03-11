@@ -3,9 +3,19 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, RefreshCw, Loader2, AlertCircle, Share2, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Download,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  Star,
+} from 'lucide-react'
 import type { Generation } from '@/stores/generation.store'
 import { useTelegram } from '@/context/TelegramContext'
+import { useFavorites } from '@/hooks'
 
 interface Props {
   generation: Generation
@@ -14,10 +24,10 @@ interface Props {
 
 export function MediaResult({ generation, onRetry }: Props) {
   const { haptic } = useTelegram()
+  const { toggle: toggleFavorite } = useFavorites()
   const { status, progress, resultUrl, resultUrls, error, type, refunded } = generation
   const [currentIndex, setCurrentIndex] = useState(0)
 
-  // Все URL-ы (массив или один)
   const urls = resultUrls?.length ? resultUrls : resultUrl ? [resultUrl] : []
   const activeUrl = urls[currentIndex] || ''
   const hasMultiple = urls.length > 1
@@ -83,7 +93,6 @@ export function MediaResult({ generation, onRetry }: Props) {
   if (status === 'completed' && urls.length > 0) {
     return (
       <div className="media-result media-result--done">
-        {/* Изображения — с каруселью если несколько */}
         {type === 'image' && (
           <div className="media-result__image-container">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -147,6 +156,21 @@ export function MediaResult({ generation, onRetry }: Props) {
         )}
 
         <div className="media-result__actions">
+          <button
+            className="media-result__action-btn"
+            onClick={() => {
+              haptic('light')
+              toggleFavorite(
+                'generation',
+                generation.id,
+                generation.prompt || `${type} генерация`,
+                activeUrl,
+              )
+            }}
+          >
+            <Star size={14} />
+            В избранное
+          </button>
           <a
             href={activeUrl}
             download
