@@ -73,7 +73,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const currentModel = textModels.find((m) => m.name === selectedModel)
+  const currentModel = allModels.find(
+    (m) => m.name === initialModel || m.slug === initialModel
+  ) || allModels.find((m) => m.category === 'text')
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
 

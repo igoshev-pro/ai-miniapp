@@ -152,6 +152,9 @@ function ModelCard({
   onTap: () => void
   onFavorite: () => void
 }) {
+  const { isFavorite } = useFavorites()
+  const fav = isFavorite('model', model.slug)
+
   return (
     <div className="model-row" onClick={onTap} role="button" tabIndex={0}>
       <div className="model-row__icon">{modelIcons[model.category]}</div>
@@ -165,12 +168,12 @@ function ModelCard({
       </div>
       <div className="model-row__actions">
         <button
-          className="model-row__star"
+          className={`model-row__star ${fav ? 'model-row__star--active' : ''}`}
           onClick={(e) => {
             e.stopPropagation()
             onFavorite()
           }}
-          aria-label="В избранное"
+          aria-label={fav ? 'Убрать из избранного' : 'В избранное'}
         >
           <Star size={14} />
         </button>

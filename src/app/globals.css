@@ -462,7 +462,7 @@ button,
 .feed {
   display: flex;
   flex-direction: column;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .feed__date-group {
@@ -2321,7 +2321,7 @@ button,
 
 .toast-container {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  top: calc(var(--header-height) + var(--safe-area-top, 0px) + 8px);
   left: 12px;
   right: 12px;
   z-index: 10000;
@@ -2329,6 +2329,10 @@ button,
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
+}
+
+body.tg-app .toast-container {
+  top: calc(var(--header-height) + var(--tg-top, 0px) + 8px);
 }
 
 .toast {
@@ -4887,4 +4891,20 @@ body.tg-app .sticky-header {
   color: rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
+}
+
+/* ── Активная звезда модели ── */
+.model-row__star--active {
+  color: var(--accent-yellow) !important;
+}
+
+.model-row__star--active svg {
+  fill: var(--accent-yellow);
+}
+
+/* ── Активная звезда в избранном чата ── */
+.chat-page__favorite-btn--active {
+  color: var(--accent-yellow);
+  border-color: rgba(250, 204, 21, 0.3);
+  background: rgba(250, 204, 21, 0.08);
 }

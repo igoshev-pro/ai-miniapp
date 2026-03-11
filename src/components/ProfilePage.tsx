@@ -8,23 +8,17 @@ import {
   Wallet,
   Coins,
   Crown,
-  Star,
   Gift,
   Users,
   Copy,
   Check,
   ChevronRight,
-  Shield,
   HelpCircle,
-  Zap,
   TrendingUp,
   Clock,
-  MessageSquare,
-  Image,
-  Video,
-  Music,
   Flame,
   Loader2,
+  ExternalLink,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useBilling } from '@/hooks'
@@ -33,13 +27,13 @@ interface Props {
   onNavigate?: (page: string) => void
 }
 
+const SUPPORT_TG_LINK = 'https://t.me/d_igoshev'
+
 export function ProfilePage({ onNavigate }: Props) {
-  const { user: tgUser, haptic, hapticNotification } = useTelegram()
+  const { user: tgUser, haptic, hapticNotification, webApp } = useTelegram()
   const {
     user,
     balance,
-    tokenBalance,
-    bonusTokens,
     subscription,
     referralCode,
     isLoaded,
@@ -64,7 +58,7 @@ export function ProfilePage({ onNavigate }: Props) {
 
   const copyReferral = useCallback(() => {
     const code = referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
-    navigator.clipboard.writeText(code).catch(() => { })
+    navigator.clipboard.writeText(code).catch(() => {})
     setCopiedRef(true)
     hapticNotification('success')
     setTimeout(() => setCopiedRef(false), 2000)
@@ -77,6 +71,15 @@ export function ProfilePage({ onNavigate }: Props) {
     setShowPlans(!showPlans)
     haptic('light')
   }, [showPlans, plans, loadPlans, haptic])
+
+  const openSupport = useCallback(() => {
+    haptic('light')
+    if (webApp) {
+      webApp.openTelegramLink(SUPPORT_TG_LINK)
+    } else {
+      window.open(SUPPORT_TG_LINK, '_blank')
+    }
+  }, [haptic, webApp])
 
   if (!isLoaded) {
     return (
@@ -134,13 +137,6 @@ export function ProfilePage({ onNavigate }: Props) {
           </div>
         </div>
 
-        {/* {bonusTokens > 0 && (
-          <div className="profile-balance__breakdown">
-            <span>Купленные: {tokenBalance.toLocaleString()}</span>
-            <span>Бонусные: {bonusTokens.toLocaleString()}</span>
-          </div>
-        )} */}
-
         <div className="profile-balance__actions">
           <button
             className="profile-balance__btn profile-balance__btn--primary"
@@ -181,7 +177,8 @@ export function ProfilePage({ onNavigate }: Props) {
             </div>
             {subscription.expiresAt && (
               <div className="profile-plan-card__expiry">
-                Следующее списание: {new Date(subscription.expiresAt).toLocaleDateString('ru-RU', {
+                Следующее списание:{' '}
+                {new Date(subscription.expiresAt).toLocaleDateString('ru-RU', {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
@@ -199,8 +196,9 @@ export function ProfilePage({ onNavigate }: Props) {
             {plans.map((plan) => (
               <div
                 key={plan.id}
-                className={`profile-plans__item ${currentPlan === plan.plan ? 'profile-plans__item--current' : ''
-                  }`}
+                className={`profile-plans__item ${
+                  currentPlan === plan.plan ? 'profile-plans__item--current' : ''
+                }`}
                 onClick={() => {
                   haptic('light')
                   if (currentPlan !== plan.plan) {
@@ -268,7 +266,10 @@ export function ProfilePage({ onNavigate }: Props) {
             <div className="profile-stat-card__label">С нами с</div>
             <div className="profile-stat-card__value">
               {user?.createdAt
-                ? new Date(user.createdAt).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+                ? new Date(user.createdAt).toLocaleDateString('ru-RU', {
+                    month: 'long',
+                    year: 'numeric',
+                  })
                 : '—'}
             </div>
           </div>
@@ -277,15 +278,12 @@ export function ProfilePage({ onNavigate }: Props) {
 
       {/* Меню */}
       <div className="profile-section fade-in fade-in--4">
-        <button className="profile-menu-item" onClick={() => { haptic('light'); onNavigate?.('favorites') }}>
-          <Star size={16} />
-          <span>Избранное</span>
-          <ChevronRight size={16} />
-        </button>
-        <button className="profile-menu-item" onClick={() => { haptic('light'); onNavigate?.('support') }}>
+        {/* Избранное убрано — теперь в нижнем меню */}
+
+        <button className="profile-menu-item" onClick={openSupport}>
           <HelpCircle size={16} />
           <span>Поддержка</span>
-          <ChevronRight size={16} />
+          <ExternalLink size={14} />
         </button>
       </div>
     </div>

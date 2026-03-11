@@ -22,7 +22,7 @@ interface Props {
 export function ChatsHistoryPage({ onChatTap }: Props) {
   const { haptic, hapticNotification } = useTelegram()
   const { chats, chatsLoaded, loadChats, deleteChat } = useChat()
-  const { toggle: toggleFavorite } = useFavorites()
+  const { toggle: toggleFavorite, isFavorite } = useFavorites()
   const [search, setSearch] = useState('')
   const [visibleCount, setVisibleCount] = useState(20)
   const loaderRef = useRef<HTMLDivElement>(null)
@@ -33,7 +33,6 @@ export function ChatsHistoryPage({ onChatTap }: Props) {
     }
   }, [chatsLoaded, loadChats])
 
-  // Infinite scroll observer
   useEffect(() => {
     if (!loaderRef.current) return
     const observer = new IntersectionObserver(
@@ -108,58 +107,61 @@ export function ChatsHistoryPage({ onChatTap }: Props) {
             {grouped.map((group) => (
               <div key={group.label} className="feed__date-group">
                 <div className="feed__date-label">{group.label}</div>
-                {group.items.map((chat) => (
-                  <div
-                    key={chat.id}
-                    className="feed-item"
-                    onClick={() => {
-                      haptic('light')
-                      onChatTap(chat.model, chat.id)
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="feed-item__icon">
-                      <MessageSquare size={15} />
-                    </div>
+                {group.items.map((chat) => {
+                  const fav = isFavorite('conversation', chat.id)
 
-                    <div className="feed-item__body">
-                      <div className="feed-item__top">
-                        <div className="feed-item__title">{chat.title || 'Новый чат'}</div>
-                        <div className="feed-item__time">{formatChatTime(chat.updatedAt)}</div>
+                  return (
+                    <div
+                      key={chat.id}
+                      className="feed-item"
+                      onClick={() => {
+                        haptic('light')
+                        onChatTap(chat.modelSlug, chat.id)
+                      }}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <div className="feed-item__icon">
+                        <MessageSquare size={15} />
                       </div>
-                      <div className="feed-item__bottom">
-                        <span className="feed-item__model-badge">{chat.model}</span>
-                        <span className="feed-item__preview">
-                          {chat.lastMessage || `${chat.messageCount} сообщений`}
-                        </span>
-                      </div>
-                    </div>
 
-                    <div className="feed-item__actions">
-                      <button
-                        className="feed-item__star"
-                        onClick={(e) => handleToggleFavorite(chat, e)}
-                        aria-label="В избранное"
-                      >
-                        <Star size={14} />
-                      </button>
-                      <button
-                        className="feed-item__delete"
-                        onClick={(e) => handleDelete(chat.id, e)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                      <div className="feed-item__arrow">
-                        <ChevronRight size={14} />
+                      <div className="feed-item__body">
+                        <div className="feed-item__top">
+                          <div className="feed-item__title">{chat.title || 'Новый чат'}</div>
+                          <div className="feed-item__time">{formatChatTime(chat.updatedAt)}</div>
+                        </div>
+                        <div className="feed-item__bottom">
+                          <span className="feed-item__model-badge">{chat.model}</span>
+                          <span className="feed-item__preview">
+                            {chat.lastMessage || `${chat.messageCount} сообщений`}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="feed-item__actions">
+                        <button
+                          className={`feed-item__star ${fav ? 'feed-item__star--active' : ''}`}
+                          onClick={(e) => handleToggleFavorite(chat, e)}
+                          aria-label={fav ? 'Убрать из избранного' : 'В избранное'}
+                        >
+                          <Star size={14} />
+                        </button>
+                        <button
+                          className="feed-item__delete"
+                          onClick={(e) => handleDelete(chat.id, e)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <div className="feed-item__arrow">
+                          <ChevronRight size={14} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ))}
 
-            {/* Infinite scroll trigger */}
             {hasMore && (
               <div ref={loaderRef} className="chats-history__loading" style={{ padding: '16px 0' }}>
                 <Loader2 size={16} className="spin" />
@@ -176,8 +178,6 @@ export function ChatsHistoryPage({ onChatTap }: Props) {
     </div>
   )
 }
-
-// --- Утилиты ---
 
 function formatChatTime(dateStr: string): string {
   const d = new Date(dateStr)

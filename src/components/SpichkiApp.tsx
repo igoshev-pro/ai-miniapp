@@ -92,8 +92,8 @@ export function SpichkiApp() {
   )
 
   const openChat = useCallback(
-    (model?: string, existingChatId?: string) => {
-      setChatModel(model || 'ChatGPT 4o')
+    (modelNameOrSlug?: string, existingChatId?: string) => {
+      setChatModel(modelNameOrSlug || 'gpt-4o-mini')
       setChatId(existingChatId)
       navigateTo('chat')
       setActiveNav('create')
@@ -127,8 +127,8 @@ export function SpichkiApp() {
     (target: string) => {
       if (target === 'topup') navigateTo('topup')
       else if (target === 'transactions') navigateTo('transactions')
-      else if (target === 'favorites') navigateTo('favorites')
-      else if (target === 'support') navigateTo('support')
+      // убрано: else if (target === 'favorites') navigateTo('favorites')
+      // убрано: else if (target === 'support') navigateTo('support')
       else if (target === 'subscription') navigateTo('subscription')
       else if (target === 'referral') navigateTo('referral')
       else if (target.startsWith('subscribe:')) navigateTo('subscription')
@@ -232,7 +232,7 @@ export function SpichkiApp() {
           onOpenGeneration={(type) => openGeneration(type as 'image' | 'video' | 'audio')}
         />
       )}
-      {page === 'support' && <SupportPage onBack={goBack} />}
+      {/* {page === 'support' && <SupportPage onBack={goBack} />} */}
 
       <BottomNav active={activeNav} onChange={handleNavChange} />
     </>
