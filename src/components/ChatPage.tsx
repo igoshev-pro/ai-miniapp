@@ -131,7 +131,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
     setIsLoadingMessages(true)
     const store = useChatStore.getState()
-    store.setActiveChatId(existingChatId)
+    store.switchChat(existingChatId)
 
     apiClient
       .get(ENDPOINTS.CHAT_MESSAGES(existingChatId), { params: { page: 1, limit: 50 } })
@@ -245,7 +245,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       },
       {
         onConversation: (data) => {
-          store.setActiveChatId(data.id)
+          store.setActiveChatId(data.id) // теперь безопасно - просто меняет ID
+        
           const exists = useChatStore.getState().chats.find((c) => c.id === data.id)
           if (!exists) {
             store.addChat({

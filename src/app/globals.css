@@ -4815,10 +4815,10 @@ body.tg-app .sticky-header {
 
   .chat-model-dropdown {
     max-width: 448px;
+    left: 0;
+    right: 0;
     margin-left: auto;
     margin-right: auto;
-    left: 16px;
-    right: 16px;
   }
 
   .models-page__sticky {

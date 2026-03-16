@@ -1,5 +1,3 @@
-// src/stores/chat.store.ts
-
 import { create } from 'zustand'
 
 export interface ChatMessage {
@@ -25,25 +23,25 @@ export interface Chat {
 }
 
 interface ChatState {
-  // Список чатов
   chats: Chat[]
   chatsLoaded: boolean
-
-  // Активный чат
   activeChatId: string | null
   messages: ChatMessage[]
   messagesLoaded: boolean
-
-  // Стриминг
   isStreaming: boolean
   streamingContent: string
 
-  // Actions
   setChats: (chats: Chat[]) => void
   addChat: (chat: Chat) => void
   removeChat: (chatId: string) => void
 
+  // Просто обновляет ID, сообщения НЕ трогает
   setActiveChatId: (chatId: string | null) => void
+  // Переход на существующий чат из истории - сбрасывает сообщения чтобы загрузить новые
+  switchChat: (chatId: string) => void
+  // Новый чат - полный сброс
+  switchToNewChat: () => void
+
   setMessages: (messages: ChatMessage[]) => void
   addMessage: (message: ChatMessage) => void
   updateMessage: (messageId: string, content: string) => void
@@ -57,11 +55,9 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set) => ({
   chats: [],
   chatsLoaded: false,
-
   activeChatId: null,
   messages: [],
   messagesLoaded: false,
-
   isStreaming: false,
   streamingContent: '',
 
@@ -71,7 +67,27 @@ export const useChatStore = create<ChatState>((set) => ({
     chats: s.chats.filter((c) => c.id !== chatId),
   })),
 
-  setActiveChatId: (chatId) => set({ activeChatId: chatId, messages: [], messagesLoaded: false }),
+  // Только обновляет ID - используется в onConversation при стриминге
+  setActiveChatId: (chatId) => set({ activeChatId: chatId }),
+
+  // Открыть чат из истории - сбрасывает сообщения чтобы загрузить с сервера
+  switchChat: (chatId) => set({
+    activeChatId: chatId,
+    messages: [],
+    messagesLoaded: false,
+    isStreaming: false,
+    streamingContent: '',
+  }),
+
+  // Кнопка + новый чат - полный сброс
+  switchToNewChat: () => set({
+    activeChatId: null,
+    messages: [],
+    messagesLoaded: false,
+    isStreaming: false,
+    streamingContent: '',
+  }),
+
   setMessages: (messages) => set({ messages, messagesLoaded: true }),
   addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
   updateMessage: (messageId, content) =>

@@ -2,6 +2,7 @@
 
 import { Newspaper, Layers, Plus, Star, User } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
+import { useChatStore } from '@/stores/chat.store'
 
 interface Props {
   active: string
@@ -18,6 +19,7 @@ const navItems = [
 
 export function BottomNav({ active, onChange }: Props) {
   const { haptic } = useTelegram()
+  const switchToNewChat = useChatStore((s) => s.switchToNewChat)
 
   return (
     <nav className="bottom-nav">
@@ -29,6 +31,7 @@ export function BottomNav({ active, onChange }: Props) {
               className="bottom-nav__item bottom-nav__item--center"
               onClick={() => {
                 haptic('medium')
+                switchToNewChat() // ← чистим стор перед новым чатом
                 onChange(item.id)
               }}
             >
