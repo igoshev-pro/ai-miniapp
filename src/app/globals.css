@@ -1141,6 +1141,7 @@ button,
   gap: 14px;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  padding-top: calc(var(--header-height) + 40px);
 }
 
 .chat-page__empty {
