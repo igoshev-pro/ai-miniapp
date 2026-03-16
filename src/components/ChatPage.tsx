@@ -112,6 +112,18 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
 
+  useEffect(() => {
+    console.log('🔍 DEBUG MODELS:', {
+      selectedModelName,     // Что выбрано в UI
+      currentModel,          // Объект модели
+      modelSlug,            // Что отправляется на бэкенд
+      allModels: allModels.slice(0, 3).map(m => ({ 
+        name: m.name, 
+        slug: m.slug 
+      })),
+    });
+  }, [selectedModelName, currentModel, modelSlug]);
+
   // ─── Загрузка сообщений (один раз) ───
   useEffect(() => {
     if (!existingChatId || didLoadRef.current) return
@@ -217,6 +229,12 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     store.addMessage(userMessage)
     store.setStreaming(true)
     store.setStreamingContent('')
+
+    console.log('📤 SENDING TO BACKEND:', {
+      modelSlug,
+      content: fullText.substring(0, 50) + '...',
+      conversationId: chatIdToSend,
+    });
 
     // Start SSE stream
     abortRef.current = streamChat(
