@@ -1,7 +1,10 @@
+// app/layout.tsx
+
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { TelegramProvider } from '@/context/TelegramContext'
 import { ToastContainer } from '@/components/ui/ToastContainer'
+import { ModelsInitializer } from '@/components/providers/ModelsInitializer'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -32,6 +35,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <TelegramProvider>
+          <ModelsInitializer />
           {children}
           <ToastContainer />
         </TelegramProvider>

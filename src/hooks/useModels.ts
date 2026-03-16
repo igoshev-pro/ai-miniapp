@@ -14,30 +14,33 @@ import {
 interface BackendModel {
   slug: string
   name: string
+  displayName?: string
   type: 'text' | 'image' | 'video' | 'audio'
   provider?: string
   description?: string
-  costPerUse?: number
+  cost?: number // Это уже рассчитанная стоимость с бэкенда
+  minCost?: number
   isActive?: boolean
-  // Бекенд может возвращать доп. поля
-  providers?: Array<{ slug: string; priority: number }>
-  capabilities?: Record<string, unknown>
+  isPremium?: boolean
+  capabilities?: string[]
+  limits?: any
+  defaultParams?: any
 }
 
 interface ModelsResponse {
   success: boolean
-  data: BackendModel[] | { models: BackendModel[] }
+  data: BackendModel[]
 }
 
 function mapBackendModel(m: BackendModel, index: number): ModelItem {
   return {
     id: `${m.type[0]}${index + 1}`,
-    name: m.name,
+    name: m.displayName || m.name, // Используем displayName если есть
     slug: m.slug,
     provider: m.provider || guessProvider(m.slug),
     category: m.type,
     description: m.description || '',
-    cost: m.costPerUse ?? guessCost(m.type),
+    cost: m.cost || m.minCost || guessCost(m.type),
   }
 }
 
@@ -55,7 +58,11 @@ function guessProvider(slug: string): string {
   if (slug.includes('midjourney')) return 'Midjourney'
   if (slug.includes('flux')) return 'Black Forest'
   if (slug.includes('stable')) return 'Stability'
+  if (slug.includes('seedream')) return 'ByteDance'
+  if (slug.includes('nano')) return 'Community'
+  if (slug.includes('kling')) return 'Kuaishou'
   if (slug.includes('runway')) return 'Runway'
+  if (slug.includes('hailuo')) return 'MiniMax'
   if (slug.includes('suno')) return 'Suno'
   if (slug.includes('eleven')) return 'ElevenLabs'
   return 'AI'
@@ -82,16 +89,12 @@ export function useModels() {
     try {
       const { data } = await apiClient.get<ModelsResponse>(ENDPOINTS.MODELS)
 
-      // Бекенд может вернуть массив или { models: [] }
-      const rawModels: BackendModel[] = Array.isArray(data.data)
-        ? data.data
-        : (data.data as any)?.models || []
+      // Бекенд возвращает { success: true, data: [...] }
+      const rawModels: BackendModel[] = data.data || []
 
-      // Фильтруем только активные
-      const activeModels = rawModels.filter((m) => m.isActive !== false)
-
-      if (activeModels.length > 0) {
-        const mapped = activeModels.map(mapBackendModel)
+      // Все модели с бэкенда уже отфильтрованы по доступности
+      if (rawModels.length > 0) {
+        const mapped = rawModels.map(mapBackendModel)
         store.setModels(mapped)
         console.log(`[useModels] Loaded ${mapped.length} models from backend`)
       } else {
