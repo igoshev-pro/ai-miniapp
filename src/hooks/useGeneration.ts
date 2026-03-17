@@ -1,12 +1,10 @@
 // src/hooks/useGeneration.ts
-
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
 import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
 import {
   connectSocket,
-  disconnectSocket,
   subscribeToGeneration,
   WS_EVENTS,
   type GenerationStatusEvent,
@@ -21,8 +19,9 @@ import {
 } from '@/stores/generation.store'
 import { useAuthStore } from '@/stores/auth.store'
 import { useUserStore } from '@/stores/user.store'
+import { useModelsStore } from '@/stores/models.store'
 import { toast } from '@/stores/toast.store'
-import { allModels } from '@/lib/data'
+import { allModels as fallbackModels } from '@/lib/data'
 
 interface GenerationRequest {
   model: string
@@ -31,11 +30,13 @@ interface GenerationRequest {
   settings?: Record<string, unknown>
 }
 
+// Бэкенд возвращает: { success: true, data: { generationId, status, tokensCost } }
 interface GenerationResponse {
-  generation: {
-    id: string
+  success: boolean
+  data: {
+    generationId: string
     status: string
-    tokensReserved: number
+    tokensCost: number
   }
 }
 
@@ -43,29 +44,24 @@ export function useGeneration() {
   const store = useGenerationStore()
   const { token } = useAuthStore()
   const { user } = useUserStore()
+  const modelsStore = useModelsStore()
   const wsConnected = useRef(false)
   const listenersAttached = useRef(false)
 
-  // Подключаем WebSocket при наличии токена
   useEffect(() => {
     if (!token || wsConnected.current) return
 
     const socket = connectSocket(token)
     wsConnected.current = true
 
-    // Не вешаем обработчики дважды
     if (listenersAttached.current) return
     listenersAttached.current = true
 
-    // --- generation:status ---
     socket.on(WS_EVENTS.STATUS, (data: GenerationStatusEvent) => {
       console.log('[WS] status:', data)
-      store.updateGeneration(data.generationId, {
-        status: data.status,
-      })
+      store.updateGeneration(data.generationId, { status: data.status })
     })
 
-    // --- generation:progress ---
     socket.on(WS_EVENTS.PROGRESS, (data: GenerationProgressEvent) => {
       store.updateGeneration(data.generationId, {
         status: 'processing',
@@ -73,19 +69,16 @@ export function useGeneration() {
       })
     })
 
-    // --- generation:completed ---
     socket.on(WS_EVENTS.COMPLETED, (data: GenerationCompletedEvent) => {
       console.log('[WS] completed:', data)
       store.updateGeneration(data.generationId, {
         status: 'completed',
         progress: 100,
-        // Бэкенд отдаёт массив URL-ов, берём первый для отображения
         resultUrl: data.resultUrls?.[0] || undefined,
       })
       toast.success('Генерация завершена! 🎉')
     })
 
-    // --- generation:failed ---
     socket.on(WS_EVENTS.FAILED, (data: GenerationFailedEvent) => {
       console.log('[WS] failed:', data)
       store.updateGeneration(data.generationId, {
@@ -93,9 +86,7 @@ export function useGeneration() {
         error: data.errorMessage,
       })
       toast.error(data.errorMessage || 'Ошибка генерации')
-      if (data.refunded) {
-        toast.info('Спички возвращены на баланс')
-      }
+      if (data.refunded) toast.info('Спички возвращены на баланс')
     })
 
     return () => {
@@ -107,49 +98,55 @@ export function useGeneration() {
     }
   }, [token, store])
 
-  // Отключение при размонтировании
-  useEffect(() => {
-    return () => {
-      // Не отключаем — пусть живёт пока приложение открыто
-      // disconnectSocket() — вызвать при logout
-    }
-  }, [])
-
-  // Отправить запрос на генерацию
   const generate = useCallback(
     async (request: GenerationRequest): Promise<Generation | null> => {
-      const modelData = allModels.find(
+      // Ищем сначала в загруженных моделях, потом в fallback
+      const allAvailable = modelsStore.isLoaded ? modelsStore.models : fallbackModels
+      const modelData = allAvailable.find(
         (m) => m.slug === request.model || m.name === request.model,
       )
       const cost = modelData?.cost ?? 5
 
-      // Проверка баланса
       if (user && user.totalBalance < cost) {
-        toast.warning(
-          `Недостаточно спичек. Нужно ${cost}, у вас ${user.totalBalance}`,
-        )
+        toast.warning(`Недостаточно спичек. Нужно ${cost}, у вас ${user.totalBalance}`)
         return null
       }
 
-      // Выбираем эндпоинт по типу
       const endpointMap: Record<GenerationType, string> = {
         image: ENDPOINTS.GENERATION_IMAGE,
         video: ENDPOINTS.GENERATION_VIDEO,
         audio: ENDPOINTS.GENERATION_AUDIO,
       }
 
+      // Получаем размеры из settings
+      const settings = request.settings || {}
+      const sizeStr = (settings.size as string) || '1024x1024'
+      const [width, height] = sizeStr.split('x').map(Number)
+
       try {
         const { data } = await apiClient.post<GenerationResponse>(
           endpointMap[request.type],
           {
-            model: request.model,
+            modelSlug: modelData?.slug || request.model, // ← бэкенд ждёт modelSlug
             prompt: request.prompt,
-            ...request.settings,
+            negativePrompt: settings.negativePrompt as string | undefined,
+            width: width || 1024,
+            height: height || 1024,
+            style: settings.style as string | undefined,
+            seed: settings.seed as number | undefined,
+            numImages: (settings.count as number) || 1,
           },
         )
 
+        // Бэкенд: { success: true, data: { generationId, status, tokensCost } }
+        const generationId = data.data?.generationId
+        if (!generationId) {
+          toast.error('Неверный ответ сервера')
+          return null
+        }
+
         const generation: Generation = {
-          id: data.generation.id,
+          id: generationId,
           type: request.type,
           model: modelData?.name || request.model,
           modelSlug: modelData?.slug || request.model,
@@ -162,9 +159,7 @@ export function useGeneration() {
 
         store.addGeneration(generation)
         store.setActiveGeneration(generation)
-
-        // Подписываемся на обновления этой генерации через WS
-        subscribeToGeneration(data.generation.id)
+        subscribeToGeneration(generationId)
 
         toast.info('Генерация запущена...')
         return generation
@@ -183,25 +178,28 @@ export function useGeneration() {
         return null
       }
     },
-    [user, store],
+    [user, store, modelsStore],
   )
 
-  // Polling fallback — если WS не сработает
   const checkStatus = useCallback(
     async (generationId: string) => {
       try {
         const { data } = await apiClient.get<{
-          status: string
-          progress?: number
-          resultUrls?: string[]
-          errorMessage?: string
+          success: boolean
+          data: {
+            status: string
+            progress?: number
+            resultUrls?: string[]
+            errorMessage?: string
+          }
         }>(ENDPOINTS.GENERATION_STATUS(generationId))
 
+        const d = data.data
         store.updateGeneration(generationId, {
-          status: data.status as Generation['status'],
-          progress: data.progress ?? 0,
-          resultUrl: data.resultUrls?.[0],
-          error: data.errorMessage,
+          status: d.status as Generation['status'],
+          progress: d.progress ?? 0,
+          resultUrl: d.resultUrls?.[0],
+          error: d.errorMessage,
         })
       } catch {
         // тихо
