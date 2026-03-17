@@ -1,4 +1,3 @@
-// src/hooks/useGeneration.ts
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
@@ -30,7 +29,6 @@ interface GenerationRequest {
   settings?: Record<string, unknown>
 }
 
-// Бэкенд возвращает: { success: true, data: { generationId, status, tokensCost } }
 interface GenerationResponse {
   success: boolean
   data: {
@@ -47,7 +45,10 @@ export function useGeneration() {
   const modelsStore = useModelsStore()
   const wsConnected = useRef(false)
   const listenersAttached = useRef(false)
+  // Храним таймеры polling чтобы не дублировать
+  const pollingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
+  // ─── WebSocket ───────────────────────────────────────────────
   useEffect(() => {
     if (!token || wsConnected.current) return
 
@@ -71,16 +72,28 @@ export function useGeneration() {
 
     socket.on(WS_EVENTS.COMPLETED, (data: GenerationCompletedEvent) => {
       console.log('[WS] completed:', data)
+      // Останавливаем polling если он был запущен
+      const timer = pollingTimers.current.get(data.generationId)
+      if (timer) {
+        clearTimeout(timer)
+        pollingTimers.current.delete(data.generationId)
+      }
       store.updateGeneration(data.generationId, {
         status: 'completed',
         progress: 100,
         resultUrl: data.resultUrls?.[0] || undefined,
+        resultUrls: data.resultUrls,
       })
       toast.success('Генерация завершена! 🎉')
     })
 
     socket.on(WS_EVENTS.FAILED, (data: GenerationFailedEvent) => {
       console.log('[WS] failed:', data)
+      const timer = pollingTimers.current.get(data.generationId)
+      if (timer) {
+        clearTimeout(timer)
+        pollingTimers.current.delete(data.generationId)
+      }
       store.updateGeneration(data.generationId, {
         status: 'failed',
         error: data.errorMessage,
@@ -98,9 +111,84 @@ export function useGeneration() {
     }
   }, [token, store])
 
+  // ─── Polling fallback ────────────────────────────────────────
+  // Запускается через 15 сек после старта генерации
+  // Продолжает пока статус не completed/failed (макс 5 минут)
+  const startPolling = useCallback(
+    (generationId: string) => {
+      let attempts = 0
+      const maxAttempts = 60 // 60 × 5сек = 5 минут
+
+      const poll = async () => {
+        attempts++
+
+        try {
+          const { data } = await apiClient.get<{
+            success: boolean
+            data: {
+              status: string
+              progress?: number
+              resultUrls?: string[]
+              errorMessage?: string
+            }
+          }>(ENDPOINTS.GENERATION_STATUS(generationId))
+
+          const d = data.data
+          console.log(`[Poll] ${generationId} attempt=${attempts} status=${d.status}`)
+
+          // Если WS уже обновил — прекращаем
+          const current = useGenerationStore.getState().generations.find(
+            (g) => g.id === generationId,
+          )
+          if (current?.status === 'completed' || current?.status === 'failed') {
+            pollingTimers.current.delete(generationId)
+            return
+          }
+
+          // Обновляем стор
+          store.updateGeneration(generationId, {
+            status: d.status as Generation['status'],
+            progress: d.progress ?? 0,
+            resultUrl: d.resultUrls?.[0],
+            resultUrls: d.resultUrls,
+            error: d.errorMessage,
+          })
+
+          if (d.status === 'completed') {
+            toast.success('Генерация завершена! 🎉')
+            pollingTimers.current.delete(generationId)
+            return
+          }
+
+          if (d.status === 'failed') {
+            toast.error(d.errorMessage || 'Ошибка генерации')
+            pollingTimers.current.delete(generationId)
+            return
+          }
+
+          // Продолжаем polling
+          if (attempts < maxAttempts) {
+            const timer = setTimeout(poll, 5000)
+            pollingTimers.current.set(generationId, timer)
+          }
+        } catch {
+          if (attempts < maxAttempts) {
+            const timer = setTimeout(poll, 5000)
+            pollingTimers.current.set(generationId, timer)
+          }
+        }
+      }
+
+      // Первый запрос через 15 секунд (даём время WS)
+      const timer = setTimeout(poll, 15000)
+      pollingTimers.current.set(generationId, timer)
+    },
+    [store],
+  )
+
+  // ─── generate ────────────────────────────────────────────────
   const generate = useCallback(
     async (request: GenerationRequest): Promise<Generation | null> => {
-      // Ищем сначала в загруженных моделях, потом в fallback
       const allAvailable = modelsStore.isLoaded ? modelsStore.models : fallbackModels
       const modelData = allAvailable.find(
         (m) => m.slug === request.model || m.name === request.model,
@@ -118,7 +206,6 @@ export function useGeneration() {
         audio: ENDPOINTS.GENERATION_AUDIO,
       }
 
-      // Получаем размеры из settings
       const settings = request.settings || {}
       const sizeStr = (settings.size as string) || '1024x1024'
       const [width, height] = sizeStr.split('x').map(Number)
@@ -127,7 +214,7 @@ export function useGeneration() {
         const { data } = await apiClient.post<GenerationResponse>(
           endpointMap[request.type],
           {
-            modelSlug: modelData?.slug || request.model, // ← бэкенд ждёт modelSlug
+            modelSlug: modelData?.slug || request.model,
             prompt: request.prompt,
             negativePrompt: settings.negativePrompt as string | undefined,
             width: width || 1024,
@@ -138,7 +225,6 @@ export function useGeneration() {
           },
         )
 
-        // Бэкенд: { success: true, data: { generationId, status, tokensCost } }
         const generationId = data.data?.generationId
         if (!generationId) {
           toast.error('Неверный ответ сервера')
@@ -161,6 +247,9 @@ export function useGeneration() {
         store.setActiveGeneration(generation)
         subscribeToGeneration(generationId)
 
+        // ← Запускаем polling fallback на случай если WS не дойдёт
+        startPolling(generationId)
+
         toast.info('Генерация запущена...')
         return generation
       } catch (err) {
@@ -178,9 +267,10 @@ export function useGeneration() {
         return null
       }
     },
-    [user, store, modelsStore],
+    [user, store, modelsStore, startPolling],
   )
 
+  // ─── checkStatus (ручной) ────────────────────────────────────
   const checkStatus = useCallback(
     async (generationId: string) => {
       try {
@@ -199,6 +289,7 @@ export function useGeneration() {
           status: d.status as Generation['status'],
           progress: d.progress ?? 0,
           resultUrl: d.resultUrls?.[0],
+          resultUrls: d.resultUrls,
           error: d.errorMessage,
         })
       } catch {
