@@ -28,7 +28,7 @@ interface VideoModelCaps {
 }
 
 const MODEL_CAPS: Record<string, VideoModelCaps> = {
-  'sora-2-txt2vid': {
+  'sora-2': {
     aspectRatios: ['landscape', 'portrait'],
     durations: [10, 15],
     qualities: [],
@@ -50,29 +50,7 @@ const MODEL_CAPS: Record<string, VideoModelCaps> = {
     hasMode: false,
     hasQuality: false,
   },
-  'sora-2-pro-txt2vid': {
-    aspectRatios: ['landscape', 'portrait'],
-    durations: [10, 15],
-    qualities: ['standard', 'high'],
-    resolutions: [],
-    supportsImageInput: false,
-    supportsSound: false,
-    supportsRemoveWatermark: true,
-    hasMode: false,
-    hasQuality: true,
-  },
-  'sora-2-pro-img2vid': {
-    aspectRatios: ['landscape', 'portrait'],
-    durations: [10, 15],
-    qualities: ['standard', 'high'],
-    resolutions: [],
-    supportsImageInput: true,
-    supportsSound: false,
-    supportsRemoveWatermark: true,
-    hasMode: false,
-    hasQuality: true,
-  },
-  'kling-3': {
+  'kling-3.0': {
     aspectRatios: ['16:9', '9:16', '1:1'],
     durations: [3, 5, 7, 10, 15],
     qualities: ['std', 'pro'],
@@ -83,7 +61,7 @@ const MODEL_CAPS: Record<string, VideoModelCaps> = {
     hasMode: true,
     hasQuality: false,
   },
-  'runway-gen3': {
+  'runway': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
     durations: [5, 10],
     qualities: ['720p', '1080p'],
@@ -94,7 +72,7 @@ const MODEL_CAPS: Record<string, VideoModelCaps> = {
     hasMode: false,
     hasQuality: false,
   },
-  'hailuo-std-txt2vid': {
+  'hailuo-2.3-standard': {
     aspectRatios: [],
     durations: [6, 10],
     qualities: [],
@@ -105,18 +83,7 @@ const MODEL_CAPS: Record<string, VideoModelCaps> = {
     hasMode: false,
     hasQuality: false,
   },
-  'hailuo-std-img2vid': {
-    aspectRatios: [],
-    durations: [6, 10],
-    qualities: [],
-    resolutions: ['768P', '1080P'],
-    supportsImageInput: true,
-    supportsSound: false,
-    supportsRemoveWatermark: false,
-    hasMode: false,
-    hasQuality: false,
-  },
-  'hailuo-pro-img2vid': {
+  'hailuo-2.3-pro': {
     aspectRatios: [],
     durations: [6, 10],
     qualities: [],

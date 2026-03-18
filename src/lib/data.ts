@@ -45,15 +45,16 @@ export const allModels: ModelItem[] = [
   { id: 'i10', name: 'Nano Banana Pro',    slug: 'nano-banana-pro',   provider: 'Community',    category: 'image', description: 'Продвинутая версия',              cost: 5 },
 
   // Видео — slugs совпадают с бэкендом VIDEO_MODEL_MAP
-  { id: 'v1',  name: 'Sora 2',              slug: 'sora-2-txt2vid',      provider: 'OpenAI',    category: 'video', description: 'Текст → видео, 10-15 сек',       cost: 25 },
+  { id: 'v1',  name: 'Sora 2',              slug: 'sora-2',              provider: 'OpenAI',    category: 'video', description: 'Текст → видео, 10-15 сек',       cost: 25 },
   { id: 'v2',  name: 'Sora 2 Img2Vid',      slug: 'sora-2-img2vid',      provider: 'OpenAI',    category: 'video', description: 'Изображение → видео',            cost: 25 },
-  { id: 'v3',  name: 'Sora 2 Pro',          slug: 'sora-2-pro-txt2vid',  provider: 'OpenAI',    category: 'video', description: 'Текст → видео, высокое качество', cost: 30 },
-  { id: 'v4',  name: 'Sora 2 Pro Img2Vid',  slug: 'sora-2-pro-img2vid',  provider: 'OpenAI',    category: 'video', description: 'Img → видео, высокое качество',  cost: 30 },
-  { id: 'v5',  name: 'Kling 3.0',           slug: 'kling-3',             provider: 'Kuaishou',  category: 'video', description: 'Видео со звуком, 3-15 сек',      cost: 15 },
-  { id: 'v6',  name: 'Runway Gen-3',        slug: 'runway-gen3',         provider: 'Runway',    category: 'video', description: 'Кинематографичное видео',        cost: 20 },
-  { id: 'v7',  name: 'Hailuo 2.3 Std',      slug: 'hailuo-std-txt2vid',  provider: 'MiniMax',   category: 'video', description: 'Текст → видео, бюджетный',       cost: 12 },
-  { id: 'v8',  name: 'Hailuo 2.3 Std Img',  slug: 'hailuo-std-img2vid',  provider: 'MiniMax',   category: 'video', description: 'Img → видео, бюджетный',         cost: 12 },
-  { id: 'v9',  name: 'Hailuo 2.3 Pro',      slug: 'hailuo-pro-img2vid',  provider: 'MiniMax',   category: 'video', description: 'Img → видео, улучшенное',        cost: 18 },
+  { id: 'v3',  name: 'Sora 2 Pro',          slug: 'sora-2-pro',          provider: 'OpenAI',    category: 'video', description: 'Премиум версия (через Evolink)',  cost: 50 },
+  { id: 'v4',  name: 'Kling 3.0',           slug: 'kling-3.0',           provider: 'Kuaishou',  category: 'video', description: 'Видео со звуком, 3-15 сек',      cost: 10 },
+  { id: 'v5',  name: 'Kling 3.0 Img2Vid',   slug: 'kling-3.0-img2vid',   provider: 'Kuaishou',  category: 'video', description: 'Kling для анимации',             cost: 12 },
+  { id: 'v6',  name: 'Runway Gen-3',        slug: 'runway',              provider: 'Runway',    category: 'video', description: 'Кинематографичное видео',        cost: 15 },
+  { id: 'v7',  name: 'Hailuo 2.3 Std',      slug: 'hailuo-2.3-standard', provider: 'MiniMax',   category: 'video', description: 'Текст → видео, бюджетный',       cost: 10 },
+  { id: 'v8',  name: 'Hailuo 2.3 Pro',      slug: 'hailuo-2.3-pro',      provider: 'MiniMax',   category: 'video', description: 'Img → видео, улучшенное',        cost: 15 },
+  { id: 'v9',  name: 'Veo 3.1 Fast',        slug: 'veo-3.1-fast',        provider: 'Google',    category: 'video', description: 'Быстрая версия Veo',             cost: 15 },
+  { id: 'v10', name: 'Veo 3.1 Pro',         slug: 'veo-3.1-pro',         provider: 'Google',    category: 'video', description: 'Премиум версия Veo',             cost: 30 },
 
   // Аудио
   { id: 'a1',  name: 'Suno V4',            slug: 'suno-v4',           provider: 'Suno',       category: 'audio', description: 'Генерация музыки и песен',     cost: 10 },
