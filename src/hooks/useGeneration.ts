@@ -277,7 +277,16 @@ export function useGeneration() {
         if (s.resolution) body.resolution = s.resolution
         if (s.duration) body.duration = s.duration
         if (s.imageUrl) body.imageUrl = s.imageUrl
+        if (s.imageUrls && (s.imageUrls as string[]).length > 0) {
+          body.imageUrls = s.imageUrls
+        }
         if (s.style) body.style = s.style
+        if (s.mode) body.mode = s.mode
+        if (s.quality) body.quality = s.quality
+        if (s.sound !== undefined) body.sound = s.sound
+        if (s.removeWatermark !== undefined) body.removeWatermark = s.removeWatermark
+        if (s.promptOptimizer !== undefined) body.promptOptimizer = s.promptOptimizer
+        if (s.waterMark !== undefined) body.waterMark = s.waterMark
       }
 
       if (request.type === 'audio') {
