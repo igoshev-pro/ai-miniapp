@@ -24,22 +24,36 @@ interface Props {
 
 // Скачивание через fetch → blob (работает для cross-origin URL)
 async function downloadFile(url: string, filename: string) {
+  const tg = (window as any).Telegram?.WebApp
+
+  // Telegram WebApp native download
+  if (tg?.downloadFile) {
+    try {
+      tg.downloadFile({ url, file_name: filename })
+      return
+    } catch { /* fallback */ }
+  }
+
+  // Через наш прокси — обходит CORS + ставит Content-Disposition
+  const API = process.env.NEXT_PUBLIC_API_URL || ''
+  const proxyUrl = `${API}/api/v1/upload/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
+
   try {
-    const response = await fetch(url)
-    if (!response.ok) throw new Error('Download failed')
+    const response = await fetch(proxyUrl)
+    if (!response.ok) throw new Error('fail')
     const blob = await response.blob()
     const blobUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = blobUrl
     a.download = filename
+    a.style.display = 'none'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-    // Освобождаем память через секунду
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
   } catch {
-    // Fallback — открываем в новой вкладке
-    window.open(url, '_blank')
+    // Финальный fallback — браузер скачает благодаря Content-Disposition
+    window.open(proxyUrl, '_blank')
   }
 }
 
@@ -273,7 +287,7 @@ export function MediaResult({ generation, onRetry }: Props) {
             <button
               className="media-result__action-btn"
               onClick={handleDownloadAll}
-              disabled={downloading}
+              disabled={downloading} 
             >
               {downloading
                 ? <Loader2 size={14} className="spin" />
