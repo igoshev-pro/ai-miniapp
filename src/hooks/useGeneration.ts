@@ -38,6 +38,25 @@ interface GenerationResponse {
   }
 }
 
+function mapBackendGeneration(g: any): Generation {
+  return {
+    id: g.id || g._id,
+    type: g.type,
+    model: g.modelSlug,
+    modelSlug: g.modelSlug,
+    prompt: g.prompt || '',
+    status: g.status,
+    progress: g.status === 'completed' ? 100 : g.progress || 0,
+    resultUrl: g.resultUrls?.[0],
+    resultUrls: g.resultUrls,
+    tokensUsed: g.tokensCost,
+    isFavorite: g.isFavorite,
+    error: g.errorMessage,
+    settings: g.params,
+    createdAt: g.createdAt || new Date().toISOString(),
+  }
+}
+
 export function useGeneration() {
   const store = useGenerationStore()
   const { token } = useAuthStore()
@@ -45,8 +64,42 @@ export function useGeneration() {
   const modelsStore = useModelsStore()
   const wsConnected = useRef(false)
   const listenersAttached = useRef(false)
-  // Храним таймеры polling чтобы не дублировать
   const pollingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const historyLoadAttempted = useRef(false)
+
+  // ─── Загрузка истории с бэкенда ───────────────────────────
+  useEffect(() => {
+    if (!token || store.historyLoaded || historyLoadAttempted.current) return
+    historyLoadAttempted.current = true
+
+    const loadHistory = async () => {
+      try {
+        const { data } = await apiClient.get<{
+          success: boolean
+          data: {
+            generations: any[]
+            pagination: any
+          }
+        }>(ENDPOINTS.GENERATION_HISTORY, { params: { limit: 50 } })
+
+        const mapped = data.data.generations.map(mapBackendGeneration)
+        store.mergeHistory(mapped)
+        store.setHistoryLoaded(true)
+
+        // Подписываемся на незавершённые
+        mapped
+          .filter((g) => g.status === 'pending' || g.status === 'processing')
+          .forEach((g) => {
+            subscribeToGeneration(g.id)
+            startPolling(g.id)
+          })
+      } catch (err) {
+        console.error('[Generation] Failed to load history:', err)
+      }
+    }
+
+    loadHistory()
+  }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── WebSocket ───────────────────────────────────────────────
   useEffect(() => {
@@ -72,7 +125,6 @@ export function useGeneration() {
 
     socket.on(WS_EVENTS.COMPLETED, (data: GenerationCompletedEvent) => {
       console.log('[WS] completed:', data)
-      // Останавливаем polling если он был запущен
       const timer = pollingTimers.current.get(data.generationId)
       if (timer) {
         clearTimeout(timer)
@@ -112,16 +164,15 @@ export function useGeneration() {
   }, [token, store])
 
   // ─── Polling fallback ────────────────────────────────────────
-  // Запускается через 15 сек после старта генерации
-  // Продолжает пока статус не completed/failed (макс 5 минут)
   const startPolling = useCallback(
     (generationId: string) => {
+      if (pollingTimers.current.has(generationId)) return
+
       let attempts = 0
-      const maxAttempts = 60 // 60 × 5сек = 5 минут
+      const maxAttempts = 60
 
       const poll = async () => {
         attempts++
-
         try {
           const { data } = await apiClient.get<{
             success: boolean
@@ -134,9 +185,7 @@ export function useGeneration() {
           }>(ENDPOINTS.GENERATION_STATUS(generationId))
 
           const d = data.data
-          console.log(`[Poll] ${generationId} attempt=${attempts} status=${d.status}`)
 
-          // Если WS уже обновил — прекращаем
           const current = useGenerationStore.getState().generations.find(
             (g) => g.id === generationId,
           )
@@ -145,7 +194,6 @@ export function useGeneration() {
             return
           }
 
-          // Обновляем стор
           store.updateGeneration(generationId, {
             status: d.status as Generation['status'],
             progress: d.progress ?? 0,
@@ -159,14 +207,12 @@ export function useGeneration() {
             pollingTimers.current.delete(generationId)
             return
           }
-
           if (d.status === 'failed') {
             toast.error(d.errorMessage || 'Ошибка генерации')
             pollingTimers.current.delete(generationId)
             return
           }
 
-          // Продолжаем polling
           if (attempts < maxAttempts) {
             const timer = setTimeout(poll, 5000)
             pollingTimers.current.set(generationId, timer)
@@ -179,7 +225,6 @@ export function useGeneration() {
         }
       }
 
-      // Первый запрос через 15 секунд (даём время WS)
       const timer = setTimeout(poll, 15000)
       pollingTimers.current.set(generationId, timer)
     },
@@ -206,23 +251,47 @@ export function useGeneration() {
         audio: ENDPOINTS.GENERATION_AUDIO,
       }
 
-      const settings = request.settings || {}
-      const sizeStr = (settings.size as string) || '1024x1024'
-      const [width, height] = sizeStr.split('x').map(Number)
+      const s = request.settings || {}
+
+      const body: Record<string, unknown> = {
+        modelSlug: modelData?.slug || request.model,
+        prompt: request.prompt,
+      }
+
+      if (request.type === 'image') {
+        if (s.aspectRatio) body.aspectRatio = s.aspectRatio
+        if (s.resolution) body.resolution = s.resolution
+        if (s.quality) body.quality = s.quality
+        if (s.outputFormat) body.outputFormat = s.outputFormat
+        if (s.negativePrompt) body.negativePrompt = s.negativePrompt
+        if (s.seed !== undefined) body.seed = s.seed
+        if (s.style) body.style = s.style
+        if (s.inputUrls && (s.inputUrls as string[]).length > 0) {
+          body.inputUrls = s.inputUrls
+        }
+        body.numImages = (s.count as number) || 1
+      }
+
+      if (request.type === 'video') {
+        if (s.aspectRatio) body.aspectRatio = s.aspectRatio
+        if (s.resolution) body.resolution = s.resolution
+        if (s.duration) body.duration = s.duration
+        if (s.imageUrl) body.imageUrl = s.imageUrl
+        if (s.style) body.style = s.style
+      }
+
+      if (request.type === 'audio') {
+        if (s.style) body.style = s.style
+        if (s.duration) body.duration = s.duration
+        if (s.instrumental !== undefined) body.instrumental = s.instrumental
+        if (s.voiceId) body.voiceId = s.voiceId
+        if (s.language) body.language = s.language
+      }
 
       try {
         const { data } = await apiClient.post<GenerationResponse>(
           endpointMap[request.type],
-          {
-            modelSlug: modelData?.slug || request.model,
-            prompt: request.prompt,
-            negativePrompt: settings.negativePrompt as string | undefined,
-            width: width || 1024,
-            height: height || 1024,
-            style: settings.style as string | undefined,
-            seed: settings.seed as number | undefined,
-            numImages: (settings.count as number) || 1,
-          },
+          body,
         )
 
         const generationId = data.data?.generationId
@@ -246,8 +315,6 @@ export function useGeneration() {
         store.addGeneration(generation)
         store.setActiveGeneration(generation)
         subscribeToGeneration(generationId)
-
-        // ← Запускаем polling fallback на случай если WS не дойдёт
         startPolling(generationId)
 
         toast.info('Генерация запущена...')
@@ -270,7 +337,7 @@ export function useGeneration() {
     [user, store, modelsStore, startPolling],
   )
 
-  // ─── checkStatus (ручной) ────────────────────────────────────
+  // ─── checkStatus ─────────────────────────────────────────────
   const checkStatus = useCallback(
     async (generationId: string) => {
       try {
@@ -299,12 +366,34 @@ export function useGeneration() {
     [store],
   )
 
+  // ─── toggleFavorite ──────────────────────────────────────────
+  const toggleFavorite = useCallback(
+    async (generationId: string) => {
+      try {
+        const { data } = await apiClient.put<{
+          success: boolean
+          data: { isFavorite: boolean }
+        }>(ENDPOINTS.GENERATION_FAVORITE(generationId))
+
+        store.updateGeneration(generationId, {
+          isFavorite: data.data.isFavorite,
+        })
+        toast.success(data.data.isFavorite ? 'Добавлено в избранное ⭐' : 'Удалено из избранного')
+      } catch {
+        toast.error('Ошибка')
+      }
+    },
+    [store],
+  )
+
   return {
     generations: store.generations,
     activeGeneration: store.activeGeneration,
+    historyLoaded: store.historyLoaded,
     setActiveGeneration: store.setActiveGeneration,
     generate,
     checkStatus,
+    toggleFavorite,
     getByType: store.getByType,
   }
 }

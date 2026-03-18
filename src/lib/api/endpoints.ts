@@ -20,6 +20,8 @@ export const ENDPOINTS = {
   GENERATION_VIDEO: '/generation/video',
   GENERATION_AUDIO: '/generation/audio',
   GENERATION_STATUS: (id: string) => `/generation/status/${id}`,
+  GENERATION_HISTORY: '/generation/history',
+  GENERATION_FAVORITE: (id: string) => `/generation/${id}/favorite`,
 
   // Billing
   BILLING_PACKAGES: '/billing/packages',
