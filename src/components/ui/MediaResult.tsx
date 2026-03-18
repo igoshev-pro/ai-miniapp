@@ -1,8 +1,7 @@
 // src/components/ui/MediaResult.tsx
-
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   Download,
   RefreshCw,
@@ -16,10 +15,43 @@ import {
 import type { Generation } from '@/stores/generation.store'
 import { useTelegram } from '@/context/TelegramContext'
 import { useFavorites } from '@/hooks'
+import { toast } from '@/stores/toast.store'
 
 interface Props {
   generation: Generation
   onRetry?: () => void
+}
+
+// Скачивание через fetch → blob (работает для cross-origin URL)
+async function downloadFile(url: string, filename: string) {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Download failed')
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    // Освобождаем память через секунду
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+  } catch {
+    // Fallback — открываем в новой вкладке
+    window.open(url, '_blank')
+  }
+}
+
+function getFileExtension(url: string, type: string): string {
+  // Пробуем извлечь из URL
+  const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/)
+  if (match) return match[1].toLowerCase()
+  // Fallback по типу
+  if (type === 'image') return 'png'
+  if (type === 'video') return 'mp4'
+  if (type === 'audio') return 'mp3'
+  return 'bin'
 }
 
 export function MediaResult({ generation, onRetry }: Props) {
@@ -27,10 +59,47 @@ export function MediaResult({ generation, onRetry }: Props) {
   const { toggle: toggleFavorite } = useFavorites()
   const { status, progress, resultUrl, resultUrls, error, type, refunded } = generation
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [downloading, setDownloading] = useState(false)
 
   const urls = resultUrls?.length ? resultUrls : resultUrl ? [resultUrl] : []
   const activeUrl = urls[currentIndex] || ''
   const hasMultiple = urls.length > 1
+
+  const handleDownload = useCallback(async () => {
+    if (!activeUrl || downloading) return
+    haptic('light')
+    setDownloading(true)
+    try {
+      const ext = getFileExtension(activeUrl, type)
+      const timestamp = Date.now()
+      const filename = `spichki_${type}_${timestamp}_${currentIndex + 1}.${ext}`
+      await downloadFile(activeUrl, filename)
+    } catch {
+      toast.error('Не удалось скачать файл')
+    } finally {
+      setDownloading(false)
+    }
+  }, [activeUrl, type, currentIndex, downloading, haptic])
+
+  // Скачать все изображения (для множественных результатов)
+  const handleDownloadAll = useCallback(async () => {
+    if (!hasMultiple || downloading) return
+    haptic('medium')
+    setDownloading(true)
+    try {
+      for (let i = 0; i < urls.length; i++) {
+        const ext = getFileExtension(urls[i], type)
+        const timestamp = Date.now()
+        await downloadFile(urls[i], `spichki_${type}_${timestamp}_${i + 1}.${ext}`)
+        // Небольшая пауза между скачиваниями
+        if (i < urls.length - 1) await new Promise(r => setTimeout(r, 300))
+      }
+    } catch {
+      toast.error('Ошибка при скачивании')
+    } finally {
+      setDownloading(false)
+    }
+  }, [urls, type, hasMultiple, downloading, haptic])
 
   // Pending / Processing
   if (status === 'pending' || status === 'processing') {
@@ -76,10 +145,7 @@ export function MediaResult({ generation, onRetry }: Props) {
         {onRetry && (
           <button
             className="media-result__retry-btn"
-            onClick={() => {
-              haptic('medium')
-              onRetry()
-            }}
+            onClick={() => { haptic('medium'); onRetry() }}
           >
             <RefreshCw size={14} />
             Попробовать снова
@@ -93,6 +159,8 @@ export function MediaResult({ generation, onRetry }: Props) {
   if (status === 'completed' && urls.length > 0) {
     return (
       <div className="media-result media-result--done">
+
+        {/* ── Image ── */}
         {type === 'image' && (
           <div className="media-result__image-container">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -100,13 +168,14 @@ export function MediaResult({ generation, onRetry }: Props) {
               src={activeUrl}
               alt={`Результат ${currentIndex + 1}`}
               className="media-result__image"
+              loading="lazy"
             />
             {hasMultiple && (
               <>
                 <button
                   className="media-result__nav media-result__nav--prev"
                   onClick={() => {
-                    setCurrentIndex((i) => (i > 0 ? i - 1 : urls.length - 1))
+                    setCurrentIndex(i => i > 0 ? i - 1 : urls.length - 1)
                     haptic('light')
                   }}
                 >
@@ -115,7 +184,7 @@ export function MediaResult({ generation, onRetry }: Props) {
                 <button
                   className="media-result__nav media-result__nav--next"
                   onClick={() => {
-                    setCurrentIndex((i) => (i < urls.length - 1 ? i + 1 : 0))
+                    setCurrentIndex(i => i < urls.length - 1 ? i + 1 : 0)
                     haptic('light')
                   }}
                 >
@@ -129,11 +198,16 @@ export function MediaResult({ generation, onRetry }: Props) {
                     />
                   ))}
                 </div>
+                {/* Счётчик */}
+                <div className="media-result__counter">
+                  {currentIndex + 1} / {urls.length}
+                </div>
               </>
             )}
           </div>
         )}
 
+        {/* ── Video ── */}
         {type === 'video' && (
           <video
             src={activeUrl}
@@ -144,7 +218,8 @@ export function MediaResult({ generation, onRetry }: Props) {
           />
         )}
 
-        {type === 'audio' && (
+                {/* ── Audio ── */}
+                {type === 'audio' && (
           <div className="media-result__audio-wrap">
             <audio
               src={activeUrl}
@@ -155,7 +230,10 @@ export function MediaResult({ generation, onRetry }: Props) {
           </div>
         )}
 
+        {/* ── Actions ── */}
         <div className="media-result__actions">
+
+          {/* Избранное */}
           <button
             className="media-result__action-btn"
             onClick={() => {
@@ -171,15 +249,41 @@ export function MediaResult({ generation, onRetry }: Props) {
             <Star size={14} />
             В избранное
           </button>
-          <a
-            href={activeUrl}
-            download
+
+          {/* Скачать текущий */}
+          <button
             className="media-result__action-btn"
-            onClick={() => haptic('light')}
+            onClick={handleDownload}
+            disabled={downloading}
           >
-            <Download size={14} />
-            Скачать{hasMultiple ? ` (${currentIndex + 1}/${urls.length})` : ''}
-          </a>
+            {downloading
+              ? <Loader2 size={14} className="spin" />
+              : <Download size={14} />
+            }
+            {downloading
+              ? 'Скачивание...'
+              : hasMultiple
+                ? `Скачать (${currentIndex + 1}/${urls.length})`
+                : 'Скачать'
+            }
+          </button>
+
+          {/* Скачать все — только для множественных */}
+          {hasMultiple && (
+            <button
+              className="media-result__action-btn"
+              onClick={handleDownloadAll}
+              disabled={downloading}
+            >
+              {downloading
+                ? <Loader2 size={14} className="spin" />
+                : <Download size={14} />
+              }
+              Все ({urls.length})
+            </button>
+          )}
+
+          {/* Поделиться */}
           <button
             className="media-result__action-btn"
             onClick={() => {
@@ -187,13 +291,17 @@ export function MediaResult({ generation, onRetry }: Props) {
               if (navigator.share) {
                 navigator.share({ url: activeUrl }).catch(() => {})
               } else {
-                navigator.clipboard.writeText(activeUrl).catch(() => {})
+                navigator.clipboard
+                  .writeText(activeUrl)
+                  .then(() => toast.info('Ссылка скопирована'))
+                  .catch(() => {})
               }
             }}
           >
             <Share2 size={14} />
             Поделиться
           </button>
+
         </div>
       </div>
     )
@@ -201,3 +309,4 @@ export function MediaResult({ generation, onRetry }: Props) {
 
   return null
 }
+          
