@@ -243,25 +243,36 @@ export function ImageGenerationPage({ onBack }: Props) {
 
     setUploadingImage(true)
     try {
-      // Загружаем через наш API
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/v1/upload/image', {
+      const token = sessionStorage.getItem('jwt')
+      const API = process.env.NEXT_PUBLIC_API_URL || ''
+
+      const response = await fetch(`${API}/upload/image`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          // НЕ ставим Content-Type — браузер сам поставит multipart/form-data с boundary
         },
         body: formData,
       })
 
-      if (!response.ok) throw new Error('Upload failed')
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error((err as any).message || 'Upload failed')
+      }
 
       const data = await response.json()
-      setInputImages(prev => [...prev, data.url])
+      const url = data.data?.url || data.url
+      if (!url) throw new Error('No URL in response')
+
+      setInputImages(prev => [...prev, url])
       haptic('light')
-    } catch {
-      toast.error('Ошибка загрузки изображения')
+      toast.success('Фото загружено')
+    } catch (err: any) {
+      console.error('[Upload]', err)
+      toast.error(err.message || 'Ошибка загрузки изображения')
     } finally {
       setUploadingImage(false)
     }
