@@ -35,6 +35,7 @@ interface FavoriteItem {
   id: string
   favoriteId: string
   type: string
+  subtype?: string // для generation: 'image' | 'video' | 'audio'
   itemId: string
   title: string
   preview?: string
@@ -47,9 +48,12 @@ interface FavoritesResponse {
   success: boolean
   data: {
     favorites: BackendFavorite[]
-    total: number
-    page: number
-    pages: number
+    pagination: {
+      page: number
+      limit: number
+      total: number
+      pages: number
+    }
   }
 }
 
@@ -65,6 +69,7 @@ function mapFavorite(fav: BackendFavorite): FavoriteItem {
     id: fav.itemId,
     favoriteId: fav._id,
     type: fav.type,
+    subtype: fav.metadata?.type || undefined, // для generation: 'image' | 'video' | 'audio'
     itemId: fav.itemId,
     title: fav.title || 'Без названия',
     preview: fav.metadata?.preview || undefined,
@@ -113,7 +118,7 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
       )
 
       const items = (data.data?.favorites || []).map(mapFavorite)
-      const totalPages = data.data?.pages || 1
+      const totalPages = data.data?.pagination?.pages || 1
 
       if (append) {
         setFavorites((prev) => [...prev, ...items])
@@ -176,7 +181,8 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
         // Передаём modelSlug и chatId
         onOpenChat?.(item.model || 'gpt-4o-mini', item.itemId)
       } else if (item.type === 'generation') {
-        onOpenGeneration?.('image')
+        // Используем subtype для навигации на правильную страницу генерации
+        onOpenGeneration?.(item.subtype || 'image')
       } else if (item.type === 'model') {
         // Определяем категорию модели по slug из allModels
         const modelData = allModels.find((m: any) => m.slug === item.itemId)
