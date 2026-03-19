@@ -1,405 +1,385 @@
-// src/components/AudioGenerationPage.tsx
-
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   ChevronDown, Send, Check, X, Music, Mic, Settings, Wand2,
-  Clock, Loader2, Shuffle, Volume2, Languages,
-  Paperclip,
+  Clock, Loader2, Languages, Paperclip, Upload
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useUser } from '@/hooks'
 import { MediaResult } from '@/components/ui/MediaResult'
-import { allModels } from '@/lib/data'
 import { toast } from '@/stores/toast.store'
 
-interface Props {
-  onBack?: () => void
-}
+// Списки поддерживаемых моделей
+const elevenLabsModels = new Set([
+  'elevenlabs/audio-isolation',
+  'elevenlabs/sound-effect-v2',
+  'elevenlabs/speech-to-text',
+  'elevenlabs/text-to-dialogue-v3',
+  'elevenlabs/text-to-speech-multilingual-v2',
+  'elevenlabs/text-to-speech-turbo-2-5',
+])
 
-const audioModels = allModels.filter((m) => m.category === 'audio')
+const sunoModels = new Set([
+  'suno-v3',
+  'suno-v4',
+  'suno-v4_5',
+  'suno-v4_5plus',
+  'suno-v4_5all',
+  'suno-v5',
+])
 
-const modelCapabilities: Record<string, {
-  type: 'music' | 'tts' | 'sfx'
-  maxDuration: number; minDuration: number
-  genres: string[]; moods: string[]; voices: string[]; languages: string[]
-  supportsLyrics: boolean; supportsInstrumental: boolean
-}> = {
-  'suno-v4': {
-    type: 'music', maxDuration: 240, minDuration: 30,
-    genres: ['pop', 'rock', 'hip-hop', 'jazz', 'electronic', 'classical', 'r&b', 'country', 'metal', 'folk', 'indie', 'lo-fi', 'ambient', 'latin', 'k-pop'],
-    moods: ['happy', 'sad', 'energetic', 'calm', 'aggressive', 'romantic', 'epic', 'dark', 'dreamy', 'uplifting'],
-    voices: [], languages: ['ru', 'en', 'es', 'fr', 'de', 'ja', 'ko', 'zh'],
-    supportsLyrics: true, supportsInstrumental: true,
-  },
-  'elevenlabs': {
-    type: 'tts', maxDuration: 300, minDuration: 5,
-    genres: [], moods: [],
-    voices: ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam'],
-    languages: ['ru', 'en', 'es', 'fr', 'de', 'it', 'pt', 'pl', 'hi', 'ja', 'ko', 'zh'],
-    supportsLyrics: false, supportsInstrumental: false,
-  },
-}
+// Возможные голоса ElevenLabs (можно подгрузить из настроек / API)
+const elevenLabsVoices = ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam']
 
-const genreLabels: Record<string, string> = {
-  'pop': 'Pop', 'rock': 'Rock', 'hip-hop': 'Hip-Hop', 'jazz': 'Jazz',
-  'electronic': 'Electronic', 'classical': 'Classical', 'r&b': 'R&B',
-  'country': 'Country', 'metal': 'Metal', 'folk': 'Folk',
-  'indie': 'Indie', 'lo-fi': 'Lo-Fi', 'ambient': 'Ambient',
-  'latin': 'Latin', 'k-pop': 'K-Pop',
-}
+// Поддерживаемые языки
+const languages = ['ru', 'en', 'es', 'fr', 'de', 'it', 'pt', 'pl', 'hi', 'ja', 'ko', 'zh']
 
-const moodLabels: Record<string, string> = {
-  'happy': '😊 Весёлый', 'sad': '😢 Грустный', 'energetic': '⚡ Энергичный',
-  'calm': '🧘 Спокойный', 'aggressive': '🔥 Агрессивный', 'romantic': '💕 Романтичный',
-  'epic': '🎬 Эпичный', 'dark': '🌑 Тёмный', 'dreamy': '☁️ Мечтательный',
-  'uplifting': '🌅 Вдохновляющий',
-}
-
-const langLabels: Record<string, string> = {
-  'ru': '🇷🇺 Русский', 'en': '🇬🇧 English', 'es': '🇪🇸 Español',
-  'fr': '🇫🇷 Français', 'de': '🇩🇪 Deutsch', 'it': '🇮🇹 Italiano',
-  'pt': '🇵🇹 Português', 'pl': '🇵🇱 Polski', 'hi': '🇮🇳 Hindi',
-  'ja': '🇯🇵 日本語', 'ko': '🇰🇷 한국어', 'zh': '🇨🇳 中文',
-}
-
-const musicExamples = [
-  'Энергичный поп-трек о летних приключениях, с запоминающимся припевом',
-  'Лофай бит для учёбы, пианино и мягкие барабаны, дождь за окном',
-  'Эпичная оркестровая тема для фэнтези фильма, хор, валторны',
-  'Грустная инди-баллада о расставании, акустическая гитара',
-  'Ретровейв 80s, синтезаторы, драм-машина, ностальгия',
-]
-
-const ttsExamples = [
-  'Привет! Это тестовая озвучка текста. Надеюсь, вам нравится мой голос.',
-  'Breaking news: scientists have discovered that AI can now generate realistic human speech.',
-  'Добро пожаловать на наш подкаст. Сегодня мы поговорим о будущем технологий.',
-]
-
-export function AudioGenerationPage({ onBack }: Props) {
+export function AudioGenerationPage() {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
 
-  const [input, setInput] = useState('')
-  const [selectedModel, setSelectedModel] = useState(audioModels[0]?.name ?? '')
+  // Выбранная модель
+  const [selectedModel, setSelectedModel] = useState('suno-v4')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const [genre, setGenre] = useState('')
-  const [mood, setMood] = useState('')
-  const [duration, setDuration] = useState(60)
-  const [isInstrumental, setIsInstrumental] = useState(false)
-  const [language, setLanguage] = useState('ru')
-
-  const [voice, setVoice] = useState('Rachel')
-  const [stability, setStability] = useState(50)
-  const [similarity, setSimilarity] = useState(75)
-  const [showAttachMenu, setShowAttachMenu] = useState(false)
-
+  const [prompt, setPrompt] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  const currentModel = audioModels.find((m) => m.name === selectedModel)
-  const modelSlug = currentModel?.slug || 'suno-v4'
-  const modelCost = currentModel?.cost || 5
-  const caps = modelCapabilities[modelSlug] || modelCapabilities['suno-v4']
-  const isMusic = caps.type === 'music'
-  const isTTS = caps.type === 'tts'
+  // Параметры для Suno
+  const [customMode, setCustomMode] = useState(false)
+  const [instrumental, setInstrumental] = useState(false)
+  const [style, setStyle] = useState('') // для Suno и ElevenLabs стилевые параметры
+  const [duration, setDuration] = useState(30)
 
-  // ─── Telegram BackButton ───────────────────────────
-  useEffect(() => {
-    if (webApp?.BackButton) {
-      webApp.BackButton.show()
-      const handler = () => { if (onBack) onBack() }
-      webApp.BackButton.onClick(handler)
-      return () => {
-        webApp.BackButton.offClick(handler)
-        webApp.BackButton.hide()
-      }
-    }
-  }, [webApp, onBack])
+  // Параметры для ElevenLabs
+  const [voiceId, setVoiceId] = useState('Rachel')
+  const [language, setLanguage] = useState('ru')
+  const [stability, setStability] = useState(50)
+  const [similarity, setSimilarity] = useState(75)
 
-  useEffect(() => {
-    setGenre(''); setMood(''); setDuration(isMusic ? 60 : 30)
-    setIsInstrumental(false); setLanguage('ru')
-    setVoice(caps.voices[0] || 'Rachel'); setStability(50); setSimilarity(75)
-  }, [modelSlug]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Для загрузки аудио (файлы)
+  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const audioGenerations = generations.filter((g: any) => g.type === 'audio')
-  const durationMultiplier = isTTS ? Math.ceil(duration / 30) : 1
-  const totalCost = modelCost * durationMultiplier
+  // Проверяем тип модели
+  const isElevenLabs = elevenLabsModels.has(selectedModel)
+  const isSuno = sunoModels.has(selectedModel)
+
+  // Максимальные и минимальные длительности можно запрограммировать отдельно
+  const minDuration = 5
+  const maxDuration = 300
 
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 160) + 'px'
-    }
-  }, [input])
+    // Reset параметры при смене модели
+    setPrompt('')
+    setAudioFile(null)
+    setDuration(30)
+    setCustomMode(false)
+    setInstrumental(false)
+    setStyle('')
+    setLanguage('ru')
+    setVoiceId(elevenLabsVoices[0] || 'Rachel')
+    setStability(50)
+    setSimilarity(75)
+  }, [selectedModel])
 
+  // Генерация аудио, с передачей параметров для выбранных моделей
   const handleGenerate = useCallback(async () => {
-    const prompt = input.trim()
-    if (!prompt) return
-    if (balance < totalCost) {
-      toast.warning(`Недостаточно спичек. Нужно ${totalCost}, у вас ${balance}`)
-      hapticNotification('error'); return
+    if (!prompt.trim() && !audioFile) {
+      toast.warning('Введите текст или загрузите аудио файл (для распознавания или шума)')
+      return
     }
-    haptic('medium'); setIsGenerating(true)
-    const settings: Record<string, unknown> = { language }
-    if (isMusic) {
+
+    if (balance < 5) { // Можно считать стоимость динамически
+      toast.warning('Недостаточно спичек для генерации')
+      hapticNotification('error')
+      return
+    }
+
+    setIsGenerating(true)
+    haptic('medium')
+
+    // Формируем настройки для запроса по модели и ее возможностям
+    const settings: Record<string, any> = {}
+
+    if (isSuno) {
+      settings.customMode = customMode
+      settings.instrumental = instrumental
+      if (style.trim()) settings.style = style.trim()
       settings.duration = duration
-      if (genre) settings.genre = genre
-      if (mood) settings.mood = mood
-      settings.instrumental = isInstrumental
     }
-    if (isTTS) {
-      settings.voice = voice
+
+    if (isElevenLabs) {
+      settings.voiceId = voiceId
+      settings.language = language
       settings.stability = stability / 100
       settings.similarity = similarity / 100
+      if (style.trim()) settings.style = style.trim()
     }
-    const result = await generate({ type: 'audio', model: modelSlug, prompt, settings })
+
+    // Для моделей, которые требуют загрузку аудиофайла (speech-to-text, audio-isolation)
+    if (audioFile && (selectedModel === 'elevenlabs/audio-isolation' || selectedModel === 'elevenlabs/speech-to-text')) {
+      try {
+        // Загружаем аудио файл на сервер (предполагается эндпоинт /upload/audio)
+        const formData = new FormData()
+        formData.append('file', audioFile)
+
+        const resp = await fetch('/api/upload/audio', { // уточнить реальный URL загрузки в вашем бэкенде
+          method: 'POST',
+          body: formData
+        })
+        if (!resp.ok) throw new Error('Ошибка загрузки аудио файла')
+        const data = await resp.json()
+        // В settings передаем ссылку или id файла для генерации
+        settings.audioUrl = data.url // или data.fileId и аналогично в бэкенде использовать
+      } catch (error: any) {
+        toast.error(error.message || 'Ошибка загрузки аудио')
+        setIsGenerating(false)
+        return
+      }
+    }
+
+    const gen = await generate({
+      type: 'audio',
+      model: selectedModel,
+      prompt: prompt.trim(),
+      settings,
+    })
+
     setIsGenerating(false)
-    if (result) {
-      setInput(''); hapticNotification('success')
-      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
+
+    if (gen) {
+      setPrompt('')
+      setAudioFile(null)
+      hapticNotification('success')
+
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 200)
     }
-  }, [input, balance, totalCost, modelSlug, genre, mood, duration, isInstrumental, language, voice, stability, similarity, isMusic, isTTS, haptic, hapticNotification, generate])
+  }, [
+    prompt, audioFile, balance, customMode, instrumental, style,
+    duration, voiceId, language, stability, similarity, generate,
+    selectedModel, haptic, hapticNotification, isElevenLabs, isSuno,
+  ])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate() }
+  // Обработка выбора файла для загрузки аудио
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Только аудиофайлы')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Максимальный размер файла 10МБ')
+      return
+    }
+    setAudioFile(file)
   }
 
-  const insertExample = () => {
-    const examples = isMusic ? musicExamples : ttsExamples
-    setInput(examples[Math.floor(Math.random() * examples.length)]); haptic('light')
-  }
+  // Отображение кнопок дополнительных функций для Suno моделей
+  const renderSunoSettings = () => (
+    <>
+      <label>
+        <input
+          type="checkbox"
+          checked={customMode}
+          onChange={e => setCustomMode(e.target.checked)}
+          disabled={isGenerating}
+        />
+        Custom Mode
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={instrumental}
+          onChange={e => setInstrumental(e.target.checked)}
+          disabled={isGenerating}
+        />
+        Инструментал (без вокала)
+      </label>
+      <label>
+        Стиль:
+        <input
+          type="text"
+          value={style}
+          onChange={e => setStyle(e.target.value)}
+          placeholder="Введите стиль"
+          disabled={isGenerating}
+        />
+      </label>
+      <label>
+        Длительность (сек):
+        <input
+          type="number"
+          min={minDuration}
+          max={maxDuration}
+          value={duration}
+          onChange={e => setDuration(Math.min(maxDuration, Math.max(minDuration, Number(e.target.value))))}
+          disabled={isGenerating}
+        />
+      </label>
+    </>
+  )
+
+  // Отображение настроек ElevenLabs
+  const renderElevenLabsSettings = () => (
+    <>
+      <label>
+        Голос:
+        <select
+          value={voiceId}
+          onChange={e => setVoiceId(e.target.value)}
+          disabled={isGenerating}
+        >
+          {elevenLabsVoices.map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+      </label>
+      <label>
+        Язык:
+        <select
+          value={language}
+          onChange={e => setLanguage(e.target.value)}
+          disabled={isGenerating}
+        >
+          {languages.map(l => <option key={l} value={l}>{l}</option>)}
+        </select>
+      </label>
+      <label>
+        Стабильность: {stability}%
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={stability}
+          onChange={e => setStability(Number(e.target.value))}
+          disabled={isGenerating}
+        />
+      </label>
+      <label>
+        Схожесть с оригиналом: {similarity}%
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={similarity}
+          onChange={e => setSimilarity(Number(e.target.value))}
+          disabled={isGenerating}
+        />
+      </label>
+      <label>
+        Стиль (опционально):
+        <input
+          type="text"
+          value={style}
+          onChange={e => setStyle(e.target.value)}
+          disabled={isGenerating}
+        />
+      </label>
+    </>
+  )
 
   return (
     <div className="gen-page">
-      <div className="gen-page__header fade-in fade-in--1">
-        <div className="gen-page__model-select-container">
-          <button className="gen-page__model-select"
-            onClick={() => { setShowModelPicker(!showModelPicker); haptic('light') }}>
-            {isMusic ? <Music size={16} /> : <Mic size={16} />}
-            <span>{selectedModel}</span>
-            <span className="gen-page__model-cost">{totalCost} 🔥</span>
-            <ChevronDown size={14} className={showModelPicker ? 'rotate-180' : ''} />
-          </button>
-          <button className="gen-page__settings-button"
-            onClick={() => { setShowSettings(true); haptic('light') }}>
-            <Settings size={18} />
-          </button>
-        </div>
-
-        <div className="gen-page__quick-info">
-          {isMusic && genre && <span>{genreLabels[genre] || genre}</span>}
-          {isMusic && mood && <><span>·</span><span>{moodLabels[mood]?.split(' ')[0]}</span></>}
-          {isMusic && <><span>·</span><span>{duration}с</span></>}
-          {isMusic && isInstrumental && <><span>·</span><span>🎵 Без вокала</span></>}
-          {isTTS && <><span>🗣 {voice}</span><span>·</span><span>{langLabels[language]?.split(' ')[0]}</span></>}
-        </div>
-
+      <div className="gen-page__header">
+        <button onClick={() => setShowModelPicker(!showModelPicker)}>
+          <Music size={16} /> <span>{selectedModel}</span> <ChevronDown size={14} />
+        </button>
+        <button onClick={() => setShowSettings(true)}>
+          <Settings size={18} />
+        </button>
         {showModelPicker && (
-          <div className="gen-page__model-list fade-in">
-            {audioModels.map((m) => {
-              const mCaps = modelCapabilities[m.slug]
-              return (
-                <button key={m.id}
-                  className={`gen-page__model-list-item ${selectedModel === m.name ? 'selected' : ''}`}
-                  onClick={() => { setSelectedModel(m.name); setShowModelPicker(false); haptic('light') }}>
-                  <div className="gen-page__model-list-info">
-                    <span className="gen-page__model-name">{m.name}</span>
-                    <span className="gen-page__model-provider">
-                      {m.provider} · {mCaps?.type === 'music' ? 'Музыка и песни' : 'Озвучка текста'}
-                    </span>
-                  </div>
-                  <div className="gen-page__model-right">
-                    <span className="gen-page__model-cost-sm">{m.cost} 🔥</span>
-                    {selectedModel === m.name && <Check size={14} />}
-                  </div>
-                </button>
-              )
-            })}
+          <div className="gen-page__model-list">
+            {[...elevenLabsModels, ...sunoModels].map(model => (
+              <button
+                key={model}
+                className={model === selectedModel ? 'selected' : ''}
+                onClick={() => {
+                  setSelectedModel(model)
+                  setShowModelPicker(false)
+                  haptic('light')
+                }}>
+                {model}
+                {model === selectedModel && <Check size={14} />}
+              </button>
+            ))}
           </div>
         )}
-      </div>
-
-      <div className="gen-page__results">
-        {audioGenerations.length === 0 && (
-          <div className="gen-page__empty fade-in fade-in--2">
-            <div className="gen-page__empty-icon">
-              {isMusic ? <Music size={36} strokeWidth={1.5} /> : <Mic size={36} strokeWidth={1.5} />}
-            </div>
-            <div className="gen-page__empty-title">{isMusic ? 'Генерация музыки' : 'Озвучка текста'}</div>
-            <div className="gen-page__empty-text">
-              {isMusic
-                ? 'Опишите песню: жанр, настроение, инструменты. Можете написать текст песни.'
-                : 'Введите текст для озвучки. Выберите голос и язык в настройках.'}
-            </div>
-            <button className="gen-page__example-btn" onClick={insertExample}>
-              <Wand2 size={14} /> Пример
-            </button>
-          </div>
-        )}
-        {audioGenerations.map((gen: any) => (
-          <div key={gen.id} className="gen-page__result-item fade-in">
-            <div className="gen-page__result-prompt">
-              <span className="gen-page__result-model">{gen.model}</span>
-              {gen.prompt.length > 150 ? gen.prompt.slice(0, 150) + '...' : gen.prompt}
-            </div>
-            <MediaResult generation={gen}
-              onRetry={() => { generate({ type: 'audio', model: gen.modelSlug, prompt: gen.prompt, settings: gen.settings }) }} />
-          </div>
-        ))}
-        <div ref={resultsRef} />
       </div>
 
       <div className="gen-page__input-area">
-        <div className="chat-input__row">
-          <button
-            className={`chat-input__attach ${showAttachMenu ? 'chat-input__attach--active' : ''}`}
-            onClick={() => { setShowAttachMenu(!showAttachMenu); haptic('light') }}
-          >
-            <Paperclip size={18} />
-          </button>
-          <div className="chat-input__field-wrap">
-            <textarea ref={inputRef} className="chat-input__field"
-              placeholder={isMusic ? 'Опишите песню или напишите текст...' : 'Введите текст для озвучки...'}
-              value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown} rows={1} disabled={isGenerating} />
-          </div>
-          <button className="chat-input__send" onClick={handleGenerate}
-            disabled={!input.trim() || isGenerating}>
-            {isGenerating ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
-          </button>
-        </div>
+        {(selectedModel === 'elevenlabs/audio-isolation' ||
+          selectedModel === 'elevenlabs/speech-to-text') && (
+            <>
+              <button onClick={() => fileInputRef.current?.click()} disabled={isGenerating}>
+                <Paperclip size={18} />
+                {audioFile ? `Файл: ${audioFile.name}` : 'Загрузить аудио'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={handleFileChange}
+                disabled={isGenerating}
+              />
+            </>
+          )}
+        <textarea
+          ref={inputRef}
+          placeholder={
+            selectedModel === 'elevenlabs/speech-to-text'
+              ? 'Текст не нужен. Загрузите аудио.'
+              : 'Введите текст для синтеза...'
+          }
+          disabled={
+            isGenerating ||
+            (!!audioFile && (selectedModel === 'elevenlabs/speech-to-text' || selectedModel === 'elevenlabs/audio-isolation'))
+          }
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={4}
+        />
+        <button onClick={handleGenerate} disabled={isGenerating || (!prompt.trim() && !audioFile)}>
+          {isGenerating ? <Loader2 className="spin" /> : <Send />}
+        </button>
       </div>
 
       {showSettings && (
-        <div className="gen-settings-modal" onClick={() => setShowSettings(false)}>
-          <div className="gen-settings-modal__content" onClick={(e) => e.stopPropagation()}>
-            <div className="gen-settings-modal__header">
-              <h2 className="gen-settings-modal__title">
-                {isMusic ? <Music size={16} /> : <Mic size={16} />}
-                Настройки · {selectedModel}
-              </h2>
-              <button className="gen-settings-modal__close" onClick={() => setShowSettings(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="gen-settings-modal__body">
-              {isMusic && (
-                <>
-                  <div className="gen-field">
-                    <label className="gen-field__label"><Music size={13} /> Жанр</label>
-                    <div className="gen-field__chips gen-field__chips--wrap">
-                      <button className={`gen-chip ${!genre ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setGenre(''); haptic('light') }}>Авто</button>
-                      {caps.genres.map((g) => (
-                        <button key={g} className={`gen-chip ${genre === g ? 'gen-chip--active' : ''}`}
-                          onClick={() => { setGenre(g); haptic('light') }}>{genreLabels[g] || g}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="gen-field">
-                    <label className="gen-field__label">Настроение</label>
-                    <div className="gen-field__chips gen-field__chips--wrap">
-                      <button className={`gen-chip ${!mood ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setMood(''); haptic('light') }}>Авто</button>
-                      {caps.moods.map((m) => (
-                        <button key={m} className={`gen-chip ${mood === m ? 'gen-chip--active' : ''}`}
-                          onClick={() => { setMood(m); haptic('light') }}>{moodLabels[m] || m}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="gen-field">
-                    <label className="gen-field__label"><Clock size={13} /> Длительность: {duration} сек</label>
-                    <input type="range" className="gen-range" min={caps.minDuration} max={caps.maxDuration}
-                      step={30} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
-                    <div className="gen-field__range-labels">
-                      <span>{caps.minDuration}с</span><span>{caps.maxDuration}с (4 мин)</span>
-                    </div>
-                  </div>
-
-                  {caps.supportsInstrumental && (
-                    <div className="gen-field">
-                      <label className="gen-field__label">Тип</label>
-                      <div className="gen-field__chips">
-                        <button className={`gen-chip ${!isInstrumental ? 'gen-chip--active' : ''}`}
-                          onClick={() => { setIsInstrumental(false); haptic('light') }}>🎤 С вокалом</button>
-                        <button className={`gen-chip ${isInstrumental ? 'gen-chip--active' : ''}`}
-                          onClick={() => { setIsInstrumental(true); haptic('light') }}>🎵 Инструментал</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {!isInstrumental && caps.supportsLyrics && (
-                    <div className="gen-field">
-                      <label className="gen-field__label"><Languages size={13} /> Язык вокала</label>
-                      <div className="gen-field__chips gen-field__chips--wrap">
-                        {caps.languages.map((l) => (
-                          <button key={l} className={`gen-chip ${language === l ? 'gen-chip--active' : ''}`}
-                            onClick={() => { setLanguage(l); haptic('light') }}>{langLabels[l] || l}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {isTTS && (
-                <>
-                  <div className="gen-field">
-                    <label className="gen-field__label"><Volume2 size={13} /> Голос</label>
-                    <div className="gen-field__chips gen-field__chips--wrap">
-                      {caps.voices.map((v) => (
-                        <button key={v} className={`gen-chip ${voice === v ? 'gen-chip--active' : ''}`}
-                          onClick={() => { setVoice(v); haptic('light') }}>{v}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="gen-field">
-                    <label className="gen-field__label"><Languages size={13} /> Язык</label>
-                    <div className="gen-field__chips gen-field__chips--wrap">
-                      {caps.languages.map((l) => (
-                        <button key={l} className={`gen-chip ${language === l ? 'gen-chip--active' : ''}`}
-                          onClick={() => { setLanguage(l); haptic('light') }}>{langLabels[l] || l}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="gen-field">
-                    <label className="gen-field__label">
-                      Стабильность: {stability}%
-                      <span className="gen-field__hint">Выше = стабильнее, ниже = экспрессивнее</span>
-                    </label>
-                    <input type="range" className="gen-range" min={0} max={100} step={5}
-                      value={stability} onChange={(e) => setStability(Number(e.target.value))} />
-                    <div className="gen-field__range-labels"><span>Экспрессия</span><span>Стабильность</span></div>
-                  </div>
-
-                  <div className="gen-field">
-                    <label className="gen-field__label">
-                      Схожесть с оригиналом: {similarity}%
-                      <span className="gen-field__hint">Точность воспроизведения голоса</span>
-                    </label>
-                    <input type="range" className="gen-range" min={0} max={100} step={5}
-                      value={similarity} onChange={(e) => setSimilarity(Number(e.target.value))} />
-                    <div className="gen-field__range-labels"><span>Разнообразие</span><span>Точность</span></div>
-                  </div>
-                </>
-              )}
-            </div>
+        <div className="modal" onClick={() => setShowSettings(false)}>
+          <div onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowSettings(false)}><X /></button>
+            {isSuno && renderSunoSettings()}
+            {isElevenLabs && renderElevenLabsSettings()}
           </div>
         </div>
       )}
+
+      <div className="gen-page__results" ref={resultsRef}>
+        {generations
+          .filter(g => g.type === 'audio')
+          .map(generation => (
+            <div key={generation.id} className="generation-result">
+              <div>{generation.model}</div>
+              <MediaResult generation={generation} onRetry={() => {
+                generate({
+                  type: 'audio',
+                  model: generation.modelSlug,
+                  prompt: generation.prompt,
+                  settings: generation.settings,
+                })
+              }} />
+            </div>
+          ))}
+      </div>
     </div>
   )
 }
