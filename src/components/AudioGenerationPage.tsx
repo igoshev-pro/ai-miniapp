@@ -2,15 +2,14 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  ChevronDown, Send, Check, X, Music, Mic, Settings, Wand2,
-  Clock, Loader2, Languages, Paperclip, Upload
+  ChevronDown, Send, Check, X, Music, Settings, Paperclip, Loader2,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useUser } from '@/hooks'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
-// Списки поддерживаемых моделей
+// Поддерживаемые модели
 const elevenLabsModels = new Set([
   'elevenlabs/audio-isolation',
   'elevenlabs/sound-effect-v2',
@@ -29,18 +28,14 @@ const sunoModels = new Set([
   'suno-v5',
 ])
 
-// Возможные голоса ElevenLabs (можно подгрузить из настроек / API)
 const elevenLabsVoices = ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam']
-
-// Поддерживаемые языки
 const languages = ['ru', 'en', 'es', 'fr', 'de', 'it', 'pt', 'pl', 'hi', 'ja', 'ko', 'zh']
 
 export function AudioGenerationPage() {
-  const { haptic, hapticNotification, webApp } = useTelegram()
+  const { haptic, hapticNotification } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
 
-  // Выбранная модель
   const [selectedModel, setSelectedModel] = useState('suno-v4')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -48,34 +43,30 @@ export function AudioGenerationPage() {
 
   const [prompt, setPrompt] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Параметры для Suno
+  // Suno-specific settings
   const [customMode, setCustomMode] = useState(false)
   const [instrumental, setInstrumental] = useState(false)
-  const [style, setStyle] = useState('') // для Suno и ElevenLabs стилевые параметры
+  const [style, setStyle] = useState('')
   const [duration, setDuration] = useState(30)
 
-  // Параметры для ElevenLabs
+  // ElevenLabs-specific settings
   const [voiceId, setVoiceId] = useState('Rachel')
   const [language, setLanguage] = useState('ru')
   const [stability, setStability] = useState(50)
   const [similarity, setSimilarity] = useState(75)
 
-  // Для загрузки аудио (файлы)
+  // Uploadable audio file for speech-to-text or audio-isolation
   const [audioFile, setAudioFile] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Проверяем тип модели
+  // Check model type
   const isElevenLabs = elevenLabsModels.has(selectedModel)
   const isSuno = sunoModels.has(selectedModel)
 
-  // Максимальные и минимальные длительности можно запрограммировать отдельно
-  const minDuration = 5
-  const maxDuration = 300
-
+  // Reset params on model change
   useEffect(() => {
-    // Reset параметры при смене модели
     setPrompt('')
     setAudioFile(null)
     setDuration(30)
@@ -88,23 +79,33 @@ export function AudioGenerationPage() {
     setSimilarity(75)
   }, [selectedModel])
 
-  // Генерация аудио, с передачей параметров для выбранных моделей
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Только аудиофайлы')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Максимальный размер файла 10МБ')
+      return
+    }
+    setAudioFile(file)
+  }
+
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() && !audioFile) {
       toast.warning('Введите текст или загрузите аудио файл (для распознавания или шума)')
       return
     }
-
-    if (balance < 5) { // Можно считать стоимость динамически
+    if (balance < 5) {
       toast.warning('Недостаточно спичек для генерации')
       hapticNotification('error')
       return
     }
-
     setIsGenerating(true)
     haptic('medium')
 
-    // Формируем настройки для запроса по модели и ее возможностям
     const settings: Record<string, any> = {}
 
     if (isSuno) {
@@ -113,7 +114,6 @@ export function AudioGenerationPage() {
       if (style.trim()) settings.style = style.trim()
       settings.duration = duration
     }
-
     if (isElevenLabs) {
       settings.voiceId = voiceId
       settings.language = language
@@ -122,21 +122,15 @@ export function AudioGenerationPage() {
       if (style.trim()) settings.style = style.trim()
     }
 
-    // Для моделей, которые требуют загрузку аудиофайла (speech-to-text, audio-isolation)
+    // Upload audio file if needed
     if (audioFile && (selectedModel === 'elevenlabs/audio-isolation' || selectedModel === 'elevenlabs/speech-to-text')) {
       try {
-        // Загружаем аудио файл на сервер (предполагается эндпоинт /upload/audio)
         const formData = new FormData()
         formData.append('file', audioFile)
-
-        const resp = await fetch('/api/upload/audio', { // уточнить реальный URL загрузки в вашем бэкенде
-          method: 'POST',
-          body: formData
-        })
+        const resp = await fetch('/api/upload/audio', { method: 'POST', body: formData })
         if (!resp.ok) throw new Error('Ошибка загрузки аудио файла')
         const data = await resp.json()
-        // В settings передаем ссылку или id файла для генерации
-        settings.audioUrl = data.url // или data.fileId и аналогично в бэкенде использовать
+        settings.audioUrl = data.url
       } catch (error: any) {
         toast.error(error.message || 'Ошибка загрузки аудио')
         setIsGenerating(false)
@@ -157,10 +151,7 @@ export function AudioGenerationPage() {
       setPrompt('')
       setAudioFile(null)
       hapticNotification('success')
-
-      setTimeout(() => {
-        resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }, 200)
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
   }, [
     prompt, audioFile, balance, customMode, instrumental, style,
@@ -168,121 +159,52 @@ export function AudioGenerationPage() {
     selectedModel, haptic, hapticNotification, isElevenLabs, isSuno,
   ])
 
-  // Обработка выбора файла для загрузки аудио
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files && e.target.files[0]
-    if (!file) return
-    if (!file.type.startsWith('audio/')) {
-      toast.error('Только аудиофайлы')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Максимальный размер файла 10МБ')
-      return
-    }
-    setAudioFile(file)
-  }
-
-  // Отображение кнопок дополнительных функций для Suno моделей
   const renderSunoSettings = () => (
     <>
-      <label>
-        <input
-          type="checkbox"
-          checked={customMode}
-          onChange={e => setCustomMode(e.target.checked)}
-          disabled={isGenerating}
-        />
+      <label className="gen-field__label">
+        <input type="checkbox" checked={customMode} onChange={e => setCustomMode(e.target.checked)} disabled={isGenerating} />
         Custom Mode
       </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={instrumental}
-          onChange={e => setInstrumental(e.target.checked)}
-          disabled={isGenerating}
-        />
+      <label className="gen-field__label">
+        <input type="checkbox" checked={instrumental} onChange={e => setInstrumental(e.target.checked)} disabled={isGenerating} />
         Инструментал (без вокала)
       </label>
-      <label>
+      <label className="gen-field__label">
         Стиль:
-        <input
-          type="text"
-          value={style}
-          onChange={e => setStyle(e.target.value)}
-          placeholder="Введите стиль"
-          disabled={isGenerating}
-        />
+        <input type="text" value={style} onChange={e => setStyle(e.target.value)} placeholder="Введите стиль" disabled={isGenerating} />
       </label>
-      <label>
+      <label className="gen-field__label">
         Длительность (сек):
-        <input
-          type="number"
-          min={minDuration}
-          max={maxDuration}
-          value={duration}
-          onChange={e => setDuration(Math.min(maxDuration, Math.max(minDuration, Number(e.target.value))))}
-          disabled={isGenerating}
-        />
+        <input type="number" min={5} max={300} value={duration} onChange={e => setDuration(Math.min(300, Math.max(5, Number(e.target.value))))} disabled={isGenerating} />
       </label>
     </>
   )
 
-  // Отображение настроек ElevenLabs
   const renderElevenLabsSettings = () => (
     <>
-      <label>
+      <label className="gen-field__label">
         Голос:
-        <select
-          value={voiceId}
-          onChange={e => setVoiceId(e.target.value)}
-          disabled={isGenerating}
-        >
+        <select value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={isGenerating}>
           {elevenLabsVoices.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
       </label>
-      <label>
+      <label className="gen-field__label">
         Язык:
-        <select
-          value={language}
-          onChange={e => setLanguage(e.target.value)}
-          disabled={isGenerating}
-        >
+        <select value={language} onChange={e => setLanguage(e.target.value)} disabled={isGenerating}>
           {languages.map(l => <option key={l} value={l}>{l}</option>)}
         </select>
       </label>
-      <label>
+      <label className="gen-field__label">
         Стабильность: {stability}%
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={stability}
-          onChange={e => setStability(Number(e.target.value))}
-          disabled={isGenerating}
-        />
+        <input type="range" min={0} max={100} step={5} value={stability} onChange={e => setStability(Number(e.target.value))} disabled={isGenerating} />
       </label>
-      <label>
+      <label className="gen-field__label">
         Схожесть с оригиналом: {similarity}%
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={similarity}
-          onChange={e => setSimilarity(Number(e.target.value))}
-          disabled={isGenerating}
-        />
+        <input type="range" min={0} max={100} step={5} value={similarity} onChange={e => setSimilarity(Number(e.target.value))} disabled={isGenerating} />
       </label>
-      <label>
+      <label className="gen-field__label">
         Стиль (опционально):
-        <input
-          type="text"
-          value={style}
-          onChange={e => setStyle(e.target.value)}
-          disabled={isGenerating}
-        />
+        <input type="text" value={style} onChange={e => setStyle(e.target.value)} disabled={isGenerating} />
       </label>
     </>
   )
@@ -290,10 +212,12 @@ export function AudioGenerationPage() {
   return (
     <div className="gen-page">
       <div className="gen-page__header">
-        <button onClick={() => setShowModelPicker(!showModelPicker)}>
-          <Music size={16} /> <span>{selectedModel}</span> <ChevronDown size={14} />
+        <button className="gen-page__model-select" onClick={() => setShowModelPicker(!showModelPicker)}>
+          <Music size={16} />
+          <span>{selectedModel}</span>
+          <ChevronDown size={14} className={showModelPicker ? 'rotate-180' : ''} />
         </button>
-        <button onClick={() => setShowSettings(true)}>
+        <button className="gen-page__settings-button" onClick={() => setShowSettings(true)}>
           <Settings size={18} />
         </button>
         {showModelPicker && (
@@ -301,14 +225,11 @@ export function AudioGenerationPage() {
             {[...elevenLabsModels, ...sunoModels].map(model => (
               <button
                 key={model}
-                className={model === selectedModel ? 'selected' : ''}
-                onClick={() => {
-                  setSelectedModel(model)
-                  setShowModelPicker(false)
-                  haptic('light')
-                }}>
+                className={`gen-page__model-list-item ${selectedModel === model ? 'selected' : ''}`}
+                onClick={() => { setSelectedModel(model); setShowModelPicker(false); haptic('light') }}
+              >
                 {model}
-                {model === selectedModel && <Check size={14} />}
+                {selectedModel === model && <Check size={14} />}
               </button>
             ))}
           </div>
@@ -316,39 +237,33 @@ export function AudioGenerationPage() {
       </div>
 
       <div className="gen-page__input-area">
-        {(selectedModel === 'elevenlabs/audio-isolation' ||
-          selectedModel === 'elevenlabs/speech-to-text') && (
-            <>
-              <button onClick={() => fileInputRef.current?.click()} disabled={isGenerating}>
-                <Paperclip size={18} />
-                {audioFile ? `Файл: ${audioFile.name}` : 'Загрузить аудио'}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*"
-                className="hidden"
-                onChange={handleFileChange}
-                disabled={isGenerating}
-              />
-            </>
-          )}
+        {(selectedModel === 'elevenlabs/audio-isolation' || selectedModel === 'elevenlabs/speech-to-text') && (
+          <>
+            <button className={`chat-input__attach ${audioFile ? 'chat-input__attach--active' : ''}`}
+              onClick={() => fileInputRef.current?.click()} disabled={isGenerating}>
+              <Paperclip size={18} />
+              {audioFile ? `Файл: ${audioFile.name}` : 'Загрузить аудио'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              onChange={handleFileChange}
+              disabled={isGenerating}
+            />
+          </>
+        )}
         <textarea
           ref={inputRef}
-          placeholder={
-            selectedModel === 'elevenlabs/speech-to-text'
-              ? 'Текст не нужен. Загрузите аудио.'
-              : 'Введите текст для синтеза...'
-          }
-          disabled={
-            isGenerating ||
-            (!!audioFile && (selectedModel === 'elevenlabs/speech-to-text' || selectedModel === 'elevenlabs/audio-isolation'))
-          }
+          className="chat-input__field"
+          placeholder={selectedModel === 'elevenlabs/speech-to-text' ? 'Текст не нужен. Загрузите аудио.' : 'Введите текст для синтеза...'}
+          disabled={isGenerating || (!!audioFile && (selectedModel === 'elevenlabs/speech-to-text' || selectedModel === 'elevenlabs/audio-isolation'))}
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onChange={e => setPrompt(e.target.value)}
           rows={4}
         />
-        <button onClick={handleGenerate} disabled={isGenerating || (!prompt.trim() && !audioFile)}>
+        <button className="chat-input__send" onClick={handleGenerate} disabled={isGenerating || (!prompt.trim() && !audioFile)}>
           {isGenerating ? <Loader2 className="spin" /> : <Send />}
         </button>
       </div>
@@ -356,7 +271,7 @@ export function AudioGenerationPage() {
       {showSettings && (
         <div className="modal" onClick={() => setShowSettings(false)}>
           <div onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowSettings(false)}><X /></button>
+            <button onClick={() => setShowSettings(false)} className="gen-settings-modal__close"><X /></button>
             {isSuno && renderSunoSettings()}
             {isElevenLabs && renderElevenLabsSettings()}
           </div>
@@ -364,21 +279,22 @@ export function AudioGenerationPage() {
       )}
 
       <div className="gen-page__results" ref={resultsRef}>
-        {generations
-          .filter(g => g.type === 'audio')
-          .map(generation => (
-            <div key={generation.id} className="generation-result">
-              <div>{generation.model}</div>
-              <MediaResult generation={generation} onRetry={() => {
-                generate({
-                  type: 'audio',
-                  model: generation.modelSlug,
-                  prompt: generation.prompt,
-                  settings: generation.settings,
-                })
-              }} />
+        {generations.filter(g => g.type === 'audio').map(generation => (
+          <div key={generation.id} className="gen-page__result-item fade-in">
+            <div className="gen-page__result-prompt">
+              <span className="gen-page__result-model">{generation.model}</span>
+              {generation.prompt}
             </div>
-          ))}
+            <MediaResult generation={generation} onRetry={() => {
+              generate({
+                type: 'audio',
+                model: generation.modelSlug,
+                prompt: generation.prompt,
+                settings: generation.settings,
+              })
+            }} />
+          </div>
+        ))}
       </div>
     </div>
   )
