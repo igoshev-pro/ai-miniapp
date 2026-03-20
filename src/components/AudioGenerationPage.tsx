@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useUser } from '@/hooks'
-import { useModelsStore } from '@/stores/models.store'
+import { useModels } from '@/hooks/useModels'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
@@ -17,9 +17,9 @@ export function AudioGenerationPage() {
   const { haptic, hapticNotification } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
-  const modelsStore = useModelsStore()
+  const { models: allModels } = useModels()
 
-  const audioModels = modelsStore.models.filter(m => m.category === 'audio')
+  const audioModels = allModels.filter(m => m.category === 'audio')
 
   const [selectedModelSlug, setSelectedModelSlug] = useState('')
   const [showModelPicker, setShowModelPicker] = useState(false)
@@ -31,13 +31,11 @@ export function AudioGenerationPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Suno settings
   const [customMode, setCustomMode] = useState(false)
   const [instrumental, setInstrumental] = useState(false)
   const [style, setStyle] = useState('')
   const [duration, setDuration] = useState(30)
 
-  // ElevenLabs settings
   const [voiceId, setVoiceId] = useState('Rachel')
   const [language, setLanguage] = useState('ru')
   const [stability, setStability] = useState(50)
@@ -45,7 +43,6 @@ export function AudioGenerationPage() {
 
   const [audioFile, setAudioFile] = useState<File | null>(null)
 
-  // Выбираем первую модель по умолчанию
   useEffect(() => {
     if (!selectedModelSlug && audioModels.length > 0) {
       setSelectedModelSlug(audioModels[0].slug)
@@ -56,7 +53,6 @@ export function AudioGenerationPage() {
   const isElevenLabs = selectedModelSlug.includes('elevenlabs')
   const isSuno = selectedModelSlug.includes('suno')
 
-  // Reset on model change
   useEffect(() => {
     setPrompt('')
     setAudioFile(null)
