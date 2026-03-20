@@ -29,9 +29,7 @@ export const allModels: ModelItem[] = [
   // Существующие текстовые
   { id: 't12', name: 'ChatGPT 4o',         slug: 'gpt-4o',            provider: 'OpenAI',     category: 'text',  description: 'Мощная мультимодальная модель',   cost: 3 },
   { id: 't13', name: 'ChatGPT 4o Mini',    slug: 'gpt-4o-mini',       provider: 'OpenAI',     category: 'text',  description: 'Быстрая и экономичная',           cost: 1 },
-  { id: 't14', name: 'Claude 3.5 Sonnet',  slug: 'claude-3.5-sonnet', provider: 'Anthropic',  category: 'text',  description: 'Лучший для кода и анализа',       cost: 3 },
-  { id: 't15', name: 'Claude 3 Haiku',     slug: 'claude-3-haiku',    provider: 'Anthropic',  category: 'text',  description: 'Самая быстрая Claude',            cost: 1 },
-
+  
   // Изображения - НОВЫЕ МОДЕЛИ
   { id: 'i1',  name: 'GPT-5 Image',        slug: 'gpt-5-image',       provider: 'OpenAI',       category: 'image', description: 'Новейший генератор OpenAI',       cost: 5 },
   { id: 'i2',  name: 'GPT Image 1.5 Lite', slug: 'gpt-image-1.5-lite', provider: 'OpenAI',      category: 'image', description: 'Облегчённая версия',              cost: 2 },
