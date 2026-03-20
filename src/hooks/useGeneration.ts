@@ -59,6 +59,9 @@ function mapBackendGeneration(g: any): Generation {
   }
 }
 
+// Глобальный Set — переживает ремаунты компонента
+const shownToasts = new Set<string>()
+
 export function useGeneration() {
   const store = useGenerationStore()
   const { token } = useAuthStore()
@@ -68,7 +71,19 @@ export function useGeneration() {
   const wsSetup = useRef(false)
   const historyLoadAttempted = useRef(false)
 
-  const shownToasts = useRef<Set<string>>(new Set())
+  // Единая функция показа тоста — вызывается и из WS и из polling
+  const showCompletedToast = useCallback((generationId: string) => {
+    if (shownToasts.has(generationId)) return
+    shownToasts.add(generationId)
+    toast.success('Генерация завершена! 🎉')
+  }, [])
+
+  const showFailedToast = useCallback((generationId: string, errorMessage?: string, refunded?: boolean) => {
+    if (shownToasts.has(generationId)) return
+    shownToasts.add(generationId)
+    toast.error(errorMessage || 'Ошибка генерации')
+    if (refunded) toast.info('Спички возвращены на баланс')
+  }, [])
 
   // ─── Загрузка истории ───────────────────────────
   useEffect(() => {
@@ -89,7 +104,14 @@ export function useGeneration() {
         store.mergeHistory(mapped)
         store.setHistoryLoaded(true)
 
-        // Подписываемся на незавершённые
+        // Помечаем уже завершённые — не показывать для них тосты
+        mapped.forEach((g) => {
+          if (g.status === 'completed' || g.status === 'failed') {
+            shownToasts.add(g.id)
+          }
+        })
+
+        // Подписываемся только на незавершённые
         mapped
           .filter((g) => g.status === 'pending' || g.status === 'processing')
           .forEach((g) => {
@@ -104,7 +126,7 @@ export function useGeneration() {
     loadHistory()
   }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── WebSocket — подключение и слушатели ──────────────────
+  // ─── WebSocket ──────────────────────────────────────────
   useEffect(() => {
     if (!token || wsSetup.current) return
     wsSetup.current = true
@@ -112,14 +134,12 @@ export function useGeneration() {
     const socket = connectSocket(token)
 
     const handleStatus = (data: GenerationStatusEvent) => {
-      console.log('[WS] generation:status →', data)
       useGenerationStore.getState().updateGeneration(data.generationId, {
         status: data.status,
       })
     }
 
     const handleProgress = (data: GenerationProgressEvent) => {
-      console.log('[WS] generation:progress →', data)
       useGenerationStore.getState().updateGeneration(data.generationId, {
         status: 'processing',
         progress: data.progress,
@@ -127,8 +147,6 @@ export function useGeneration() {
     }
 
     const handleCompleted = (data: GenerationCompletedEvent) => {
-      console.log('[WS] generation:completed →', data)
-
       const timer = pollingTimers.current.get(data.generationId)
       if (timer) {
         clearTimeout(timer)
@@ -142,15 +160,10 @@ export function useGeneration() {
         resultUrls: data.resultUrls,
       })
 
-      if (!shownToasts.current.has(data.generationId)) {
-        shownToasts.current.add(data.generationId)
-        toast.success('Генерация завершена! 🎉')
-      }
+      showCompletedToast(data.generationId)
     }
 
     const handleFailed = (data: GenerationFailedEvent) => {
-      console.log('[WS] generation:failed →', data)
-
       const timer = pollingTimers.current.get(data.generationId)
       if (timer) {
         clearTimeout(timer)
@@ -162,12 +175,7 @@ export function useGeneration() {
         error: data.errorMessage,
       })
 
-      // Дедупликация тостов — показываем только раз
-      if (!shownToasts.current.has(data.generationId)) {
-        shownToasts.current.add(data.generationId)
-        toast.error(data.errorMessage || 'Ошибка генерации')
-        if (data.refunded) toast.info('Спички возвращены на баланс')
-      }
+      showFailedToast(data.generationId, data.errorMessage, data.refunded)
     }
 
     socket.on(WS_EVENTS.STATUS, handleStatus)
@@ -182,25 +190,23 @@ export function useGeneration() {
       socket.off(WS_EVENTS.FAILED, handleFailed)
       wsSetup.current = false
     }
-  }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, showCompletedToast, showFailedToast]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Polling fallback — быстрый старт ────────────────────
+  // ─── Polling ────────────────────────────────────────────
   const startPolling = useCallback(
     (generationId: string) => {
       if (pollingTimers.current.has(generationId)) return
 
       let attempts = 0
-      const maxAttempts = 120 // 10 минут при 5с интервале
+      const maxAttempts = 120
 
       const poll = async () => {
         attempts++
 
-        // Проверяем — может WS уже обновил статус
         const current = useGenerationStore.getState().generations.find(
           (g) => g.id === generationId,
         )
         if (current?.status === 'completed' || current?.status === 'failed') {
-          console.log(`[Polling] ${generationId} already ${current.status}, stopping`)
           pollingTimers.current.delete(generationId)
           return
         }
@@ -217,7 +223,6 @@ export function useGeneration() {
           }>(ENDPOINTS.GENERATION_STATUS(generationId))
 
           const d = data.data
-          console.log(`[Polling] ${generationId} attempt ${attempts}:`, d)
 
           useGenerationStore.getState().updateGeneration(generationId, {
             status: d.status as Generation['status'],
@@ -228,12 +233,12 @@ export function useGeneration() {
           })
 
           if (d.status === 'completed') {
-            toast.success('Генерация завершена! 🎉')
+            showCompletedToast(generationId)
             pollingTimers.current.delete(generationId)
             return
           }
           if (d.status === 'failed') {
-            toast.error(d.errorMessage || 'Ошибка генерации')
+            showFailedToast(generationId, d.errorMessage)
             pollingTimers.current.delete(generationId)
             return
           }
@@ -241,23 +246,19 @@ export function useGeneration() {
           console.warn(`[Polling] Error for ${generationId}:`, err)
         }
 
-        // Следующий poll
         if (attempts < maxAttempts) {
-          // Адаптивный интервал: первые 6 опросов через 3с, потом 5с
           const interval = attempts <= 6 ? 3000 : 5000
           const timer = setTimeout(poll, interval)
           pollingTimers.current.set(generationId, timer)
         } else {
-          console.warn(`[Polling] Max attempts reached for ${generationId}`)
           pollingTimers.current.delete(generationId)
         }
       }
 
-      // Первый poll через 3 секунды (не 15!)
       const timer = setTimeout(poll, 3000)
       pollingTimers.current.set(generationId, timer)
     },
-    [],
+    [showCompletedToast, showFailedToast],
   )
 
   // ─── generate ────────────────────────────────────────────────
@@ -324,6 +325,9 @@ export function useGeneration() {
         if (s.instrumental !== undefined) body.instrumental = s.instrumental
         if (s.voiceId) body.voiceId = s.voiceId
         if (s.language) body.language = s.language
+        if (s.customMode !== undefined) body.customMode = s.customMode
+        if (s.stability !== undefined) body.stability = s.stability
+        if (s.similarity !== undefined) body.similarity = s.similarity
       }
 
       try {
@@ -353,7 +357,6 @@ export function useGeneration() {
         store.addGeneration(generation)
         store.setActiveGeneration(generation)
 
-        // Подписка + polling одновременно
         subscribeToGeneration(generationId)
         startPolling(generationId)
 
