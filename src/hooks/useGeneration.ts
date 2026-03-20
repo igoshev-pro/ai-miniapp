@@ -68,6 +68,8 @@ export function useGeneration() {
   const wsSetup = useRef(false)
   const historyLoadAttempted = useRef(false)
 
+  const shownToasts = useRef<Set<string>>(new Set())
+
   // ─── Загрузка истории ───────────────────────────
   useEffect(() => {
     if (!token || store.historyLoaded || historyLoadAttempted.current) return
@@ -127,7 +129,6 @@ export function useGeneration() {
     const handleCompleted = (data: GenerationCompletedEvent) => {
       console.log('[WS] generation:completed →', data)
 
-      // Остановить polling
       const timer = pollingTimers.current.get(data.generationId)
       if (timer) {
         clearTimeout(timer)
@@ -140,7 +141,11 @@ export function useGeneration() {
         resultUrl: data.resultUrls?.[0] || undefined,
         resultUrls: data.resultUrls,
       })
-      toast.success('Генерация завершена! 🎉')
+
+      if (!shownToasts.current.has(data.generationId)) {
+        shownToasts.current.add(data.generationId)
+        toast.success('Генерация завершена! 🎉')
+      }
     }
 
     const handleFailed = (data: GenerationFailedEvent) => {
@@ -156,8 +161,13 @@ export function useGeneration() {
         status: 'failed',
         error: data.errorMessage,
       })
-      toast.error(data.errorMessage || 'Ошибка генерации')
-      if (data.refunded) toast.info('Спички возвращены на баланс')
+
+      // Дедупликация тостов — показываем только раз
+      if (!shownToasts.current.has(data.generationId)) {
+        shownToasts.current.add(data.generationId)
+        toast.error(data.errorMessage || 'Ошибка генерации')
+        if (data.refunded) toast.info('Спички возвращены на баланс')
+      }
     }
 
     socket.on(WS_EVENTS.STATUS, handleStatus)
