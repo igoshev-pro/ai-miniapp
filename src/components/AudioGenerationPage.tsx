@@ -6,27 +6,9 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useUser } from '@/hooks'
+import { useModelsStore } from '@/stores/models.store'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
-
-// Поддерживаемые модели
-const elevenLabsModels = new Set([
-  'elevenlabs/audio-isolation',
-  'elevenlabs/sound-effect-v2',
-  'elevenlabs/speech-to-text',
-  'elevenlabs/text-to-dialogue-v3',
-  'elevenlabs/text-to-speech-multilingual-v2',
-  'elevenlabs/text-to-speech-turbo-2-5',
-])
-
-const sunoModels = new Set([
-  'suno-v3',
-  'suno-v4',
-  'suno-v4_5',
-  'suno-v4_5plus',
-  'suno-v4_5all',
-  'suno-v5',
-])
 
 const elevenLabsVoices = ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam']
 const languages = ['ru', 'en', 'es', 'fr', 'de', 'it', 'pt', 'pl', 'hi', 'ja', 'ko', 'zh']
@@ -35,8 +17,11 @@ export function AudioGenerationPage() {
   const { haptic, hapticNotification } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
+  const modelsStore = useModelsStore()
 
-  const [selectedModel, setSelectedModel] = useState('suno-v4')
+  const audioModels = modelsStore.models.filter(m => m.category === 'audio')
+
+  const [selectedModelSlug, setSelectedModelSlug] = useState('')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -46,26 +31,32 @@ export function AudioGenerationPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Suno-specific settings
+  // Suno settings
   const [customMode, setCustomMode] = useState(false)
   const [instrumental, setInstrumental] = useState(false)
   const [style, setStyle] = useState('')
   const [duration, setDuration] = useState(30)
 
-  // ElevenLabs-specific settings
+  // ElevenLabs settings
   const [voiceId, setVoiceId] = useState('Rachel')
   const [language, setLanguage] = useState('ru')
   const [stability, setStability] = useState(50)
   const [similarity, setSimilarity] = useState(75)
 
-  // Uploadable audio file for speech-to-text or audio-isolation
   const [audioFile, setAudioFile] = useState<File | null>(null)
 
-  // Check model type
-  const isElevenLabs = elevenLabsModels.has(selectedModel)
-  const isSuno = sunoModels.has(selectedModel)
+  // Выбираем первую модель по умолчанию
+  useEffect(() => {
+    if (!selectedModelSlug && audioModels.length > 0) {
+      setSelectedModelSlug(audioModels[0].slug)
+    }
+  }, [audioModels, selectedModelSlug])
 
-  // Reset params on model change
+  const selectedModel = audioModels.find(m => m.slug === selectedModelSlug)
+  const isElevenLabs = selectedModelSlug.includes('elevenlabs')
+  const isSuno = selectedModelSlug.includes('suno')
+
+  // Reset on model change
   useEffect(() => {
     setPrompt('')
     setAudioFile(null)
@@ -74,10 +65,10 @@ export function AudioGenerationPage() {
     setInstrumental(false)
     setStyle('')
     setLanguage('ru')
-    setVoiceId(elevenLabsVoices[0] || 'Rachel')
+    setVoiceId('Rachel')
     setStability(50)
     setSimilarity(75)
-  }, [selectedModel])
+  }, [selectedModelSlug])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -95,14 +86,17 @@ export function AudioGenerationPage() {
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() && !audioFile) {
-      toast.warning('Введите текст или загрузите аудио файл (для распознавания или шума)')
+      toast.warning('Введите текст или загрузите аудио файл')
       return
     }
-    if (balance < 5) {
-      toast.warning('Недостаточно спичек для генерации')
+
+    const cost = selectedModel?.cost ?? 5
+    if (balance < cost) {
+      toast.warning(`Недостаточно спичек. Нужно ${cost}, у вас ${balance}`)
       hapticNotification('error')
       return
     }
+
     setIsGenerating(true)
     haptic('medium')
 
@@ -122,8 +116,7 @@ export function AudioGenerationPage() {
       if (style.trim()) settings.style = style.trim()
     }
 
-    // Upload audio file if needed
-    if (audioFile && (selectedModel === 'elevenlabs/audio-isolation' || selectedModel === 'elevenlabs/speech-to-text')) {
+    if (audioFile) {
       try {
         const formData = new FormData()
         formData.append('file', audioFile)
@@ -140,7 +133,7 @@ export function AudioGenerationPage() {
 
     const gen = await generate({
       type: 'audio',
-      model: selectedModel,
+      model: selectedModelSlug,
       prompt: prompt.trim(),
       settings,
     })
@@ -156,7 +149,7 @@ export function AudioGenerationPage() {
   }, [
     prompt, audioFile, balance, customMode, instrumental, style,
     duration, voiceId, language, stability, similarity, generate,
-    selectedModel, haptic, hapticNotification, isElevenLabs, isSuno,
+    selectedModelSlug, selectedModel, haptic, hapticNotification, isElevenLabs, isSuno,
   ])
 
   const renderSunoSettings = () => (
@@ -209,12 +202,23 @@ export function AudioGenerationPage() {
     </>
   )
 
+  if (audioModels.length === 0) {
+    return (
+      <div className="gen-page">
+        <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>
+          <Music size={48} />
+          <p>Аудио модели загружаются...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="gen-page">
       <div className="gen-page__header">
         <button className="gen-page__model-select" onClick={() => setShowModelPicker(!showModelPicker)}>
           <Music size={16} />
-          <span>{selectedModel}</span>
+          <span>{selectedModel?.name || selectedModelSlug}</span>
           <ChevronDown size={14} className={showModelPicker ? 'rotate-180' : ''} />
         </button>
         <button className="gen-page__settings-button" onClick={() => setShowSettings(true)}>
@@ -222,14 +226,15 @@ export function AudioGenerationPage() {
         </button>
         {showModelPicker && (
           <div className="gen-page__model-list">
-            {[...elevenLabsModels, ...sunoModels].map(model => (
+            {audioModels.map(model => (
               <button
-                key={model}
-                className={`gen-page__model-list-item ${selectedModel === model ? 'selected' : ''}`}
-                onClick={() => { setSelectedModel(model); setShowModelPicker(false); haptic('light') }}
+                key={model.slug}
+                className={`gen-page__model-list-item ${selectedModelSlug === model.slug ? 'selected' : ''}`}
+                onClick={() => { setSelectedModelSlug(model.slug); setShowModelPicker(false); haptic('light') }}
               >
-                {model}
-                {selectedModel === model && <Check size={14} />}
+                <span>{model.name}</span>
+                <span style={{ fontSize: 11, opacity: 0.5, marginLeft: 8 }}>{model.cost} 🔥</span>
+                {selectedModelSlug === model.slug && <Check size={14} />}
               </button>
             ))}
           </div>
@@ -237,7 +242,7 @@ export function AudioGenerationPage() {
       </div>
 
       <div className="gen-page__input-area">
-        {(selectedModel === 'elevenlabs/audio-isolation' || selectedModel === 'elevenlabs/speech-to-text') && (
+        {isElevenLabs && (
           <>
             <button className={`chat-input__attach ${audioFile ? 'chat-input__attach--active' : ''}`}
               onClick={() => fileInputRef.current?.click()} disabled={isGenerating}>
@@ -257,8 +262,8 @@ export function AudioGenerationPage() {
         <textarea
           ref={inputRef}
           className="chat-input__field"
-          placeholder={selectedModel === 'elevenlabs/speech-to-text' ? 'Текст не нужен. Загрузите аудио.' : 'Введите текст для синтеза...'}
-          disabled={isGenerating || (!!audioFile && (selectedModel === 'elevenlabs/speech-to-text' || selectedModel === 'elevenlabs/audio-isolation'))}
+          placeholder={isSuno ? 'Опишите музыку...' : isElevenLabs ? 'Введите текст для озвучки...' : 'Введите текст...'}
+          disabled={isGenerating}
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
           rows={4}
