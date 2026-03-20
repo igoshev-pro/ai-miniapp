@@ -1,9 +1,11 @@
+// src/hooks/useGeneration.ts
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
 import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
 import {
   connectSocket,
+  getSocket,
   subscribeToGeneration,
   WS_EVENTS,
   type GenerationStatusEvent,
@@ -62,12 +64,11 @@ export function useGeneration() {
   const { token } = useAuthStore()
   const { user } = useUserStore()
   const modelsStore = useModelsStore()
-  const wsConnected = useRef(false)
-  const listenersAttached = useRef(false)
   const pollingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const wsSetup = useRef(false)
   const historyLoadAttempted = useRef(false)
 
-  // ─── Загрузка истории с бэкенда ───────────────────────────
+  // ─── Загрузка истории ───────────────────────────
   useEffect(() => {
     if (!token || store.historyLoaded || historyLoadAttempted.current) return
     historyLoadAttempted.current = true
@@ -101,78 +102,99 @@ export function useGeneration() {
     loadHistory()
   }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── WebSocket ───────────────────────────────────────────────
+  // ─── WebSocket — подключение и слушатели ──────────────────
   useEffect(() => {
-    if (!token || wsConnected.current) return
+    if (!token || wsSetup.current) return
+    wsSetup.current = true
 
     const socket = connectSocket(token)
-    wsConnected.current = true
 
-    if (listenersAttached.current) return
-    listenersAttached.current = true
+    const handleStatus = (data: GenerationStatusEvent) => {
+      console.log('[WS] generation:status →', data)
+      useGenerationStore.getState().updateGeneration(data.generationId, {
+        status: data.status,
+      })
+    }
 
-    socket.on(WS_EVENTS.STATUS, (data: GenerationStatusEvent) => {
-      console.log('[WS] status:', data)
-      store.updateGeneration(data.generationId, { status: data.status })
-    })
-
-    socket.on(WS_EVENTS.PROGRESS, (data: GenerationProgressEvent) => {
-      store.updateGeneration(data.generationId, {
+    const handleProgress = (data: GenerationProgressEvent) => {
+      console.log('[WS] generation:progress →', data)
+      useGenerationStore.getState().updateGeneration(data.generationId, {
         status: 'processing',
         progress: data.progress,
       })
-    })
+    }
 
-    socket.on(WS_EVENTS.COMPLETED, (data: GenerationCompletedEvent) => {
-      console.log('[WS] completed:', data)
+    const handleCompleted = (data: GenerationCompletedEvent) => {
+      console.log('[WS] generation:completed →', data)
+
+      // Остановить polling
       const timer = pollingTimers.current.get(data.generationId)
       if (timer) {
         clearTimeout(timer)
         pollingTimers.current.delete(data.generationId)
       }
-      store.updateGeneration(data.generationId, {
+
+      useGenerationStore.getState().updateGeneration(data.generationId, {
         status: 'completed',
         progress: 100,
         resultUrl: data.resultUrls?.[0] || undefined,
         resultUrls: data.resultUrls,
       })
       toast.success('Генерация завершена! 🎉')
-    })
+    }
 
-    socket.on(WS_EVENTS.FAILED, (data: GenerationFailedEvent) => {
-      console.log('[WS] failed:', data)
+    const handleFailed = (data: GenerationFailedEvent) => {
+      console.log('[WS] generation:failed →', data)
+
       const timer = pollingTimers.current.get(data.generationId)
       if (timer) {
         clearTimeout(timer)
         pollingTimers.current.delete(data.generationId)
       }
-      store.updateGeneration(data.generationId, {
+
+      useGenerationStore.getState().updateGeneration(data.generationId, {
         status: 'failed',
         error: data.errorMessage,
       })
       toast.error(data.errorMessage || 'Ошибка генерации')
       if (data.refunded) toast.info('Спички возвращены на баланс')
-    })
+    }
+
+    socket.on(WS_EVENTS.STATUS, handleStatus)
+    socket.on(WS_EVENTS.PROGRESS, handleProgress)
+    socket.on(WS_EVENTS.COMPLETED, handleCompleted)
+    socket.on(WS_EVENTS.FAILED, handleFailed)
 
     return () => {
-      socket.off(WS_EVENTS.STATUS)
-      socket.off(WS_EVENTS.PROGRESS)
-      socket.off(WS_EVENTS.COMPLETED)
-      socket.off(WS_EVENTS.FAILED)
-      listenersAttached.current = false
+      socket.off(WS_EVENTS.STATUS, handleStatus)
+      socket.off(WS_EVENTS.PROGRESS, handleProgress)
+      socket.off(WS_EVENTS.COMPLETED, handleCompleted)
+      socket.off(WS_EVENTS.FAILED, handleFailed)
+      wsSetup.current = false
     }
-  }, [token, store])
+  }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Polling fallback ────────────────────────────────────────
+  // ─── Polling fallback — быстрый старт ────────────────────
   const startPolling = useCallback(
     (generationId: string) => {
       if (pollingTimers.current.has(generationId)) return
 
       let attempts = 0
-      const maxAttempts = 60
+      const maxAttempts = 120 // 10 минут при 5с интервале
 
       const poll = async () => {
         attempts++
+
+        // Проверяем — может WS уже обновил статус
+        const current = useGenerationStore.getState().generations.find(
+          (g) => g.id === generationId,
+        )
+        if (current?.status === 'completed' || current?.status === 'failed') {
+          console.log(`[Polling] ${generationId} already ${current.status}, stopping`)
+          pollingTimers.current.delete(generationId)
+          return
+        }
+
         try {
           const { data } = await apiClient.get<{
             success: boolean
@@ -185,16 +207,9 @@ export function useGeneration() {
           }>(ENDPOINTS.GENERATION_STATUS(generationId))
 
           const d = data.data
+          console.log(`[Polling] ${generationId} attempt ${attempts}:`, d)
 
-          const current = useGenerationStore.getState().generations.find(
-            (g) => g.id === generationId,
-          )
-          if (current?.status === 'completed' || current?.status === 'failed') {
-            pollingTimers.current.delete(generationId)
-            return
-          }
-
-          store.updateGeneration(generationId, {
+          useGenerationStore.getState().updateGeneration(generationId, {
             status: d.status as Generation['status'],
             progress: d.progress ?? 0,
             resultUrl: d.resultUrls?.[0],
@@ -212,23 +227,27 @@ export function useGeneration() {
             pollingTimers.current.delete(generationId)
             return
           }
+        } catch (err) {
+          console.warn(`[Polling] Error for ${generationId}:`, err)
+        }
 
-          if (attempts < maxAttempts) {
-            const timer = setTimeout(poll, 5000)
-            pollingTimers.current.set(generationId, timer)
-          }
-        } catch {
-          if (attempts < maxAttempts) {
-            const timer = setTimeout(poll, 5000)
-            pollingTimers.current.set(generationId, timer)
-          }
+        // Следующий poll
+        if (attempts < maxAttempts) {
+          // Адаптивный интервал: первые 6 опросов через 3с, потом 5с
+          const interval = attempts <= 6 ? 3000 : 5000
+          const timer = setTimeout(poll, interval)
+          pollingTimers.current.set(generationId, timer)
+        } else {
+          console.warn(`[Polling] Max attempts reached for ${generationId}`)
+          pollingTimers.current.delete(generationId)
         }
       }
 
-      const timer = setTimeout(poll, 15000)
+      // Первый poll через 3 секунды (не 15!)
+      const timer = setTimeout(poll, 3000)
       pollingTimers.current.set(generationId, timer)
     },
-    [store],
+    [],
   )
 
   // ─── generate ────────────────────────────────────────────────
@@ -323,6 +342,8 @@ export function useGeneration() {
 
         store.addGeneration(generation)
         store.setActiveGeneration(generation)
+
+        // Подписка + polling одновременно
         subscribeToGeneration(generationId)
         startPolling(generationId)
 
