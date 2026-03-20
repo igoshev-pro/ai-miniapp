@@ -1,501 +1,1048 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  ChevronDown, Send, Check, X, Music, Settings, Paperclip, Loader2,
+  ChevronDown, Send, Check, X, Music, Settings, Wand2,
+  Clock, Loader2, Upload, Mic, Volume2, Zap,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useGeneration, useUser } from '@/hooks'
-import { useModels } from '@/hooks/useModels'
+import { useGeneration, useModels, useUser } from '@/hooks'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
-const elevenLabsVoices = ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam']
-const languages = ['ru', 'en', 'es', 'fr', 'de', 'it', 'pt', 'pl', 'hi', 'ja', 'ko', 'zh']
-
-const S = {
-  page: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    height: '100%',
-    padding: '12px 16px',
-    gap: 12,
-    overflow: 'auto',
-  },
-
-  /* ── Header ── */
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    position: 'relative' as const,
-    height: 44,
-  },
-  modelBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '0 14px',
-    borderRadius: 12,
-    background: '#1c1c1e',
-    border: '1px solid #2c2c2e',
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: 'pointer',
-    flex: 1,
-    minWidth: 0,
-    height: 44,
-  },
-  modelBtnName: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
-    flex: 1,
-  },
-  settingsBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    background: '#1c1c1e',
-    border: '1px solid #2c2c2e',
-    color: '#aaa',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-
-  /* ── Dropdown ── */
-  dropdown: {
-    position: 'absolute' as const,
-    top: '100%',
-    left: 0,
-    right: 0,
-    marginTop: 4,
-    background: '#1c1c1e',
-    border: '1px solid #333',
-    borderRadius: 12,
-    overflow: 'hidden',
-    zIndex: 100,
-    maxHeight: 260,
-    overflowY: 'auto' as const,
-  },
-  dropdownItem: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    padding: '12px 14px',
-    background: 'transparent',
-    border: 'none',
-    borderBottom: '1px solid #222',
-    color: '#fff',
-    fontSize: 14,
-    cursor: 'pointer',
-    textAlign: 'left' as const,
-  },
-  dropdownItemSelected: {
-    background: '#2a2a2e',
-  },
-  dropdownCost: {
-    fontSize: 11,
-    opacity: 0.5,
-    marginLeft: 8,
-    whiteSpace: 'nowrap' as const,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-  },
-
-  /* ── Bottom bar: fixed ── */
-  bottomBar: {
-    position: 'fixed' as const,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '10px 16px',
-    paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
-    background: '#111',
-    borderTop: '1px solid #2c2c2e',
-    zIndex: 50,
-  },
-  attachIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    background: '#1c1c1e',
-    border: '1px solid #2c2c2e',
-    color: '#aaa',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  attachIconActive: {
-    borderColor: '#f57c00',
-    color: '#f57c00',
-  },
-  textInput: {
-    flex: 1,
-    minWidth: 0,
-    padding: '10px 14px',
-    borderRadius: 12,
-    background: '#1c1c1e',
-    border: '1px solid #2c2c2e',
-    color: '#fff',
-    fontSize: 14,
-    outline: 'none',
-    fontFamily: 'inherit',
-    resize: 'none' as const,
-    height: 44,
-    lineHeight: '22px',
-  },
-  sendBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    background: '#f57c00',
-    border: 'none',
-    color: '#fff',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  sendBtnDisabled: {
-    opacity: 0.35,
-    cursor: 'not-allowed',
-  },
-
-  /* ── Settings modal ── */
-  overlay: {
-    position: 'fixed' as const,
-    inset: 0,
-    background: 'rgba(0,0,0,0.7)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    padding: 16,
-  },
-  modal: {
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80vh',
-    background: '#1c1c1e',
-    borderRadius: 16,
-    padding: '24px 20px 28px',
-    overflowY: 'auto' as const,
-    position: 'relative' as const,
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 700,
-    marginBottom: 20,
-    textAlign: 'center' as const,
-  },
-  modalClose: {
-    position: 'absolute' as const,
-    top: 16,
-    right: 16,
-    background: '#333',
-    border: 'none',
-    borderRadius: 8,
-    width: 32,
-    height: 32,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  fieldGroup: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 16,
-  },
-  fieldLabel: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 6,
-    color: '#ccc',
-    fontSize: 13,
-  },
-  fieldLabelRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    color: '#ccc',
-    fontSize: 14,
-    cursor: 'pointer',
-  },
-  fieldInput: {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    background: '#111',
-    border: '1px solid #333',
-    color: '#fff',
-    fontSize: 14,
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-  },
-  fieldSelect: {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: 10,
-    background: '#111',
-    border: '1px solid #333',
-    color: '#fff',
-    fontSize: 14,
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-  },
-  fieldRange: {
-    width: '100%',
-    accentColor: '#f57c00',
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    accentColor: '#f57c00',
-  },
-
-  /* ── Results ── */
-  results: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 12,
-    paddingBottom: 80, // чтобы не перекрывал fixed bar
-  },
-  resultItem: {
-    background: '#1c1c1e',
-    borderRadius: 12,
-    padding: 12,
-    border: '1px solid #2c2c2e',
-  },
-  resultPrompt: {
-    fontSize: 13,
-    color: '#999',
-    marginBottom: 8,
-    display: 'flex',
-    gap: 6,
-    alignItems: 'baseline',
-  },
-  resultModel: {
-    fontSize: 11,
-    color: '#f57c00',
-    fontWeight: 600,
-    flexShrink: 0,
-  },
-  loading: {
-    padding: 40,
-    textAlign: 'center' as const,
-    color: '#666',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    gap: 12,
-  },
-  hidden: { display: 'none' },
+interface Props {
+  onBack?: () => void
 }
 
-export function AudioGenerationPage() {
-  const { haptic, hapticNotification } = useTelegram()
+// ═══════════ Capabilities per audio model slug ═══════════
+interface AudioModelCaps {
+  type: 'suno' | 'elevenlabs-tts' | 'elevenlabs-sfx' | 'elevenlabs-isolation' | 'elevenlabs-stt' | 'elevenlabs-dialogue' | 'generic'
+  supportsCustomMode: boolean
+  supportsInstrumental: boolean
+  supportsStyle: boolean
+  supportsDuration: boolean
+  durationRange: [number, number]    // [min, max] in seconds
+  durationStep: number
+  supportsVoice: boolean
+  voices: string[]
+  supportsLanguage: boolean
+  supportsStability: boolean
+  supportsSimilarity: boolean
+  supportsAudioInput: boolean        // requires audio file upload
+  supportsLoop: boolean
+  supportsPromptInfluence: boolean
+  supportsSpeed: boolean
+}
+
+const ELEVENLABS_VOICES = ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam']
+const LANGUAGES = [
+  { code: 'ru', label: 'Русский' },
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Español' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'pt', label: 'Português' },
+  { code: 'pl', label: 'Polski' },
+  { code: 'hi', label: 'हिन्दी' },
+  { code: 'ja', label: '日本語' },
+  { code: 'ko', label: '한국어' },
+  { code: 'zh', label: '中文' },
+]
+
+const MODEL_CAPS: Record<string, AudioModelCaps> = {
+  // ── Suno models ──
+  'suno-v3': {
+    type: 'suno', supportsCustomMode: true, supportsInstrumental: true,
+    supportsStyle: true, supportsDuration: true, durationRange: [5, 300], durationStep: 5,
+    supportsVoice: false, voices: [], supportsLanguage: false,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  },
+  'suno-v4': {
+    type: 'suno', supportsCustomMode: true, supportsInstrumental: true,
+    supportsStyle: true, supportsDuration: true, durationRange: [5, 300], durationStep: 5,
+    supportsVoice: false, voices: [], supportsLanguage: false,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  },
+  'suno-v4.5': {
+    type: 'suno', supportsCustomMode: true, supportsInstrumental: true,
+    supportsStyle: true, supportsDuration: true, durationRange: [5, 300], durationStep: 5,
+    supportsVoice: false, voices: [], supportsLanguage: false,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  },
+  'suno-v5': {
+    type: 'suno', supportsCustomMode: true, supportsInstrumental: true,
+    supportsStyle: true, supportsDuration: true, durationRange: [5, 300], durationStep: 5,
+    supportsVoice: false, voices: [], supportsLanguage: false,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  },
+
+  // ── ElevenLabs TTS ──
+  'elevenlabs-tts': {
+    type: 'elevenlabs-tts', supportsCustomMode: false, supportsInstrumental: false,
+    supportsStyle: true, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: true, voices: ELEVENLABS_VOICES, supportsLanguage: true,
+    supportsStability: true, supportsSimilarity: true,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: true,
+  },
+  'elevenlabs-tts-turbo': {
+    type: 'elevenlabs-tts', supportsCustomMode: false, supportsInstrumental: false,
+    supportsStyle: true, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: true, voices: ELEVENLABS_VOICES, supportsLanguage: true,
+    supportsStability: true, supportsSimilarity: true,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: true,
+  },
+
+  // ── ElevenLabs Sound Effects ──
+  'elevenlabs-sfx': {
+    type: 'elevenlabs-sfx', supportsCustomMode: false, supportsInstrumental: false,
+    supportsStyle: false, supportsDuration: true, durationRange: [1, 30], durationStep: 1,
+    supportsVoice: false, voices: [], supportsLanguage: false,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: true, supportsPromptInfluence: true, supportsSpeed: false,
+  },
+
+  // ── ElevenLabs Audio Isolation ──
+  'elevenlabs-isolation': {
+    type: 'elevenlabs-isolation', supportsCustomMode: false, supportsInstrumental: false,
+    supportsStyle: false, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: false, voices: [], supportsLanguage: false,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  },
+
+  // ── ElevenLabs Speech-to-Text ──
+  'elevenlabs-stt': {
+    type: 'elevenlabs-stt', supportsCustomMode: false, supportsInstrumental: false,
+    supportsStyle: false, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: false, voices: [], supportsLanguage: true,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  },
+}
+
+const DEFAULT_CAPS: AudioModelCaps = {
+  type: 'generic', supportsCustomMode: false, supportsInstrumental: false,
+  supportsStyle: false, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+  supportsVoice: false, voices: [], supportsLanguage: false,
+  supportsStability: false, supportsSimilarity: false,
+  supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+}
+
+const examplePrompts: Record<string, string[]> = {
+  suno: [
+    'Энергичный поп-трек о летних приключениях, яркий и позитивный',
+    'Грустная фортепианная мелодия, дождь за окном, минор',
+    'Электронный бит в стиле synthwave, ретро 80-х',
+    'Джаз в стиле smooth jazz, саксофон, расслабляющий вечер',
+    'Рок-баллада о дороге, гитарное соло, мощный голос',
+  ],
+  'elevenlabs-tts': [
+    'Добро пожаловать в наш подкаст! Сегодня мы обсудим последние новости технологий.',
+    'Привет! Как дела? Я так рад тебя видеть!',
+    'В далёкой-далёкой галактике, где звёзды сияли ярче обычного...',
+  ],
+  'elevenlabs-sfx': [
+    'Раскат грома во время сильной грозы',
+    'Звук шагов по деревянному полу в пустой комнате',
+    'Космический корабль взлетает с ракетной площадки',
+    'Мяуканье котёнка, мягкое и тихое',
+  ],
+  default: [
+    'Опишите что хотите сгенерировать...',
+  ],
+}
+
+// Resolve caps for a model slug — tries exact match, then prefix match
+function getCaps(slug: string): AudioModelCaps {
+  if (MODEL_CAPS[slug]) return MODEL_CAPS[slug]
+  // prefix matching: suno-*, elevenlabs-tts*, elevenlabs-sfx*, etc.
+  if (slug.includes('suno')) return MODEL_CAPS['suno-v4'] || DEFAULT_CAPS
+  if (slug.includes('elevenlabs') && slug.includes('tts')) return MODEL_CAPS['elevenlabs-tts'] || DEFAULT_CAPS
+  if (slug.includes('elevenlabs') && slug.includes('turbo')) return MODEL_CAPS['elevenlabs-tts-turbo'] || DEFAULT_CAPS
+  if (slug.includes('elevenlabs') && slug.includes('sfx')) return MODEL_CAPS['elevenlabs-sfx'] || DEFAULT_CAPS
+  if (slug.includes('elevenlabs') && slug.includes('sound')) return MODEL_CAPS['elevenlabs-sfx'] || DEFAULT_CAPS
+  if (slug.includes('elevenlabs') && slug.includes('isolation')) return MODEL_CAPS['elevenlabs-isolation'] || DEFAULT_CAPS
+  if (slug.includes('elevenlabs') && slug.includes('stt')) return MODEL_CAPS['elevenlabs-stt'] || DEFAULT_CAPS
+  if (slug.includes('elevenlabs') && slug.includes('speech-to-text')) return MODEL_CAPS['elevenlabs-stt'] || DEFAULT_CAPS
+  return DEFAULT_CAPS
+}
+
+function getExamples(caps: AudioModelCaps): string[] {
+  return examplePrompts[caps.type] || examplePrompts.default
+}
+
+export function AudioGenerationPage({ onBack }: Props) {
+  const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
   const { models: allModels } = useModels()
 
-  const audioModels = allModels.filter(m => m.category === 'audio')
+  const audioModels = allModels.filter((m) => m.category === 'audio')
 
+  const [input, setInput] = useState('')
   const [selectedModelSlug, setSelectedModelSlug] = useState('')
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const [prompt, setPrompt] = useState('')
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const resultsRef = useRef<HTMLDivElement>(null)
-
+  // Suno settings
   const [customMode, setCustomMode] = useState(false)
   const [instrumental, setInstrumental] = useState(false)
   const [style, setStyle] = useState('')
   const [duration, setDuration] = useState(30)
 
+  // ElevenLabs TTS settings
   const [voiceId, setVoiceId] = useState('Rachel')
   const [language, setLanguage] = useState('ru')
   const [stability, setStability] = useState(50)
   const [similarity, setSimilarity] = useState(75)
+  const [speed, setSpeed] = useState(100)
 
-  const [audioFile, setAudioFile] = useState<File | null>(null)
+  // ElevenLabs SFX settings
+  const [loop, setLoop] = useState(false)
+  const [promptInfluence, setPromptInfluence] = useState(30)
 
+  // Audio file (for isolation / STT)
+  const [audioUrl, setAudioUrl] = useState('')
+  const [uploadingAudio, setUploadingAudio] = useState(false)
+
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<HTMLDivElement>(null)
+
+  // Init default model
   useEffect(() => {
-    if (!selectedModelSlug && audioModels.length > 0) setSelectedModelSlug(audioModels[0].slug)
+    if (!selectedModelSlug && audioModels.length > 0) {
+      setSelectedModelSlug(audioModels[0].slug)
+    }
   }, [audioModels, selectedModelSlug])
 
-  const selectedModel = audioModels.find(m => m.slug === selectedModelSlug)
-  const isElevenLabs = selectedModelSlug.includes('elevenlabs')
-  const isSuno = selectedModelSlug.includes('suno')
+  const currentModel = audioModels.find((m) => m.slug === selectedModelSlug)
+  const modelCost = currentModel?.cost || 5
+  const caps = getCaps(selectedModelSlug)
 
+  // Telegram BackButton
   useEffect(() => {
-    setPrompt(''); setAudioFile(null); setDuration(30); setCustomMode(false)
-    setInstrumental(false); setStyle(''); setLanguage('ru'); setVoiceId('Rachel')
-    setStability(50); setSimilarity(75)
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      const handler = () => { if (onBack) onBack() }
+      webApp.BackButton.onClick(handler)
+      return () => {
+        webApp.BackButton.offClick(handler)
+        webApp.BackButton.hide()
+      }
+    }
+  }, [webApp, onBack])
+
+  // Reset settings on model change
+  useEffect(() => {
+    const c = getCaps(selectedModelSlug)
+    setInput('')
+    setAudioUrl('')
+    setCustomMode(false)
+    setInstrumental(false)
+    setStyle('')
+    setDuration(c.supportsDuration ? Math.min(30, c.durationRange[1]) : 30)
+    setVoiceId('Rachel')
+    setLanguage('ru')
+    setStability(50)
+    setSimilarity(75)
+    setSpeed(100)
+    setLoop(false)
+    setPromptInfluence(30)
   }, [selectedModelSlug])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('audio/')) { toast.error('Только аудиофайлы'); return }
-    if (file.size > 10 * 1024 * 1024) { toast.error('Макс 10МБ'); return }
-    setAudioFile(file)
-  }
+  const audioGenerations = generations.filter((g) => g.type === 'audio')
 
+  // Auto-resize textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px'
+    }
+  }, [input])
+
+  // Upload audio file
+  const handleAudioUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Только аудиофайлы')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Макс 10MB')
+      return
+    }
+    setUploadingAudio(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const token = sessionStorage.getItem('jwt')
+      const API = process.env.NEXT_PUBLIC_API_URL || ''
+      const resp = await fetch(`${API}/upload/audio`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      })
+      if (!resp.ok) throw new Error('Upload failed')
+      const data = await resp.json()
+      const url = data.data?.url || data.url
+      if (!url) throw new Error('No URL')
+      setAudioUrl(url)
+      haptic('light')
+      toast.success('Аудио загружено')
+    } catch (err: any) {
+      toast.error(err.message || 'Ошибка загрузки')
+    } finally {
+      setUploadingAudio(false)
+    }
+  }, [haptic])
+
+  // Generate
   const handleGenerate = useCallback(async () => {
-    if (!prompt.trim() && !audioFile) { toast.warning('Введите текст или загрузите аудио'); return }
-    const cost = selectedModel?.cost ?? 5
-    if (balance < cost) { toast.warning(`Нужно ${cost} спичек`); hapticNotification('error'); return }
-    setIsGenerating(true); haptic('medium')
+    const prompt = input.trim()
 
-    const settings: Record<string, any> = {}
-    if (isSuno) { settings.customMode = customMode; settings.instrumental = instrumental; if (style.trim()) settings.style = style.trim(); settings.duration = duration }
-    if (isElevenLabs) { settings.voiceId = voiceId; settings.language = language; settings.stability = stability / 100; settings.similarity = similarity / 100; if (style.trim()) settings.style = style.trim() }
-
-    if (audioFile) {
-      try {
-        const fd = new FormData(); fd.append('file', audioFile)
-        const resp = await fetch('/api/upload/audio', { method: 'POST', body: fd })
-        if (!resp.ok) throw new Error('Ошибка загрузки')
-        settings.audioUrl = (await resp.json()).url
-      } catch (e: any) { toast.error(e.message); setIsGenerating(false); return }
+    // Validate
+    if (caps.supportsAudioInput && !audioUrl) {
+      toast.warning('Загрузите аудиофайл')
+      return
+    }
+    if (!caps.supportsAudioInput && !prompt) {
+      toast.warning('Введите текст')
+      return
     }
 
-    const gen = await generate({ type: 'audio', model: selectedModelSlug, prompt: prompt.trim(), settings })
+    if (balance < modelCost) {
+      toast.warning(`Недостаточно спичек. Нужно ${modelCost}, у вас ${balance}`)
+      hapticNotification('error')
+      return
+    }
+
+    haptic('medium')
+    setIsGenerating(true)
+
+    const settings: Record<string, unknown> = {}
+
+    // Suno settings
+    if (caps.type === 'suno') {
+      settings.customMode = customMode
+      settings.instrumental = instrumental
+      if (style.trim()) settings.style = style.trim()
+      if (caps.supportsDuration) settings.duration = duration
+    }
+
+    // ElevenLabs TTS settings
+    if (caps.type === 'elevenlabs-tts') {
+      settings.voiceId = voiceId
+      settings.language = language
+      settings.stability = stability / 100
+      settings.similarity = similarity / 100
+      settings.speed = speed / 100
+      if (style.trim()) settings.style = style.trim()
+    }
+
+    // ElevenLabs SFX settings
+    if (caps.type === 'elevenlabs-sfx') {
+      if (caps.supportsDuration) settings.duration = duration
+      settings.loop = loop
+      settings.promptInfluence = promptInfluence / 100
+    }
+
+    // ElevenLabs isolation / STT
+    if (caps.supportsAudioInput && audioUrl) {
+      settings.audioUrl = audioUrl
+    }
+    if (caps.type === 'elevenlabs-stt' && caps.supportsLanguage) {
+      settings.language = language
+    }
+
+    const result = await generate({
+      type: 'audio',
+      model: selectedModelSlug,
+      prompt: prompt || 'audio processing',
+      settings,
+    })
+
     setIsGenerating(false)
-    if (gen) { setPrompt(''); setAudioFile(null); hapticNotification('success'); setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200) }
-  }, [prompt, audioFile, balance, customMode, instrumental, style, duration, voiceId, language, stability, similarity, generate, selectedModelSlug, selectedModel, haptic, hapticNotification, isElevenLabs, isSuno])
 
-  const renderSunoSettings = () => (
-    <div style={S.fieldGroup}>
-      <label style={S.fieldLabelRow}>
-        <input type="checkbox" style={S.checkbox} checked={customMode} onChange={e => setCustomMode(e.target.checked)} disabled={isGenerating} />
-        Custom Mode
-      </label>
-      <label style={S.fieldLabelRow}>
-        <input type="checkbox" style={S.checkbox} checked={instrumental} onChange={e => setInstrumental(e.target.checked)} disabled={isGenerating} />
-        Инструментал (без вокала)
-      </label>
-      <label style={S.fieldLabel}>Стиль<input style={S.fieldInput} type="text" value={style} onChange={e => setStyle(e.target.value)} placeholder="pop, rock, jazz..." disabled={isGenerating} /></label>
-      <label style={S.fieldLabel}>Длительность: {duration} сек<input style={S.fieldRange} type="range" min={5} max={300} step={5} value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={isGenerating} /></label>
-    </div>
-  )
+    if (result) {
+      setInput('')
+      setAudioUrl('')
+      hapticNotification('success')
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
+    }
+  }, [
+    input, audioUrl, balance, modelCost, selectedModelSlug, caps,
+    customMode, instrumental, style, duration,
+    voiceId, language, stability, similarity, speed,
+    loop, promptInfluence,
+    haptic, hapticNotification, generate,
+  ])
 
-  const renderElevenLabsSettings = () => (
-    <div style={S.fieldGroup}>
-      <label style={S.fieldLabel}>Голос<select style={S.fieldSelect} value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={isGenerating}>{elevenLabsVoices.map(v => <option key={v} value={v}>{v}</option>)}</select></label>
-      <label style={S.fieldLabel}>Язык<select style={S.fieldSelect} value={language} onChange={e => setLanguage(e.target.value)} disabled={isGenerating}>{languages.map(l => <option key={l} value={l}>{l}</option>)}</select></label>
-      <label style={S.fieldLabel}>Стабильность: {stability}%<input style={S.fieldRange} type="range" min={0} max={100} step={5} value={stability} onChange={e => setStability(Number(e.target.value))} disabled={isGenerating} /></label>
-      <label style={S.fieldLabel}>Схожесть: {similarity}%<input style={S.fieldRange} type="range" min={0} max={100} step={5} value={similarity} onChange={e => setSimilarity(Number(e.target.value))} disabled={isGenerating} /></label>
-      <label style={S.fieldLabel}>Стиль<input style={S.fieldInput} type="text" value={style} onChange={e => setStyle(e.target.value)} disabled={isGenerating} /></label>
-    </div>
-  )
-
-  if (audioModels.length === 0) {
-    return <div style={S.page}><div style={S.loading}><Music size={48} /><p>Аудио модели загружаются...</p></div></div>
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate() }
   }
 
-  const canSend = !isGenerating && (prompt.trim() || audioFile)
+  const insertExample = () => {
+    const examples = getExamples(caps)
+    setInput(examples[Math.floor(Math.random() * examples.length)])
+    haptic('light')
+  }
+
+  // Determine if prompt input is needed
+  const needsPrompt = !caps.supportsAudioInput
+  const canSend = !isGenerating && (
+    caps.supportsAudioInput ? !!audioUrl : !!input.trim()
+  )
+
+  // Placeholder text
+  const getPlaceholder = () => {
+    switch (caps.type) {
+      case 'suno': return 'Опишите музыку...'
+      case 'elevenlabs-tts': return 'Введите текст для озвучки...'
+      case 'elevenlabs-sfx': return 'Опишите звуковой эффект...'
+      case 'elevenlabs-isolation': return 'Загрузите аудио для обработки'
+      case 'elevenlabs-stt': return 'Загрузите аудио для распознавания'
+      default: return 'Введите текст...'
+    }
+  }
+
+  // Quick params
+  const getQuickParams = (): string[] => {
+    const params: string[] = []
+    if (caps.type === 'suno') {
+      if (caps.supportsDuration) params.push(`${duration} сек`)
+      if (customMode) params.push('Custom')
+      if (instrumental) params.push('Инструментал')
+      if (style.trim()) params.push(style.trim())
+    }
+    if (caps.type === 'elevenlabs-tts') {
+      params.push(voiceId)
+      const lang = LANGUAGES.find(l => l.code === language)
+      params.push(lang?.label || language)
+    }
+    if (caps.type === 'elevenlabs-sfx') {
+      if (caps.supportsDuration) params.push(`${duration} сек`)
+      if (loop) params.push('Зацикл.')
+    }
+    if (caps.supportsAudioInput) {
+      params.push(audioUrl ? '🎵 Аудио' : 'Нужен файл')
+    }
+    return params
+  }
+
+  if (audioModels.length === 0) {
+    return (
+      <div className="gen-page">
+        <div className="gen-page__empty fade-in">
+          <div className="gen-page__empty-icon"><Music size={36} strokeWidth={1.5} /></div>
+          <div className="gen-page__empty-title">Загрузка...</div>
+          <div className="gen-page__empty-text">Аудио модели загружаются</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div style={S.page}>
-      {/* ═══ HEADER ═══ */}
-      <div style={S.header}>
-        <button style={S.modelBtn} onClick={() => setShowModelPicker(!showModelPicker)}>
-          <Music size={16} />
-          <span style={S.modelBtnName}>{selectedModel?.name || selectedModelSlug}</span>
-          <ChevronDown size={14} style={{ transform: showModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-        </button>
-        <button style={S.settingsBtn} onClick={() => setShowSettings(true)}>
-          <Settings size={18} />
-        </button>
+    <div className="gen-page">
+      {/* ── Header ── */}
+      <div className="gen-page__header fade-in fade-in--1">
+        <div className="gen-page__model-select-container">
+          <button
+            className="gen-page__model-select"
+            onClick={() => { setShowModelPicker(!showModelPicker); haptic('light') }}
+          >
+            <Music size={16} />
+            <span>{currentModel?.name ?? selectedModelSlug}</span>
+            <span className="gen-page__model-cost">{modelCost} 🔥</span>
+            <ChevronDown size={14} className={showModelPicker ? 'rotate-180' : ''} />
+          </button>
+          <button
+            className="gen-page__settings-button"
+            onClick={() => { setShowSettings(true); haptic('light') }}
+          >
+            <Settings size={18} />
+          </button>
+        </div>
+
+        {/* Quick params */}
+        <div className="gen-page__params-row">
+          {getQuickParams().map((p, i) => (
+            <span
+              key={i}
+              className={`gen-page__param-badge ${
+                caps.supportsAudioInput && audioUrl && p.includes('Аудио')
+                  ? 'gen-page__param-badge--active' : ''
+              }`}
+              onClick={() => { setShowSettings(true); haptic('light') }}
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+
+        {/* Model picker */}
         {showModelPicker && (
-          <div style={S.dropdown}>
-            {audioModels.map(model => (
-              <button key={model.slug} style={{ ...S.dropdownItem, ...(selectedModelSlug === model.slug ? S.dropdownItemSelected : {}) }}
-                onClick={() => { setSelectedModelSlug(model.slug); setShowModelPicker(false); haptic('light') }}>
-                <span>{model.name}</span>
-                <span style={S.dropdownCost}>{model.cost} 🔥{selectedModelSlug === model.slug && <Check size={14} />}</span>
+          <div className="gen-page__model-list fade-in">
+            {audioModels.map((m) => (
+              <button
+                key={m.slug}
+                className={`gen-page__model-list-item ${selectedModelSlug === m.slug ? 'selected' : ''}`}
+                onClick={() => {
+                  setSelectedModelSlug(m.slug)
+                  setShowModelPicker(false)
+                  haptic('light')
+                }}
+              >
+                <div className="gen-page__model-list-info">
+                  <span className="gen-page__model-name">{m.name}</span>
+                  <span className="gen-page__model-provider">
+                    {m.provider}
+                    {getCaps(m.slug).type === 'suno' ? ' · Музыка' : ''}
+                    {getCaps(m.slug).type === 'elevenlabs-tts' ? ' · TTS' : ''}
+                    {getCaps(m.slug).type === 'elevenlabs-sfx' ? ' · SFX' : ''}
+                    {getCaps(m.slug).type === 'elevenlabs-isolation' ? ' · Isolation' : ''}
+                    {getCaps(m.slug).type === 'elevenlabs-stt' ? ' · STT' : ''}
+                  </span>
+                </div>
+                <div className="gen-page__model-right">
+                  <span className="gen-page__model-cost-sm">{m.cost} 🔥</span>
+                  {selectedModelSlug === m.slug && <Check size={14} />}
+                </div>
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* ═══ RESULTS ═══ */}
-      <div style={S.results} ref={resultsRef}>
-        {generations.filter(g => g.type === 'audio').map(generation => (
-          <div key={generation.id} style={S.resultItem}>
-            <div style={S.resultPrompt}>
-              <span style={S.resultModel}>{generation.model}</span>
-              <span>{generation.prompt}</span>
+      {/* ── Results ── */}
+      <div className="gen-page__results">
+        {audioGenerations.length === 0 && (
+          <div className="gen-page__empty fade-in fade-in--2">
+            <div className="gen-page__empty-icon">
+              <Music size={36} strokeWidth={1.5} />
             </div>
-            <MediaResult generation={generation} onRetry={() => generate({ type: 'audio', model: generation.modelSlug, prompt: generation.prompt, settings: generation.settings })} />
+            <div className="gen-page__empty-title">
+              {caps.type === 'suno' ? 'Генерация музыки' : 
+               caps.type === 'elevenlabs-tts' ? 'Озвучка текста' :
+               caps.type === 'elevenlabs-sfx' ? 'Звуковые эффекты' :
+               caps.type === 'elevenlabs-isolation' ? 'Изоляция голоса' :
+               caps.type === 'elevenlabs-stt' ? 'Распознавание речи' :
+               'Генерация аудио'}
+            </div>
+            <div className="gen-page__empty-text">
+              {caps.type === 'suno' ? 'Опишите музыку, которую хотите создать. Генерация занимает до 2 минут.' :
+               caps.type === 'elevenlabs-tts' ? 'Введите текст для озвучки. Выберите голос и язык в настройках.' :
+               caps.type === 'elevenlabs-sfx' ? 'Опишите звуковой эффект, который нужно сгенерировать.' :
+               caps.supportsAudioInput ? 'Загрузите аудиофайл для обработки.' :
+               'Опишите что хотите сгенерировать.'}
+            </div>
+            {needsPrompt && (
+              <button className="gen-page__example-btn" onClick={insertExample}>
+                <Wand2 size={14} /> Пример промпта
+              </button>
+            )}
+          </div>
+        )}
+
+        {audioGenerations.map((gen) => (
+          <div key={gen.id} className="gen-page__result-item fade-in">
+            <div className="gen-page__result-prompt">
+              <span className="gen-page__result-model">{gen.model}</span>
+              {gen.prompt}
+            </div>
+            <MediaResult
+              generation={gen}
+              onRetry={() => generate({
+                type: 'audio',
+                model: gen.modelSlug,
+                prompt: gen.prompt,
+                settings: gen.settings,
+              })}
+            />
           </div>
         ))}
+        <div ref={resultsRef} />
       </div>
 
-      {/* ═══ BOTTOM FIXED BAR: attach + input + send ═══ */}
-      <div style={S.bottomBar}>
-        {isElevenLabs && (
-          <button
-            style={{ ...S.attachIcon, ...(audioFile ? S.attachIconActive : {}) }}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isGenerating}
-          >
-            <Paperclip size={20} />
-          </button>
-        )}
-        <input ref={fileInputRef} type="file" accept="audio/*" style={S.hidden} onChange={handleFileChange} disabled={isGenerating} />
-
-        <textarea
-          ref={inputRef}
-          style={S.textInput}
-          placeholder={isSuno ? 'Опишите музыку...' : isElevenLabs ? 'Текст для озвучки...' : 'Введите текст...'}
-          disabled={isGenerating}
-          value={prompt}
-          onChange={e => setPrompt(e.target.value)}
-          rows={1}
-        />
-
-        <button style={{ ...S.sendBtn, ...(!canSend ? S.sendBtnDisabled : {}) }} onClick={handleGenerate} disabled={!canSend}>
-          {isGenerating ? <Loader2 size={20} className="spin" /> : <Send size={20} />}
-        </button>
-      </div>
-
-      {/* ═══ SETTINGS MODAL — по центру ═══ */}
-      {showSettings && (
-        <div style={S.overlay} onClick={() => setShowSettings(false)}>
-          <div style={S.modal} onClick={e => e.stopPropagation()}>
-            <button style={S.modalClose} onClick={() => setShowSettings(false)}><X size={16} /></button>
-            <div style={S.modalTitle}>
-              {isSuno ? '🎵 Настройки Suno' : isElevenLabs ? '🎙️ Настройки ElevenLabs' : '⚙️ Настройки'}
+      {/* ── Input ── */}
+      <div className="gen-page__input-area">
+        {/* Audio file preview */}
+        {audioUrl && (
+          <div className="gen-page__audio-file-preview">
+            <div className="gen-page__audio-file-chip">
+              <Mic size={14} />
+              <span>Аудио загружено</span>
+              <button
+                className="gen-page__audio-file-remove"
+                onClick={() => setAudioUrl('')}
+              >
+                <X size={12} />
+              </button>
             </div>
-            {isSuno && renderSunoSettings()}
-            {isElevenLabs && renderElevenLabsSettings()}
+          </div>
+        )}
+
+        <div className="chat-input__row">
+          {/* Audio upload button */}
+          {caps.supportsAudioInput && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) handleAudioUpload(f)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                className={`chat-input__attach ${audioUrl ? 'chat-input__attach--active' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAudio}
+              >
+                {uploadingAudio ? <Loader2 size={18} className="spin" /> : <Upload size={18} />}
+              </button>
+            </>
+          )}
+
+          <div className="chat-input__field-wrap">
+            <textarea
+              ref={inputRef}
+              className="chat-input__field"
+              placeholder={getPlaceholder()}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              disabled={isGenerating || (caps.supportsAudioInput && !needsPrompt)}
+            />
+          </div>
+
+          <button
+            className="chat-input__send"
+            onClick={handleGenerate}
+            disabled={!canSend}
+          >
+            {isGenerating ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Settings Modal ── */}
+      {showSettings && (
+        <div className="gen-settings-modal" onClick={() => setShowSettings(false)}>
+          <div className="gen-settings-modal__content" onClick={(e) => e.stopPropagation()}>
+            <div className="gen-settings-modal__header">
+              <h2 className="gen-settings-modal__title">
+                <Music size={16} /> Настройки · {currentModel?.name}
+              </h2>
+              <button className="gen-settings-modal__close" onClick={() => setShowSettings(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="gen-settings-modal__body">
+
+              {/* ═══ SUNO SETTINGS ═══ */}
+              {caps.type === 'suno' && (
+                <>
+                                    {/* Custom Mode */}
+                  {caps.supportsCustomMode && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        <Zap size={13} /> Режим
+                      </label>
+                      <div className="gen-field__chips">
+                        <button
+                          className={`gen-chip ${!customMode ? 'gen-chip--active' : ''}`}
+                          onClick={() => { setCustomMode(false); haptic('light') }}
+                        >
+                          Авто
+                        </button>
+                        <button
+                          className={`gen-chip ${customMode ? 'gen-chip--active' : ''}`}
+                          onClick={() => { setCustomMode(true); haptic('light') }}
+                        >
+                          Custom Mode
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instrumental */}
+                  {caps.supportsInstrumental && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        <Volume2 size={13} /> Вокал
+                      </label>
+                      <div className="gen-field__chips">
+                        <button
+                          className={`gen-chip ${!instrumental ? 'gen-chip--active' : ''}`}
+                          onClick={() => { setInstrumental(false); haptic('light') }}
+                        >
+                          С вокалом
+                        </button>
+                        <button
+                          className={`gen-chip ${instrumental ? 'gen-chip--active' : ''}`}
+                          onClick={() => { setInstrumental(true); haptic('light') }}
+                        >
+                          Инструментал
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Style */}
+                  {caps.supportsStyle && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        🎨 Стиль
+                        <span className="gen-field__hint">pop, rock, jazz, electronic...</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="gen-field__text-input"
+                        placeholder="Например: pop, energetic, upbeat"
+                        value={style}
+                        onChange={(e) => setStyle(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Duration */}
+                  {caps.supportsDuration && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        <Clock size={13} /> Длительность: {duration} сек
+                      </label>
+                      <input
+                        type="range"
+                        className="gen-range"
+                        min={caps.durationRange[0]}
+                        max={caps.durationRange[1]}
+                        step={caps.durationStep}
+                        value={duration}
+                        onChange={(e) => setDuration(Number(e.target.value))}
+                      />
+                      <div className="gen-field__range-labels">
+                        <span>{caps.durationRange[0]} сек</span>
+                        <span>{caps.durationRange[1]} сек</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ═══ ELEVENLABS TTS SETTINGS ═══ */}
+              {caps.type === 'elevenlabs-tts' && (
+                <>
+                  {/* Voice */}
+                  {caps.supportsVoice && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        <Mic size={13} /> Голос
+                      </label>
+                      <div className="gen-field__chips gen-field__chips--wrap">
+                        {caps.voices.map((v) => (
+                          <button
+                            key={v}
+                            className={`gen-chip ${voiceId === v ? 'gen-chip--active' : ''}`}
+                            onClick={() => { setVoiceId(v); haptic('light') }}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Language */}
+                  {caps.supportsLanguage && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        🌐 Язык
+                      </label>
+                      <div className="gen-field__chips gen-field__chips--wrap">
+                        {LANGUAGES.map((l) => (
+                          <button
+                            key={l.code}
+                            className={`gen-chip ${language === l.code ? 'gen-chip--active' : ''}`}
+                            onClick={() => { setLanguage(l.code); haptic('light') }}
+                          >
+                            {l.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stability */}
+                  {caps.supportsStability && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        Стабильность: {stability}%
+                        <span className="gen-field__hint">Низкая = эмоциональнее</span>
+                      </label>
+                      <input
+                        type="range"
+                        className="gen-range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={stability}
+                        onChange={(e) => setStability(Number(e.target.value))}
+                      />
+                      <div className="gen-field__range-labels">
+                        <span>Эмоции</span>
+                        <span>Стабильность</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Similarity */}
+                  {caps.supportsSimilarity && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        Схожесть: {similarity}%
+                        <span className="gen-field__hint">Насколько близко к оригиналу</span>
+                      </label>
+                      <input
+                        type="range"
+                        className="gen-range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={similarity}
+                        onChange={(e) => setSimilarity(Number(e.target.value))}
+                      />
+                      <div className="gen-field__range-labels">
+                        <span>Свободнее</span>
+                        <span>Точнее</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Speed */}
+                  {caps.supportsSpeed && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        Скорость: {speed}%
+                      </label>
+                      <input
+                        type="range"
+                        className="gen-range"
+                        min={50}
+                        max={200}
+                        step={5}
+                        value={speed}
+                        onChange={(e) => setSpeed(Number(e.target.value))}
+                      />
+                      <div className="gen-field__range-labels">
+                        <span>0.5x</span>
+                        <span>2x</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Style (expression) */}
+                  {caps.supportsStyle && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        🎭 Экспрессия
+                        <span className="gen-field__hint">Стиль подачи</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="gen-field__text-input"
+                        placeholder="Например: cheerful, serious, calm"
+                        value={style}
+                        onChange={(e) => setStyle(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ═══ ELEVENLABS SFX SETTINGS ═══ */}
+              {caps.type === 'elevenlabs-sfx' && (
+                <>
+                  {/* Duration */}
+                  {caps.supportsDuration && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        <Clock size={13} /> Длительность: {duration} сек
+                      </label>
+                      <input
+                        type="range"
+                        className="gen-range"
+                        min={caps.durationRange[0]}
+                        max={caps.durationRange[1]}
+                        step={caps.durationStep}
+                        value={duration}
+                        onChange={(e) => setDuration(Number(e.target.value))}
+                      />
+                      <div className="gen-field__range-labels">
+                        <span>{caps.durationRange[0]} сек</span>
+                        <span>{caps.durationRange[1]} сек</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loop */}
+                  {caps.supportsLoop && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        🔁 Зацикливание
+                      </label>
+                      <div className="gen-field__chips">
+                        <button
+                          className={`gen-chip ${!loop ? 'gen-chip--active' : ''}`}
+                          onClick={() => { setLoop(false); haptic('light') }}
+                        >
+                          Выключено
+                        </button>
+                        <button
+                          className={`gen-chip ${loop ? 'gen-chip--active' : ''}`}
+                          onClick={() => { setLoop(true); haptic('light') }}
+                        >
+                          Включено
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Prompt Influence */}
+                  {caps.supportsPromptInfluence && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        Влияние промпта: {promptInfluence}%
+                        <span className="gen-field__hint">Насколько точно следовать описанию</span>
+                      </label>
+                      <input
+                        type="range"
+                        className="gen-range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={promptInfluence}
+                        onChange={(e) => setPromptInfluence(Number(e.target.value))}
+                      />
+                      <div className="gen-field__range-labels">
+                        <span>Свободнее</span>
+                        <span>Точнее</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ═══ ELEVENLABS ISOLATION SETTINGS ═══ */}
+              {caps.type === 'elevenlabs-isolation' && (
+                <div className="gen-field">
+                  <label className="gen-field__label">
+                    <Upload size={13} /> Аудиофайл для обработки
+                    <span className="gen-field__hint">WAV, MP3, OGG · макс 10MB</span>
+                  </label>
+
+                  {audioUrl ? (
+                    <div className="gen-field__audio-preview">
+                      <div className="gen-field__audio-chip">
+                        <Mic size={14} />
+                        <span>Файл загружен</span>
+                        <button
+                          className="gen-field__audio-remove"
+                          onClick={() => setAudioUrl('')}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      className="gen-field__image-upload"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAudio}
+                    >
+                      {uploadingAudio
+                        ? <Loader2 size={20} className="spin" />
+                        : <Upload size={20} />
+                      }
+                      <span>{uploadingAudio ? 'Загрузка...' : 'Загрузить аудио'}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* ═══ ELEVENLABS STT SETTINGS ═══ */}
+              {caps.type === 'elevenlabs-stt' && (
+                <>
+                  <div className="gen-field">
+                    <label className="gen-field__label">
+                      <Upload size={13} /> Аудиофайл для распознавания
+                      <span className="gen-field__hint">WAV, MP3, OGG · макс 10MB</span>
+                    </label>
+
+                    {audioUrl ? (
+                      <div className="gen-field__audio-preview">
+                        <div className="gen-field__audio-chip">
+                          <Mic size={14} />
+                          <span>Файл загружен</span>
+                          <button
+                            className="gen-field__audio-remove"
+                            onClick={() => setAudioUrl('')}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="gen-field__image-upload"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAudio}
+                      >
+                        {uploadingAudio
+                          ? <Loader2 size={20} className="spin" />
+                          : <Upload size={20} />
+                        }
+                        <span>{uploadingAudio ? 'Загрузка...' : 'Загрузить аудио'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Language for STT */}
+                  {caps.supportsLanguage && (
+                    <div className="gen-field">
+                      <label className="gen-field__label">
+                        🌐 Язык аудио
+                      </label>
+                      <div className="gen-field__chips gen-field__chips--wrap">
+                        {LANGUAGES.map((l) => (
+                          <button
+                            key={l.code}
+                            className={`gen-chip ${language === l.code ? 'gen-chip--active' : ''}`}
+                            onClick={() => { setLanguage(l.code); haptic('light') }}
+                          >
+                            {l.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin 1s linear infinite}`}</style>
     </div>
   )
 }
+                      

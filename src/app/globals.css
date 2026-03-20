@@ -5124,3 +5124,109 @@ body.tg-app .sticky-header {
 .hidden {
   display: none !important;
 }
+
+/* ═══════════════ AUDIO GEN — ADDITIONAL STYLES ═══════════════ */
+
+/* Text input inside gen-field (for style, etc.) */
+.gen-field__text-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.gen-field__text-input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.gen-field__text-input:focus {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Audio file preview (above input row) */
+.gen-page__audio-file-preview {
+  display: flex;
+  gap: 8px;
+  padding: 0 0 8px;
+}
+
+.gen-page__audio-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.gen-page__audio-file-remove {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gen-page__audio-file-remove:active {
+  background: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+/* Audio preview in settings modal */
+.gen-field__audio-preview {
+  display: flex;
+  gap: 8px;
+}
+
+.gen-field__audio-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.gen-field__audio-remove {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gen-field__audio-remove:active {
+  background: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
