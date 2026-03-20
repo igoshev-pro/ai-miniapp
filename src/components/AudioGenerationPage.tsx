@@ -13,9 +13,6 @@ import { toast } from '@/stores/toast.store'
 const elevenLabsVoices = ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam']
 const languages = ['ru', 'en', 'es', 'fr', 'de', 'it', 'pt', 'pl', 'hi', 'ja', 'ko', 'zh']
 
-/* ═══════════════════════════════════════════════════════
-   INLINE STYLES
-   ═══════════════════════════════════════════════════════ */
 const S = {
   page: {
     display: 'flex',
@@ -26,19 +23,19 @@ const S = {
     overflow: 'auto',
   },
 
-  /* ── Header: селект + шестерёнка ── */
+  /* ── Header ── */
   header: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 8,
     position: 'relative' as const,
+    height: 44,
   },
   modelBtn: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    padding: '10px 14px',
+    padding: '0 14px',
     borderRadius: 12,
     background: '#1c1c1e',
     border: '1px solid #2c2c2e',
@@ -48,6 +45,7 @@ const S = {
     cursor: 'pointer',
     flex: 1,
     minWidth: 0,
+    height: 44,
   },
   modelBtnName: {
     overflow: 'hidden',
@@ -69,7 +67,7 @@ const S = {
     flexShrink: 0,
   },
 
-  /* ── Dropdown модели ── */
+  /* ── Dropdown ── */
   dropdown: {
     position: 'absolute' as const,
     top: '100%',
@@ -106,53 +104,57 @@ const S = {
     opacity: 0.5,
     marginLeft: 8,
     whiteSpace: 'nowrap' as const,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
   },
 
-  /* ── Input area ── */
-  inputArea: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 8,
-  },
-  inputRow: {
+  /* ── Bottom bar: fixed ── */
+  bottomBar: {
+    position: 'fixed' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
     display: 'flex',
     alignItems: 'center',
     gap: 8,
+    padding: '10px 16px',
+    paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+    background: '#111',
+    borderTop: '1px solid #2c2c2e',
+    zIndex: 50,
   },
-  textarea: {
-    width: '100%',
-    minHeight: 80,
-    maxHeight: 160,
-    padding: '12px 14px',
+  attachIcon: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    background: '#1c1c1e',
+    border: '1px solid #2c2c2e',
+    color: '#aaa',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  attachIconActive: {
+    borderColor: '#f57c00',
+    color: '#f57c00',
+  },
+  textInput: {
+    flex: 1,
+    minWidth: 0,
+    padding: '10px 14px',
     borderRadius: 12,
     background: '#1c1c1e',
     border: '1px solid #2c2c2e',
     color: '#fff',
     fontSize: 14,
-    resize: 'vertical' as const,
     outline: 'none',
     fontFamily: 'inherit',
-  },
-  attachBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '10px 12px',
-    borderRadius: 10,
-    background: '#1c1c1e',
-    border: '1px solid #2c2c2e',
-    color: '#aaa',
-    fontSize: 13,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    flex: 1,
-    minWidth: 0,
-  },
-  attachBtnActive: {
-    borderColor: '#f57c00',
-    color: '#f57c00',
+    resize: 'none' as const,
+    height: 44,
+    lineHeight: '22px',
   },
   sendBtn: {
     display: 'flex',
@@ -168,7 +170,7 @@ const S = {
     flexShrink: 0,
   },
   sendBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
     cursor: 'not-allowed',
   },
 
@@ -178,18 +180,18 @@ const S = {
     inset: 0,
     background: 'rgba(0,0,0,0.7)',
     display: 'flex',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
     padding: 16,
   },
   modal: {
     width: '100%',
-    maxWidth: 480,
-    maxHeight: '70vh',
+    maxWidth: 400,
+    maxHeight: '80vh',
     background: '#1c1c1e',
-    borderRadius: '16px 16px 0 0',
-    padding: '20px 16px 32px',
+    borderRadius: 16,
+    padding: '24px 20px 28px',
     overflowY: 'auto' as const,
     position: 'relative' as const,
   },
@@ -197,7 +199,8 @@ const S = {
     color: '#fff',
     fontSize: 16,
     fontWeight: 700,
-    marginBottom: 16,
+    marginBottom: 20,
+    textAlign: 'center' as const,
   },
   modalClose: {
     position: 'absolute' as const,
@@ -217,7 +220,7 @@ const S = {
   fieldGroup: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: 14,
+    gap: 16,
   },
   fieldLabel: {
     display: 'flex',
@@ -229,9 +232,9 @@ const S = {
   fieldLabelRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     color: '#ccc',
-    fontSize: 13,
+    fontSize: 14,
     cursor: 'pointer',
   },
   fieldInput: {
@@ -243,6 +246,7 @@ const S = {
     color: '#fff',
     fontSize: 14,
     outline: 'none',
+    boxSizing: 'border-box' as const,
   },
   fieldSelect: {
     width: '100%',
@@ -253,7 +257,7 @@ const S = {
     color: '#fff',
     fontSize: 14,
     outline: 'none',
-    appearance: 'none' as const,
+    boxSizing: 'border-box' as const,
   },
   fieldRange: {
     width: '100%',
@@ -270,6 +274,7 @@ const S = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: 12,
+    paddingBottom: 80, // чтобы не перекрывал fixed bar
   },
   resultItem: {
     background: '#1c1c1e',
@@ -291,8 +296,6 @@ const S = {
     fontWeight: 600,
     flexShrink: 0,
   },
-
-  /* ── Loading ── */
   loading: {
     padding: 40,
     textAlign: 'center' as const,
@@ -302,13 +305,7 @@ const S = {
     alignItems: 'center',
     gap: 12,
   },
-
-  hidden: {
-    display: 'none',
-  },
-  spin: {
-    animation: 'spin 1s linear infinite',
-  },
+  hidden: { display: 'none' },
 }
 
 export function AudioGenerationPage() {
@@ -342,9 +339,7 @@ export function AudioGenerationPage() {
   const [audioFile, setAudioFile] = useState<File | null>(null)
 
   useEffect(() => {
-    if (!selectedModelSlug && audioModels.length > 0) {
-      setSelectedModelSlug(audioModels[0].slug)
-    }
+    if (!selectedModelSlug && audioModels.length > 0) setSelectedModelSlug(audioModels[0].slug)
   }, [audioModels, selectedModelSlug])
 
   const selectedModel = audioModels.find(m => m.slug === selectedModelSlug)
@@ -352,45 +347,28 @@ export function AudioGenerationPage() {
   const isSuno = selectedModelSlug.includes('suno')
 
   useEffect(() => {
-    setPrompt('')
-    setAudioFile(null)
-    setDuration(30)
-    setCustomMode(false)
-    setInstrumental(false)
-    setStyle('')
-    setLanguage('ru')
-    setVoiceId('Rachel')
-    setStability(50)
-    setSimilarity(75)
+    setPrompt(''); setAudioFile(null); setDuration(30); setCustomMode(false)
+    setInstrumental(false); setStyle(''); setLanguage('ru'); setVoiceId('Rachel')
+    setStability(50); setSimilarity(75)
   }, [selectedModelSlug])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('audio/')) { toast.error('Только аудиофайлы'); return }
-    if (file.size > 10 * 1024 * 1024) { toast.error('Максимальный размер 10МБ'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Макс 10МБ'); return }
     setAudioFile(file)
   }
 
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() && !audioFile) { toast.warning('Введите текст или загрузите аудио'); return }
     const cost = selectedModel?.cost ?? 5
-    if (balance < cost) { toast.warning(`Недостаточно спичек. Нужно ${cost}`); hapticNotification('error'); return }
-
-    setIsGenerating(true)
-    haptic('medium')
+    if (balance < cost) { toast.warning(`Нужно ${cost} спичек`); hapticNotification('error'); return }
+    setIsGenerating(true); haptic('medium')
 
     const settings: Record<string, any> = {}
-    if (isSuno) {
-      settings.customMode = customMode; settings.instrumental = instrumental
-      if (style.trim()) settings.style = style.trim()
-      settings.duration = duration
-    }
-    if (isElevenLabs) {
-      settings.voiceId = voiceId; settings.language = language
-      settings.stability = stability / 100; settings.similarity = similarity / 100
-      if (style.trim()) settings.style = style.trim()
-    }
+    if (isSuno) { settings.customMode = customMode; settings.instrumental = instrumental; if (style.trim()) settings.style = style.trim(); settings.duration = duration }
+    if (isElevenLabs) { settings.voiceId = voiceId; settings.language = language; settings.stability = stability / 100; settings.similarity = similarity / 100; if (style.trim()) settings.style = style.trim() }
 
     if (audioFile) {
       try {
@@ -406,7 +384,6 @@ export function AudioGenerationPage() {
     if (gen) { setPrompt(''); setAudioFile(null); hapticNotification('success'); setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200) }
   }, [prompt, audioFile, balance, customMode, instrumental, style, duration, voiceId, language, stability, similarity, generate, selectedModelSlug, selectedModel, haptic, hapticNotification, isElevenLabs, isSuno])
 
-  /* ── Settings content ── */
   const renderSunoSettings = () => (
     <div style={S.fieldGroup}>
       <label style={S.fieldLabelRow}>
@@ -417,157 +394,51 @@ export function AudioGenerationPage() {
         <input type="checkbox" style={S.checkbox} checked={instrumental} onChange={e => setInstrumental(e.target.checked)} disabled={isGenerating} />
         Инструментал (без вокала)
       </label>
-      <label style={S.fieldLabel}>
-        Стиль
-        <input style={S.fieldInput} type="text" value={style} onChange={e => setStyle(e.target.value)} placeholder="pop, rock, jazz..." disabled={isGenerating} />
-      </label>
-      <label style={S.fieldLabel}>
-        Длительность (сек): {duration}
-        <input style={S.fieldRange} type="range" min={5} max={300} step={5} value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={isGenerating} />
-      </label>
+      <label style={S.fieldLabel}>Стиль<input style={S.fieldInput} type="text" value={style} onChange={e => setStyle(e.target.value)} placeholder="pop, rock, jazz..." disabled={isGenerating} /></label>
+      <label style={S.fieldLabel}>Длительность: {duration} сек<input style={S.fieldRange} type="range" min={5} max={300} step={5} value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={isGenerating} /></label>
     </div>
   )
 
   const renderElevenLabsSettings = () => (
     <div style={S.fieldGroup}>
-      <label style={S.fieldLabel}>
-        Голос
-        <select style={S.fieldSelect} value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={isGenerating}>
-          {elevenLabsVoices.map(v => <option key={v} value={v}>{v}</option>)}
-        </select>
-      </label>
-      <label style={S.fieldLabel}>
-        Язык
-        <select style={S.fieldSelect} value={language} onChange={e => setLanguage(e.target.value)} disabled={isGenerating}>
-          {languages.map(l => <option key={l} value={l}>{l}</option>)}
-        </select>
-      </label>
-      <label style={S.fieldLabel}>
-        Стабильность: {stability}%
-        <input style={S.fieldRange} type="range" min={0} max={100} step={5} value={stability} onChange={e => setStability(Number(e.target.value))} disabled={isGenerating} />
-      </label>
-      <label style={S.fieldLabel}>
-        Схожесть: {similarity}%
-        <input style={S.fieldRange} type="range" min={0} max={100} step={5} value={similarity} onChange={e => setSimilarity(Number(e.target.value))} disabled={isGenerating} />
-      </label>
-      <label style={S.fieldLabel}>
-        Стиль (опционально)
-        <input style={S.fieldInput} type="text" value={style} onChange={e => setStyle(e.target.value)} disabled={isGenerating} />
-      </label>
+      <label style={S.fieldLabel}>Голос<select style={S.fieldSelect} value={voiceId} onChange={e => setVoiceId(e.target.value)} disabled={isGenerating}>{elevenLabsVoices.map(v => <option key={v} value={v}>{v}</option>)}</select></label>
+      <label style={S.fieldLabel}>Язык<select style={S.fieldSelect} value={language} onChange={e => setLanguage(e.target.value)} disabled={isGenerating}>{languages.map(l => <option key={l} value={l}>{l}</option>)}</select></label>
+      <label style={S.fieldLabel}>Стабильность: {stability}%<input style={S.fieldRange} type="range" min={0} max={100} step={5} value={stability} onChange={e => setStability(Number(e.target.value))} disabled={isGenerating} /></label>
+      <label style={S.fieldLabel}>Схожесть: {similarity}%<input style={S.fieldRange} type="range" min={0} max={100} step={5} value={similarity} onChange={e => setSimilarity(Number(e.target.value))} disabled={isGenerating} /></label>
+      <label style={S.fieldLabel}>Стиль<input style={S.fieldInput} type="text" value={style} onChange={e => setStyle(e.target.value)} disabled={isGenerating} /></label>
     </div>
   )
 
-  /* ── Empty state ── */
   if (audioModels.length === 0) {
-    return (
-      <div style={S.page}>
-        <div style={S.loading}>
-          <Music size={48} />
-          <p>Аудио модели загружаются...</p>
-        </div>
-      </div>
-    )
+    return <div style={S.page}><div style={S.loading}><Music size={48} /><p>Аудио модели загружаются...</p></div></div>
   }
 
   const canSend = !isGenerating && (prompt.trim() || audioFile)
 
   return (
     <div style={S.page}>
-      {/* ═══ HEADER: model select + settings ═══ */}
+      {/* ═══ HEADER ═══ */}
       <div style={S.header}>
         <button style={S.modelBtn} onClick={() => setShowModelPicker(!showModelPicker)}>
           <Music size={16} />
           <span style={S.modelBtnName}>{selectedModel?.name || selectedModelSlug}</span>
-          <ChevronDown size={14} style={{ transform: showModelPicker ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          <ChevronDown size={14} style={{ transform: showModelPicker ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
         </button>
         <button style={S.settingsBtn} onClick={() => setShowSettings(true)}>
           <Settings size={18} />
         </button>
-
         {showModelPicker && (
           <div style={S.dropdown}>
             {audioModels.map(model => (
-              <button
-                key={model.slug}
-                style={{
-                  ...S.dropdownItem,
-                  ...(selectedModelSlug === model.slug ? S.dropdownItemSelected : {}),
-                }}
-                onClick={() => { setSelectedModelSlug(model.slug); setShowModelPicker(false); haptic('light') }}
-              >
+              <button key={model.slug} style={{ ...S.dropdownItem, ...(selectedModelSlug === model.slug ? S.dropdownItemSelected : {}) }}
+                onClick={() => { setSelectedModelSlug(model.slug); setShowModelPicker(false); haptic('light') }}>
                 <span>{model.name}</span>
-                <span style={S.dropdownCost}>
-                  {model.cost} 🔥
-                  {selectedModelSlug === model.slug && <Check size={14} style={{ marginLeft: 6 }} />}
-                </span>
+                <span style={S.dropdownCost}>{model.cost} 🔥{selectedModelSlug === model.slug && <Check size={14} />}</span>
               </button>
             ))}
           </div>
         )}
       </div>
-
-      {/* ═══ INPUT AREA ═══ */}
-      <div style={S.inputArea}>
-        <textarea
-          ref={inputRef}
-          style={S.textarea}
-          placeholder={isSuno ? 'Опишите музыку...' : isElevenLabs ? 'Введите текст для озвучки...' : 'Введите текст...'}
-          disabled={isGenerating}
-          value={prompt}
-          onChange={e => setPrompt(e.target.value)}
-          rows={3}
-        />
-
-        {/* Нижняя строка: attach (если ElevenLabs) + send */}
-        <div style={S.inputRow}>
-          {isElevenLabs && (
-            <button
-              style={{ ...S.attachBtn, ...(audioFile ? S.attachBtnActive : {}) }}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isGenerating}
-            >
-              <Paperclip size={16} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {audioFile ? audioFile.name : 'Загрузить аудио'}
-              </span>
-            </button>
-          )}
-          {!isElevenLabs && <div style={{ flex: 1 }} />}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            style={S.hidden}
-            onChange={handleFileChange}
-            disabled={isGenerating}
-          />
-
-          <button
-            style={{ ...S.sendBtn, ...(!canSend ? S.sendBtnDisabled : {}) }}
-            onClick={handleGenerate}
-            disabled={!canSend}
-          >
-            {isGenerating ? <Loader2 size={20} style={S.spin} /> : <Send size={20} />}
-          </button>
-        </div>
-      </div>
-
-      {/* ═══ SETTINGS MODAL ═══ */}
-      {showSettings && (
-        <div style={S.overlay} onClick={() => setShowSettings(false)}>
-          <div style={S.modal} onClick={e => e.stopPropagation()}>
-            <button style={S.modalClose} onClick={() => setShowSettings(false)}>
-              <X size={16} />
-            </button>
-            <div style={S.modalTitle}>
-              {isSuno ? '🎵 Настройки Suno' : isElevenLabs ? '🎙️ Настройки ElevenLabs' : '⚙️ Настройки'}
-            </div>
-            {isSuno && renderSunoSettings()}
-            {isElevenLabs && renderElevenLabsSettings()}
-          </div>
-        </div>
-      )}
 
       {/* ═══ RESULTS ═══ */}
       <div style={S.results} ref={resultsRef}>
@@ -577,15 +448,54 @@ export function AudioGenerationPage() {
               <span style={S.resultModel}>{generation.model}</span>
               <span>{generation.prompt}</span>
             </div>
-            <MediaResult generation={generation} onRetry={() => {
-              generate({ type: 'audio', model: generation.modelSlug, prompt: generation.prompt, settings: generation.settings })
-            }} />
+            <MediaResult generation={generation} onRetry={() => generate({ type: 'audio', model: generation.modelSlug, prompt: generation.prompt, settings: generation.settings })} />
           </div>
         ))}
       </div>
 
-      {/* Keyframes for spinner */}
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      {/* ═══ BOTTOM FIXED BAR: attach + input + send ═══ */}
+      <div style={S.bottomBar}>
+        {isElevenLabs && (
+          <button
+            style={{ ...S.attachIcon, ...(audioFile ? S.attachIconActive : {}) }}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isGenerating}
+          >
+            <Paperclip size={20} />
+          </button>
+        )}
+        <input ref={fileInputRef} type="file" accept="audio/*" style={S.hidden} onChange={handleFileChange} disabled={isGenerating} />
+
+        <textarea
+          ref={inputRef}
+          style={S.textInput}
+          placeholder={isSuno ? 'Опишите музыку...' : isElevenLabs ? 'Текст для озвучки...' : 'Введите текст...'}
+          disabled={isGenerating}
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          rows={1}
+        />
+
+        <button style={{ ...S.sendBtn, ...(!canSend ? S.sendBtnDisabled : {}) }} onClick={handleGenerate} disabled={!canSend}>
+          {isGenerating ? <Loader2 size={20} className="spin" /> : <Send size={20} />}
+        </button>
+      </div>
+
+      {/* ═══ SETTINGS MODAL — по центру ═══ */}
+      {showSettings && (
+        <div style={S.overlay} onClick={() => setShowSettings(false)}>
+          <div style={S.modal} onClick={e => e.stopPropagation()}>
+            <button style={S.modalClose} onClick={() => setShowSettings(false)}><X size={16} /></button>
+            <div style={S.modalTitle}>
+              {isSuno ? '🎵 Настройки Suno' : isElevenLabs ? '🎙️ Настройки ElevenLabs' : '⚙️ Настройки'}
+            </div>
+            {isSuno && renderSunoSettings()}
+            {isElevenLabs && renderElevenLabsSettings()}
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin 1s linear infinite}`}</style>
     </div>
   )
 }
