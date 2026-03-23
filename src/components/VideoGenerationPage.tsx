@@ -14,20 +14,20 @@ interface Props {
   onBack?: () => void
 }
 
-// ═══════════ Capabilities per model slug ═══════════
 interface VideoModelCaps {
   aspectRatios: string[]
-  durations: number[]           // fixed choices
-  qualities: string[]           // ['std','pro'] or ['720p','1080p'] or ['standard','high']
-  resolutions: string[]         // ['768P','1080P'] for Hailuo
+  durations: number[]
+  qualities: string[]
+  resolutions: string[]
   supportsImageInput: boolean
-  supportsSound: boolean        // Kling
-  supportsRemoveWatermark: boolean // Sora
-  hasMode: boolean              // Kling std/pro
-  hasQuality: boolean           // Sora Pro standard/high
+  supportsSound: boolean
+  supportsRemoveWatermark: boolean
+  hasMode: boolean
+  hasQuality: boolean
 }
 
 const MODEL_CAPS: Record<string, VideoModelCaps> = {
+  // ── Существующие ──
   'sora-2': {
     aspectRatios: ['landscape', 'portrait'],
     durations: [10, 15],
@@ -53,13 +53,36 @@ const MODEL_CAPS: Record<string, VideoModelCaps> = {
   'kling-3.0': {
     aspectRatios: ['16:9', '9:16', '1:1'],
     durations: [3, 5, 7, 10, 15],
-    qualities: ['std', 'pro'],
+    qualities: ['720p', '1080p'],
+    resolutions: [],
+    supportsImageInput: false,
+    supportsSound: true,
+    supportsRemoveWatermark: false,
+    hasMode: false,
+    hasQuality: true,
+  },
+  'kling-3.0-img2vid': {
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    durations: [3, 5, 7, 10, 15],
+    qualities: ['720p', '1080p'],
     resolutions: [],
     supportsImageInput: true,
     supportsSound: true,
     supportsRemoveWatermark: false,
-    hasMode: true,
-    hasQuality: false,
+    hasMode: false,
+    hasQuality: true,
+  },
+  'kling-3.0-motion': {
+    aspectRatios: [],
+    durations: [],
+    qualities: ['720p', '1080p'],
+    resolutions: [],
+    // Motion control требует и image и reference video
+    supportsImageInput: true,
+    supportsSound: false,
+    supportsRemoveWatermark: false,
+    hasMode: false,
+    hasQuality: true,
   },
   'runway': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
@@ -70,7 +93,7 @@ const MODEL_CAPS: Record<string, VideoModelCaps> = {
     supportsSound: false,
     supportsRemoveWatermark: false,
     hasMode: false,
-    hasQuality: false,
+    hasQuality: true,
   },
   'hailuo-2.3-standard': {
     aspectRatios: [],
@@ -93,6 +116,49 @@ const MODEL_CAPS: Record<string, VideoModelCaps> = {
     supportsRemoveWatermark: false,
     hasMode: false,
     hasQuality: false,
+  },
+
+  // ── Новые модели Evolink ──
+
+  // Veo 3.1 Fast — veo-3.1-fast-generate-preview на бэке
+  'veo-3.1-fast': {
+    aspectRatios: ['16:9', '9:16'],
+    // 4, 6, 8 секунд по доке Evolink
+    durations: [4, 6, 8],
+    qualities: ['720p', '1080p', '4k'],
+    resolutions: [],
+    supportsImageInput: true,
+    supportsSound: false,
+    supportsRemoveWatermark: false,
+    hasMode: false,
+    hasQuality: true,
+  },
+
+  // Veo 3.1 Pro — veo-3.1-generate-preview на бэке
+  'veo-3.1-pro': {
+    aspectRatios: ['16:9', '9:16'],
+    durations: [4, 6, 8],
+    qualities: ['720p', '1080p', '4k'],
+    resolutions: [],
+    supportsImageInput: true,
+    supportsSound: false,
+    supportsRemoveWatermark: false,
+    hasMode: false,
+    hasQuality: true,
+  },
+
+  // Sora 2 Pro — sora-2-pro-preview на бэке
+  // По доке: duration 4/8/12, quality 720p/1080p, image input (без реальных людей)
+  'sora-2-pro': {
+    aspectRatios: ['16:9', '9:16'],
+    durations: [4, 8, 12],
+    qualities: ['720p', '1080p'],
+    resolutions: [],
+    supportsImageInput: true,
+    supportsSound: false,
+    supportsRemoveWatermark: false,
+    hasMode: false,
+    hasQuality: true,
   },
 }
 
@@ -118,6 +184,14 @@ const ASPECT_LABELS: Record<string, string> = {
   '3:4': '3:4',
 }
 
+const QUALITY_LABELS: Record<string, string> = {
+  '720p': '720p Стандарт',
+  '1080p': '1080p HD',
+  '4k': '4K Ultra',
+  '768P': '768P',
+  '1080P': '1080P',
+}
+
 const examplePrompts = [
   'Кинематографичный пролёт над горами на рассвете, облака ниже камеры',
   'Кот в очках сидит за компьютером и пишет код, уютная комната',
@@ -135,17 +209,18 @@ export function VideoGenerationPage({ onBack }: Props) {
   const videoModels = allModels.filter((m) => m.category === 'video')
 
   const [input, setInput] = useState('')
-  const [selectedModelSlug, setSelectedModelSlug] = useState(videoModels[0]?.slug ?? 'sora-2-txt2vid')
+  const [selectedModelSlug, setSelectedModelSlug] = useState(
+    videoModels[0]?.slug ?? 'veo-3.1-fast',
+  )
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
   // Settings
-  const [duration, setDuration] = useState(10)
-  const [aspectRatio, setAspectRatio] = useState('landscape')
-  const [quality, setQuality] = useState('standard')
+  const [duration, setDuration] = useState(5)
+  const [aspectRatio, setAspectRatio] = useState('16:9')
+  const [quality, setQuality] = useState('720p')
   const [resolution, setResolution] = useState('768P')
-  const [mode, setMode] = useState('std')
   const [sound, setSound] = useState(false)
   const [removeWatermark, setRemoveWatermark] = useState(true)
 
@@ -163,14 +238,13 @@ export function VideoGenerationPage({ onBack }: Props) {
 
   // Telegram BackButton
   useEffect(() => {
-    if (webApp?.BackButton) {
-      webApp.BackButton.show()
-      const handler = () => { if (onBack) onBack() }
-      webApp.BackButton.onClick(handler)
-      return () => {
-        webApp.BackButton.offClick(handler)
-        webApp.BackButton.hide()
-      }
+    if (!webApp?.BackButton) return
+    webApp.BackButton.show()
+    const handler = () => { if (onBack) onBack() }
+    webApp.BackButton.onClick(handler)
+    return () => {
+      webApp.BackButton.offClick(handler)
+      webApp.BackButton.hide()
     }
   }, [webApp, onBack])
 
@@ -179,9 +253,8 @@ export function VideoGenerationPage({ onBack }: Props) {
     const c = MODEL_CAPS[selectedModelSlug] || DEFAULT_CAPS
     setDuration(c.durations[0] || 5)
     setAspectRatio(c.aspectRatios[0] || '16:9')
-    setQuality(c.qualities[0] || 'standard')
+    setQuality(c.qualities[0] || '720p')
     setResolution(c.resolutions[0] || '768P')
-    setMode(c.hasMode ? 'std' : '')
     setSound(false)
     setRemoveWatermark(true)
     setImageUrl('')
@@ -192,51 +265,59 @@ export function VideoGenerationPage({ onBack }: Props) {
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px'
+      inputRef.current.style.height =
+        Math.min(inputRef.current.scrollHeight, 140) + 'px'
     }
   }, [input])
 
   // Upload image
-  const handleImageUpload = useCallback(async (file: File) => {
-    if (!file.type.match(/image\/(jpeg|png|webp)/)) {
-      toast.error('Только JPEG, PNG, WebP')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Макс 10MB')
-      return
-    }
-    setUploadingImage(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const token = sessionStorage.getItem('jwt')
-      const API = process.env.NEXT_PUBLIC_API_URL || ''
-      const resp = await fetch(`${API}/upload/image`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-      })
-      if (!resp.ok) throw new Error('Upload failed')
-      const data = await resp.json()
-      const url = data.data?.url || data.url
-      if (!url) throw new Error('No URL')
-      setImageUrl(url)
-      haptic('light')
-      toast.success('Изображение загружено')
-    } catch (err: any) {
-      toast.error(err.message || 'Ошибка загрузки')
-    } finally {
-      setUploadingImage(false)
-    }
-  }, [haptic])
+  const handleImageUpload = useCallback(
+    async (file: File) => {
+      if (!file.type.match(/image\/(jpeg|png|webp)/)) {
+        toast.error('Только JPEG, PNG, WebP')
+        return
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('Макс 10MB')
+        return
+      }
+      setUploadingImage(true)
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const token = sessionStorage.getItem('jwt')
+        const API = process.env.NEXT_PUBLIC_API_URL || ''
+        const resp = await fetch(`${API}/upload/image`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        })
+        if (!resp.ok) throw new Error('Upload failed')
+        const data = await resp.json()
+        const url = data.data?.url || data.url
+        if (!url) throw new Error('No URL')
+        setImageUrl(url)
+        haptic('light')
+        toast.success('Изображение загружено')
+      } catch (err: any) {
+        toast.error(err.message || 'Ошибка загрузки')
+      } finally {
+        setUploadingImage(false)
+      }
+    },
+    [haptic],
+  )
 
   // Generate
   const handleGenerate = useCallback(async () => {
     const prompt = input.trim()
     if (!prompt) return
 
-    if (caps.supportsImageInput && selectedModelSlug.includes('img') && !imageUrl) {
+    // Для img2vid моделей — требуем изображение
+    const isImg2VidModel =
+      selectedModelSlug.includes('img2vid') ||
+      selectedModelSlug === 'kling-3.0-motion'
+    if (isImg2VidModel && !imageUrl) {
       toast.warning('Загрузите изображение для этой модели')
       return
     }
@@ -250,20 +331,28 @@ export function VideoGenerationPage({ onBack }: Props) {
     haptic('medium')
     setIsGenerating(true)
 
-    const settings: Record<string, unknown> = { duration }
+    const settings: Record<string, unknown> = {}
 
+    // Длительность (если есть варианты)
+    if (caps.durations.length > 0) settings.duration = duration
+
+    // Aspect ratio
     if (caps.aspectRatios.length > 0) settings.aspectRatio = aspectRatio
-    if (caps.hasMode) settings.mode = mode
-    if (caps.hasQuality && quality) settings.quality = quality
-    if (caps.resolutions.length > 0) settings.resolution = resolution
-    if (caps.supportsSound) settings.sound = sound
-    if (caps.supportsRemoveWatermark) settings.removeWatermark = removeWatermark
-    if (caps.supportsImageInput && imageUrl) settings.imageUrl = imageUrl
 
-    // Runway quality → resolution
-    if (selectedModelSlug === 'runway-gen3' && caps.qualities.length > 0) {
-      settings.resolution = quality
-    }
+    // Quality
+    if (caps.hasQuality && caps.qualities.length > 0) settings.quality = quality
+
+    // Resolution (Hailuo)
+    if (caps.resolutions.length > 0) settings.resolution = resolution
+
+    // Sound (Kling)
+    if (caps.supportsSound) settings.sound = sound
+
+    // Remove watermark (Sora)
+    if (caps.supportsRemoveWatermark) settings.removeWatermark = removeWatermark
+
+    // Image input
+    if (caps.supportsImageInput && imageUrl) settings.imageUrl = imageUrl
 
     const result = await generate({
       type: 'video',
@@ -277,16 +366,22 @@ export function VideoGenerationPage({ onBack }: Props) {
     if (result) {
       setInput('')
       hapticNotification('success')
-      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
+      setTimeout(
+        () => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }),
+        200,
+      )
     }
   }, [
-    input, balance, modelCost, selectedModelSlug,
-    duration, aspectRatio, quality, resolution, mode, sound, removeWatermark,
-    imageUrl, caps, haptic, hapticNotification, generate,
+    input, balance, modelCost, selectedModelSlug, imageUrl,
+    duration, aspectRatio, quality, resolution, sound, removeWatermark,
+    caps, haptic, hapticNotification, generate,
   ])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate() }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleGenerate()
+    }
   }
 
   const insertExample = () => {
@@ -294,7 +389,9 @@ export function VideoGenerationPage({ onBack }: Props) {
     haptic('light')
   }
 
-  const isImg2VidModel = selectedModelSlug.includes('img')
+  const isImg2VidModel =
+    selectedModelSlug.includes('img2vid') ||
+    selectedModelSlug === 'kling-3.0-motion'
 
   return (
     <div className="gen-page">
@@ -303,16 +400,25 @@ export function VideoGenerationPage({ onBack }: Props) {
         <div className="gen-page__model-select-container">
           <button
             className="gen-page__model-select"
-            onClick={() => { setShowModelPicker(!showModelPicker); haptic('light') }}
+            onClick={() => {
+              setShowModelPicker(!showModelPicker)
+              haptic('light')
+            }}
           >
             <Video size={16} />
             <span>{currentModel?.name ?? selectedModelSlug}</span>
             <span className="gen-page__model-cost">{modelCost} 🔥</span>
-            <ChevronDown size={14} className={showModelPicker ? 'rotate-180' : ''} />
+            <ChevronDown
+              size={14}
+              className={showModelPicker ? 'rotate-180' : ''}
+            />
           </button>
           <button
             className="gen-page__settings-button"
-            onClick={() => { setShowSettings(true); haptic('light') }}
+            onClick={() => {
+              setShowSettings(true)
+              haptic('light')
+            }}
           >
             <Settings size={18} />
           </button>
@@ -320,15 +426,22 @@ export function VideoGenerationPage({ onBack }: Props) {
 
         {/* Quick params */}
         <div className="gen-page__params-row">
-          <span className="gen-page__param-badge">{duration} сек</span>
+          {caps.durations.length > 0 && (
+            <span className="gen-page__param-badge">{duration} сек</span>
+          )}
           {caps.aspectRatios.length > 0 && (
             <span className="gen-page__param-badge">{aspectRatio}</span>
           )}
-          {caps.hasMode && <span className="gen-page__param-badge">{mode}</span>}
-          {caps.qualities.length > 0 && <span className="gen-page__param-badge">{quality}</span>}
-          {caps.resolutions.length > 0 && <span className="gen-page__param-badge">{resolution}</span>}
+          {caps.hasQuality && caps.qualities.length > 0 && (
+            <span className="gen-page__param-badge">{quality}</span>
+          )}
+          {caps.resolutions.length > 0 && (
+            <span className="gen-page__param-badge">{resolution}</span>
+          )}
           {isImg2VidModel && (
-            <span className={`gen-page__param-badge ${imageUrl ? 'gen-page__param-badge--active' : ''}`}>
+            <span
+              className={`gen-page__param-badge ${imageUrl ? 'gen-page__param-badge--active' : ''}`}
+            >
               {imageUrl ? '📸 Фото' : 'img2vid'}
             </span>
           )}
@@ -340,7 +453,8 @@ export function VideoGenerationPage({ onBack }: Props) {
             {videoModels.map((m) => (
               <button
                 key={m.slug}
-                className={`gen-page__model-list-item ${selectedModelSlug === m.slug ? 'selected' : ''}`}
+                className={`gen-page__model-list-item ${selectedModelSlug === m.slug ? 'selected' : ''
+                  }`}
                 onClick={() => {
                   setSelectedModelSlug(m.slug)
                   setShowModelPicker(false)
@@ -351,7 +465,9 @@ export function VideoGenerationPage({ onBack }: Props) {
                   <span className="gen-page__model-name">{m.name}</span>
                   <span className="gen-page__model-provider">
                     {m.provider}
-                    {m.slug.includes('img') ? ' · img2vid' : ' · txt2vid'}
+                    {m.slug.includes('img') || m.slug.includes('motion')
+                      ? ' · img2vid'
+                      : ' · txt2vid'}
                   </span>
                 </div>
                 <div className="gen-page__model-right">
@@ -389,12 +505,14 @@ export function VideoGenerationPage({ onBack }: Props) {
             </div>
             <MediaResult
               generation={gen}
-              onRetry={() => generate({
-                type: 'video',
-                model: gen.modelSlug,
-                prompt: gen.prompt,
-                settings: gen.settings,
-              })}
+              onRetry={() =>
+                generate({
+                  type: 'video',
+                  model: gen.modelSlug,
+                  prompt: gen.prompt,
+                  settings: gen.settings,
+                })
+              }
             />
           </div>
         ))}
@@ -409,7 +527,10 @@ export function VideoGenerationPage({ onBack }: Props) {
             <div className="gen-page__input-image-wrap">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageUrl} alt="" className="gen-page__input-image" />
-              <button className="gen-page__input-image-remove" onClick={() => setImageUrl('')}>
+              <button
+                className="gen-page__input-image-remove"
+                onClick={() => setImageUrl('')}
+              >
                 <X size={12} />
               </button>
             </div>
@@ -435,7 +556,11 @@ export function VideoGenerationPage({ onBack }: Props) {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingImage}
               >
-                {uploadingImage ? <Loader2 size={18} className="spin" /> : <Upload size={18} />}
+                {uploadingImage ? (
+                  <Loader2 size={18} className="spin" />
+                ) : (
+                  <Upload size={18} />
+                )}
               </button>
             </>
           )}
@@ -444,7 +569,11 @@ export function VideoGenerationPage({ onBack }: Props) {
             <textarea
               ref={inputRef}
               className="chat-input__field"
-              placeholder={isImg2VidModel ? 'Загрузите фото и опишите видео...' : 'Опишите видео...'}
+              placeholder={
+                isImg2VidModel
+                  ? 'Загрузите фото и опишите видео...'
+                  : 'Опишите видео...'
+              }
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -458,20 +587,33 @@ export function VideoGenerationPage({ onBack }: Props) {
             onClick={handleGenerate}
             disabled={!input.trim() || isGenerating}
           >
-            {isGenerating ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
+            {isGenerating ? (
+              <Loader2 size={18} className="spin" />
+            ) : (
+              <Send size={18} />
+            )}
           </button>
         </div>
       </div>
 
       {/* ── Settings Modal ── */}
       {showSettings && (
-        <div className="gen-settings-modal" onClick={() => setShowSettings(false)}>
-          <div className="gen-settings-modal__content" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="gen-settings-modal"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="gen-settings-modal__content"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="gen-settings-modal__header">
               <h2 className="gen-settings-modal__title">
                 <Video size={16} /> Настройки · {currentModel?.name}
               </h2>
-              <button className="gen-settings-modal__close" onClick={() => setShowSettings(false)}>
+              <button
+                className="gen-settings-modal__close"
+                onClick={() => setShowSettings(false)}
+              >
                 <X size={20} />
               </button>
             </div>
@@ -479,22 +621,27 @@ export function VideoGenerationPage({ onBack }: Props) {
             <div className="gen-settings-modal__body">
 
               {/* Duration */}
-              <div className="gen-field">
-                <label className="gen-field__label">
-                  <Clock size={13} /> Длительность
-                </label>
-                <div className="gen-field__chips">
-                  {caps.durations.map((d) => (
-                    <button
-                      key={d}
-                      className={`gen-chip ${duration === d ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setDuration(d); haptic('light') }}
-                    >
-                      {d} сек
-                    </button>
-                  ))}
+              {caps.durations.length > 0 && (
+                <div className="gen-field">
+                  <label className="gen-field__label">
+                    <Clock size={13} /> Длительность
+                  </label>
+                  <div className="gen-field__chips">
+                    {caps.durations.map((d) => (
+                      <button
+                        key={d}
+                        className={`gen-chip ${duration === d ? 'gen-chip--active' : ''}`}
+                        onClick={() => {
+                          setDuration(d)
+                          haptic('light')
+                        }}
+                      >
+                        {d} сек
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Aspect Ratio */}
               {caps.aspectRatios.length > 0 && (
@@ -507,7 +654,10 @@ export function VideoGenerationPage({ onBack }: Props) {
                       <button
                         key={ar}
                         className={`gen-chip ${aspectRatio === ar ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setAspectRatio(ar); haptic('light') }}
+                        onClick={() => {
+                          setAspectRatio(ar)
+                          haptic('light')
+                        }}
                       >
                         {ASPECT_LABELS[ar] || ar}
                       </button>
@@ -516,31 +666,8 @@ export function VideoGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Mode (Kling) */}
-              {caps.hasMode && (
-                <div className="gen-field">
-                  <label className="gen-field__label">
-                    <Zap size={13} /> Режим
-                  </label>
-                  <div className="gen-field__chips">
-                    <button
-                      className={`gen-chip ${mode === 'std' ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setMode('std'); haptic('light') }}
-                    >
-                      Стандарт (720p)
-                    </button>
-                    <button
-                      className={`gen-chip ${mode === 'pro' ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setMode('pro'); haptic('light') }}
-                    >
-                      Pro (1080p)
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Quality (Sora Pro / Runway) */}
-              {caps.qualities.length > 0 && (
+              {/* Quality */}
+              {caps.hasQuality && caps.qualities.length > 0 && (
                 <div className="gen-field">
                   <label className="gen-field__label">
                     <Zap size={13} /> Качество
@@ -550,9 +677,12 @@ export function VideoGenerationPage({ onBack }: Props) {
                       <button
                         key={q}
                         className={`gen-chip ${quality === q ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setQuality(q); haptic('light') }}
+                        onClick={() => {
+                          setQuality(q)
+                          haptic('light')
+                        }}
                       >
-                        {q}
+                        {QUALITY_LABELS[q] || q}
                       </button>
                     ))}
                   </div>
@@ -568,7 +698,10 @@ export function VideoGenerationPage({ onBack }: Props) {
                       <button
                         key={r}
                         className={`gen-chip ${resolution === r ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setResolution(r); haptic('light') }}
+                        onClick={() => {
+                          setResolution(r)
+                          haptic('light')
+                        }}
                       >
                         {r}
                       </button>
@@ -584,13 +717,19 @@ export function VideoGenerationPage({ onBack }: Props) {
                   <div className="gen-field__chips">
                     <button
                       className={`gen-chip ${sound ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setSound(true); haptic('light') }}
+                      onClick={() => {
+                        setSound(true)
+                        haptic('light')
+                      }}
                     >
                       Включить
                     </button>
                     <button
                       className={`gen-chip ${!sound ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setSound(false); haptic('light') }}
+                      onClick={() => {
+                        setSound(false)
+                        haptic('light')
+                      }}
                     >
                       Выключить
                     </button>
@@ -605,13 +744,19 @@ export function VideoGenerationPage({ onBack }: Props) {
                   <div className="gen-field__chips">
                     <button
                       className={`gen-chip ${removeWatermark ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setRemoveWatermark(true); haptic('light') }}
+                      onClick={() => {
+                        setRemoveWatermark(true)
+                        haptic('light')
+                      }}
                     >
                       Убрать
                     </button>
                     <button
                       className={`gen-chip ${!removeWatermark ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setRemoveWatermark(false); haptic('light') }}
+                      onClick={() => {
+                        setRemoveWatermark(false)
+                        haptic('light')
+                      }}
                     >
                       Оставить
                     </button>
@@ -619,12 +764,36 @@ export function VideoGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Image upload in settings */}
+              {/* Sora 2 Pro — предупреждение о цензуре */}
+              {selectedModelSlug === 'sora-2-pro' && (
+                <div className="gen-field">
+                  <div
+                    style={{
+                      background: 'rgba(255, 193, 7, 0.1)',
+                      border: '1px solid rgba(255, 193, 7, 0.3)',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    ⚠️ Sora 2 Pro имеет строгую модерацию контента. Задачи с
+                    реальными людьми на изображениях не поддерживаются.
+                  </div>
+                </div>
+              )}
+
+              {/* Image upload в настройках */}
               {caps.supportsImageInput && (
                 <div className="gen-field">
                   <label className="gen-field__label">
                     <ImageIcon size={13} /> Входное изображение
-                    <span className="gen-field__hint">JPEG, PNG, WebP · макс 10MB</span>
+                    <span className="gen-field__hint">
+                      JPEG, PNG, WebP · макс 10MB
+                      {selectedModelSlug === 'sora-2-pro' &&
+                        ' · без реальных людей'}
+                    </span>
                   </label>
 
                   <div className="gen-field__images-grid">

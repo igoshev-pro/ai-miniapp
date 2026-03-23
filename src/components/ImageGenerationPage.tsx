@@ -112,6 +112,19 @@ const MODEL_CAPS: Record<string, ModelCaps> = {
     supportsOutputFormat: false,
     supportsSeed: false,
   },
+  'gpt-image-1.5-lite': {
+    // Эти соотношения маппятся в size параметр Evolink API
+    aspectRatios: ['1:1', '2:3', '3:2'],
+    resolutions: [],
+    // quality маппится напрямую в Evolink API
+    qualities: ['auto', 'low', 'medium', 'high'],
+    supportsNegativePrompt: false,
+    // Поддерживает редактирование через image_urls
+    supportsImg2Img: true,
+    maxInputImages: 16,
+    supportsOutputFormat: false,
+    supportsSeed: false,
+  },
 }
 
 const DEFAULT_CAPS: ModelCaps = {
