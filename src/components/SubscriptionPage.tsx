@@ -29,11 +29,13 @@ interface Props {
   onBack?: () => void
 }
 
-// ── Данные тарифов ──────────────────────────────────
+type Currency = 'rub' | 'usd'
+const RATE_RUB_TO_USD = 90
+
 interface PlanData {
   id: string
   name: string
-  price: number
+  priceRub: number
   tokens: number
   bonusTokens: number
   icon: React.ReactNode
@@ -49,7 +51,7 @@ const PLANS: PlanData[] = [
   {
     id: 'basic',
     name: 'Basic',
-    price: 450,
+    priceRub: 450,
     tokens: 150,
     bonusTokens: 0,
     icon: <Zap size={22} />,
@@ -67,7 +69,7 @@ const PLANS: PlanData[] = [
   {
     id: 'plus',
     name: 'Plus',
-    price: 990,
+    priceRub: 990,
     tokens: 330,
     bonusTokens: 0,
     icon: <Star size={22} />,
@@ -90,7 +92,7 @@ const PLANS: PlanData[] = [
   {
     id: 'max',
     name: 'Max',
-    price: 2490,
+    priceRub: 2490,
     tokens: 830,
     bonusTokens: 50,
     icon: <Rocket size={22} />,
@@ -112,7 +114,7 @@ const PLANS: PlanData[] = [
   {
     id: 'ultimate',
     name: 'Ultimate',
-    price: 5990,
+    priceRub: 5990,
     tokens: 1997,
     bonusTokens: 220,
     icon: <Diamond size={22} />,
@@ -137,14 +139,35 @@ const PLANS: PlanData[] = [
   },
 ]
 
+function formatPrice(priceRub: number, currency: Currency): string {
+  if (currency === 'rub') {
+    return priceRub.toLocaleString('ru-RU')
+  }
+  const usd = priceRub / RATE_RUB_TO_USD
+  // Красиво округляем: если целое — без копеек
+  return usd % 1 === 0
+    ? usd.toFixed(0)
+    : usd.toFixed(2).replace(/\.?0+$/, '')
+}
+
+function currencySymbol(currency: Currency): string {
+  return currency === 'rub' ? '₽' : '$'
+}
+
+function tokenPriceLabel(currency: Currency): string {
+  if (currency === 'rub') return '1 токен = 3 ₽'
+  const usd = 3 / RATE_RUB_TO_USD
+  return `1 токен ≈ $${usd.toFixed(3)}`
+}
+
 export function SubscriptionPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { subscription } = useUser()
   const { subscribe } = useBilling()
   const [subscribingPlan, setSubscribingPlan] = useState<string | null>(null)
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null)
+  const [currency, setCurrency] = useState<Currency>('rub')
 
-  // ─── Telegram BackButton ───────────────────────────
   useEffect(() => {
     if (webApp?.BackButton) {
       webApp.BackButton.show()
@@ -185,6 +208,11 @@ export function SubscriptionPage({ onBack }: Props) {
     setExpandedPlan(expandedPlan === planId ? null : planId)
   }
 
+  const toggleCurrency = () => {
+    haptic('light')
+    setCurrency((prev) => (prev === 'rub' ? 'usd' : 'rub'))
+  }
+
   return (
     <div className="subscription-page">
       {/* Header */}
@@ -192,8 +220,24 @@ export function SubscriptionPage({ onBack }: Props) {
         <Crown size={24} className="subscription-page__header-icon" />
         <div className="subscription-page__title">Тарифы</div>
         <div className="subscription-page__subtitle">
-          1 токен = 3 ₽ · Выберите план для себя
+          {tokenPriceLabel(currency)} · Выберите план для себя
         </div>
+      </div>
+
+      {/* Currency toggle */}
+      <div className="currency-toggle fade-in fade-in--1">
+        <button
+          className={`currency-toggle__btn ${currency === 'rub' ? 'currency-toggle__btn--active' : ''}`}
+          onClick={() => { haptic('light'); setCurrency('rub') }}
+        >
+          ₽ Рубли
+        </button>
+        <button
+          className={`currency-toggle__btn ${currency === 'usd' ? 'currency-toggle__btn--active' : ''}`}
+          onClick={() => { haptic('light'); setCurrency('usd') }}
+        >
+          $ USD
+        </button>
       </div>
 
       {/* Current plan */}
@@ -227,12 +271,9 @@ export function SubscriptionPage({ onBack }: Props) {
               className={`sub-card ${isCurrent ? 'sub-card--current' : ''} ${isExpanded ? 'sub-card--expanded' : ''}`}
               style={{
                 '--plan-color': plan.color,
-                borderColor: isCurrent
-                  ? plan.color
-                  : undefined,
+                borderColor: isCurrent ? plan.color : undefined,
               } as React.CSSProperties}
             >
-              {/* Popular badge */}
               {plan.isPopular && (
                 <div className="sub-card__popular" style={{ background: plan.color }}>
                   <Sparkles size={10} />
@@ -240,7 +281,7 @@ export function SubscriptionPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Top row: icon, name, price */}
+              {/* Top row */}
               <div className="sub-card__top">
                 <div
                   className="sub-card__icon"
@@ -259,13 +300,18 @@ export function SubscriptionPage({ onBack }: Props) {
                   </div>
                 </div>
                 <div className="sub-card__price">
-                  <span className="sub-card__amount">{plan.price.toLocaleString()}</span>
-                  <span className="sub-card__currency"> ₽</span>
+                  <span className="sub-card__amount">
+                    {currency === 'usd' && '$'}
+                    {formatPrice(plan.priceRub, currency)}
+                  </span>
+                  {currency === 'rub' && (
+                    <span className="sub-card__currency"> ₽</span>
+                  )}
                   <span className="sub-card__period">/мес</span>
                 </div>
               </div>
 
-              {/* Tokens row */}
+              {/* Tokens */}
               <div className="sub-card__tokens-row">
                 <div className="sub-card__tokens">
                   <Sparkles size={14} style={{ color: plan.color }} />
@@ -292,7 +338,7 @@ export function SubscriptionPage({ onBack }: Props) {
                 ))}
               </div>
 
-              {/* Free models (expandable) */}
+              {/* Free models */}
               {plan.freeModels.length > 0 && (
                 <>
                   <button
@@ -328,7 +374,7 @@ export function SubscriptionPage({ onBack }: Props) {
                 </>
               )}
 
-              {/* Subscribe button */}
+              {/* Button */}
               <button
                 className={`sub-card__btn ${isCurrent ? 'sub-card__btn--current' : ''}`}
                 onClick={() => handleSubscribe(plan.id)}
@@ -342,10 +388,10 @@ export function SubscriptionPage({ onBack }: Props) {
                     <Check size={14} />
                     Текущий план
                   </>
-                ) : currentPlan === 'free' ? (
-                  'Подключить'
                 ) : (
-                  'Сменить план'
+                  <>
+                    Подключить за {currency === 'usd' ? '$' : ''}{formatPrice(plan.priceRub, currency)}{currency === 'rub' ? ' ₽' : ''}
+                  </>
                 )}
               </button>
             </div>
@@ -353,7 +399,7 @@ export function SubscriptionPage({ onBack }: Props) {
         })}
       </div>
 
-      {/* Free tier */}
+      {/* Free */}
       <div className="subscription-free fade-in fade-in--3">
         <div className="subscription-free__title">Free</div>
         <div className="subscription-free__desc">
