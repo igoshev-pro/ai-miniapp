@@ -9,7 +9,7 @@ export function StickyHeader() {
   return (
     <div className="sticky-header fade-in fade-in--1">
       <div className="sticky-header__logo" style={{ color: '#facc15', fontWeight: 700 }}>
-        SPICHKI
+        SPICHKI AI
       </div>
 
       <div className="sticky-header__balance">

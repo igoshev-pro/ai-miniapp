@@ -1,3 +1,5 @@
+// src/context/TelegramContext.tsx
+
 'use client'
 
 import {
@@ -66,7 +68,6 @@ function applySafeArea(wa: WebApp) {
   const contentTop = wa.contentSafeAreaInset?.top ?? 0
   const total = safeTop + contentTop
 
-  // Минимум 44px на iOS (статус-бар), 0 на десктопе
   const platform = (wa.platform || '').toLowerCase()
   const isPhone = platform.includes('ios') || platform.includes('android')
   const minOffset = isPhone ? 44 : 0
@@ -85,10 +86,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       wa.ready()
       wa.expand()
 
-      // отключаем сворачивание по свайпу вниз
-      if (wa.disableVerticalSwipes) {
-        wa.disableVerticalSwipes()
-      }
+      // УБРАНО: disableVerticalSwipes — теперь можно свернуть свайпом
+      // if (wa.disableVerticalSwipes) {
+      //   wa.disableVerticalSwipes()
+      // }
 
       wa.setHeaderColor('#0a0a0a')
       wa.setBackgroundColor('#0a0a0a')
@@ -99,17 +100,16 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
 
       wa.enableClosingConfirmation()
 
-      // Fullscreen
-      if (wa.isVersionAtLeast('8.0')) {
-        try {
-          wa.requestFullscreen()
-        } catch { }
-      }
+      // УБРАНО: requestFullscreen — теперь не на весь экран
+      // if (wa.isVersionAtLeast('8.0')) {
+      //   try {
+      //     wa.requestFullscreen()
+      //   } catch { }
+      // }
 
       // Считаем safe area
       applySafeArea(wa)
 
-      // Слушаем изменения safe area (при fullscreen они меняются)
       if (wa.onEvent) {
         try {
           wa.onEvent('safeAreaChanged' as any, () => applySafeArea(wa))
@@ -117,7 +117,6 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         } catch { }
       }
 
-      // Фоллбек: пересчитываем через 500ms (после fullscreen)
       setTimeout(() => applySafeArea(wa), 500)
       setTimeout(() => applySafeArea(wa), 1500)
 
@@ -138,7 +137,6 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         '--tg-viewport-stable-height',
         `${webApp.viewportStableHeight}px`
       )
-      // Пересчитываем safe area при изменении viewport
       applySafeArea(webApp)
     }
 
