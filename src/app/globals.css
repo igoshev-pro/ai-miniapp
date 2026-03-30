@@ -5563,19 +5563,22 @@ body.tg-app .sticky-header {
   background: #4ade80 !important;
 }
 
+/* Скидка — правый нижний угол */
 .topup-package__discount {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  bottom: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #4ade80;
-  background: rgba(74, 222, 128, 0.12);
-  padding: 2px 8px;
-  border-radius: 6px;
+  background: rgba(74, 222, 128, 0.10);
+  border: 1px solid rgba(74, 222, 128, 0.15);
+  padding: 3px 9px;
+  border-radius: 8px;
+  letter-spacing: 0.2px;
 }
 
 .topup-package__old-price {
@@ -5599,4 +5602,10 @@ body.tg-app .sticky-header {
 .topup-info__legal {
   font-size: 10px;
   color: rgba(255, 255, 255, 0.15);
+}
+
+.topup-balance__converted {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.25);
+  margin-top: 4px;
 }
