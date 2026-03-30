@@ -70,11 +70,11 @@ export function ReferralPage({ onBack }: Props) {
 
   const shareLink = useCallback(() => {
     haptic('medium')
-    const text = `🔥 Спички — все нейросети в одном месте! Регистрируйся и получи бонусные спички: ${referralLink}`
+    const text = `🔥 SPICHKI AI — все нейросети в одном месте! Регистрируйся и получи бонусные спички: ${referralLink}`
 
     if (webApp?.openTelegramLink) {
       webApp.openTelegramLink(
-        `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('🔥 Спички — все нейросети в одном месте! Получи бонус при регистрации')}`
+        `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('🔥 SPICHKI AI — все нейросети в одном месте! Получи бонус при регистрации')}`
       )
     } else if (navigator.share) {
       navigator.share({ text, url: referralLink }).catch(() => {})

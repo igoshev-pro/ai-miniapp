@@ -8,7 +8,7 @@ import { ModelsInitializer } from '@/components/providers/ModelsInitializer'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Спички — Агрегатор ИИ',
+  title: 'SPICHKI AI | Агрегатор ИИ',
   description: 'Все нейросети в одном месте. Telegram Mini App.',
 }
 

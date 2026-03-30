@@ -177,7 +177,7 @@ export function SpichkiApp() {
     return (
       <div className="app-loading">
         <div className="app-loading__logo">🔥</div>
-        <div className="app-loading__text">Спички</div>
+        <div className="app-loading__text">SPICHKI AI</div>
         <div className="app-loading__bar">
           <div className="app-loading__bar-fill" />
         </div>

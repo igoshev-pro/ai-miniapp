@@ -6,11 +6,11 @@ export function Header() {
       <div className="header__left">
         <img
           src="/logod.png"
-          alt="Спички"
+          alt="SPICHKI AI"
           className="header__logo-img"
         />
       </div>
-      <div className="header__right">ИИ Агрегатор</div>
+      <div className="header__right">SPICHKI AI</div>
     </header>
   )
 }
