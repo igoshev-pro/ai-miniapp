@@ -161,7 +161,10 @@ function ModelCard({
     <div className="model-row" onClick={onTap} role="button" tabIndex={0}>
       <div className="model-row__icon">{modelIcons[model.category]}</div>
       <div className="model-row__body">
-        <div className="model-row__name">{model.name}</div>
+        <div className="model-row__name-row">
+          <span className="model-row__name">{model.name}</span>
+          <span className="model-row__cost">🔥 {model.cost}</span>
+        </div>
         <div className="model-row__meta">
           <span className="model-row__provider">{model.provider}</span>
           <span className="model-row__dot">·</span>

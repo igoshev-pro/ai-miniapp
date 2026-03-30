@@ -5609,3 +5609,23 @@ body.tg-app .sticky-header {
   color: rgba(255, 255, 255, 0.25);
   margin-top: 4px;
 }
+
+/* ═══════════════ MODEL ROW — cost badge ═══════════════ */
+
+.model-row__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-row__cost {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-yellow);
+  background: rgba(250, 204, 21, 0.08);
+  padding: 1px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
+}

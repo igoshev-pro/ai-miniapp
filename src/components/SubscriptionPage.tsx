@@ -155,9 +155,9 @@ function currencySymbol(currency: Currency): string {
 }
 
 function tokenPriceLabel(currency: Currency): string {
-  if (currency === 'rub') return '1 токен = 3 ₽'
+  if (currency === 'rub') return '1 спичка = 3 ₽'
   const usd = 3 / RATE_RUB_TO_USD
-  return `1 токен ≈ $${usd.toFixed(3)}`
+  return `1 спичка ≈ $${usd.toFixed(3)}`
 }
 
 export function SubscriptionPage({ onBack }: Props) {
@@ -316,7 +316,7 @@ export function SubscriptionPage({ onBack }: Props) {
                 <div className="sub-card__tokens">
                   <Sparkles size={14} style={{ color: plan.color }} />
                   <span className="sub-card__tokens-value">{plan.tokens.toLocaleString()}</span>
-                  <span className="sub-card__tokens-label">токенов</span>
+                  <span className="sub-card__tokens-label">спичек</span>
                 </div>
                 {plan.bonusTokens > 0 && (
                   <div className="sub-card__bonus">
