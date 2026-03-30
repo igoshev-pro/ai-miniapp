@@ -45,7 +45,7 @@ interface Props {
 export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
   const { haptic } = useTelegram()
   const { toggle: toggleFavorite } = useFavorites()
-  const { models: allModels, categories: modelCategories } = useModels()  
+  const { models: allModels, categories: modelCategories } = useModels()
   const [activeFilter, setActiveFilter] = useState<string | null>(initialCategory ?? null)
   const [search, setSearch] = useState('')
 
@@ -163,7 +163,9 @@ function ModelCard({
       <div className="model-row__body">
         <div className="model-row__name-row">
           <span className="model-row__name">{model.name}</span>
-          <span className="model-row__cost">🔥 {model.cost}</span>
+          <span className="model-row__cost">
+            {model.hasVariants ? `от ${model.cost}` : model.cost} 🔥
+          </span>
         </div>
         <div className="model-row__meta">
           <span className="model-row__provider">{model.provider}</span>
