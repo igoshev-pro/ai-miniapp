@@ -9,61 +9,91 @@ export interface ModelItem {
   provider: string
   category: 'text' | 'image' | 'video' | 'audio'
   description: string
-  cost: number          // минимальная стоимость в спичках
+  cost: number          // минимальная стоимость в спичках (от)
   hasVariants?: boolean // true = показывать "от X 🔥"
 }
 
 export const allModels: ModelItem[] = [
   // ═══════════════════════════════════════
-  // ТЕКСТОВЫЕ (13 моделей)
+  // ТЕКСТОВЫЕ (11 моделей)
   // ═══════════════════════════════════════
-  { id: 't1',  name: 'GPT-OSS 120B',       slug: 'gpt-oss-120b',       provider: 'OpenRouter',  category: 'text', description: 'Open-source 117B MoE модель',               cost: 1 },
-  { id: 't2',  name: 'Claude Haiku 4.5',    slug: 'claude-haiku-4.5',   provider: 'Anthropic',   category: 'text', description: 'Быстрая модель с расширенным мышлением',     cost: 1 },
-  { id: 't3',  name: 'DeepSeek V3.2',       slug: 'deepseek-v3.2',      provider: 'DeepSeek',    category: 'text', description: 'Улучшенная версия с DSA и reasoning',        cost: 1 },
-  { id: 't4',  name: 'Grok 4.1 Fast',       slug: 'grok-4.1-fast',      provider: 'xAI',         category: 'text', description: 'Быстрая версия Grok от xAI',                cost: 1 },
-  { id: 't5',  name: 'Grok 4',              slug: 'grok-4',             provider: 'xAI',         category: 'text', description: 'Флагманская reasoning модель',               cost: 2 },
-  { id: 't6',  name: 'Perplexity Sonar',    slug: 'perplexity-sonar',   provider: 'Perplexity',  category: 'text', description: 'Поисковая модель с актуальными данными',     cost: 1 },
-  { id: 't7',  name: 'GPT-5.4',             slug: 'gpt-5.4',            provider: 'OpenAI',      category: 'text', description: 'Новейшая модель OpenAI',                    cost: 4 },
-  { id: 't8',  name: 'Claude Opus 4.6',     slug: 'claude-opus-4.6',    provider: 'Anthropic',   category: 'text', description: 'Самая мощная модель Anthropic',              cost: 8 },
-  { id: 't9',  name: 'Claude Sonnet 4.6',   slug: 'claude-sonnet-4.6',  provider: 'Anthropic',   category: 'text', description: 'Балансированная модель Anthropic',           cost: 4 },
-  { id: 't10', name: 'Gemini 3.1 Pro',      slug: 'gemini-3.1-pro',     provider: 'Google',      category: 'text', description: 'Продвинутая модель Google',                  cost: 1 },
-  { id: 't11', name: 'Gemini 3 Flash',      slug: 'gemini-3-flash',     provider: 'Google',      category: 'text', description: 'Быстрая модель Google',                     cost: 1 },
-  { id: 't12', name: 'ChatGPT 4o',          slug: 'gpt-4o',             provider: 'OpenAI',      category: 'text', description: 'Мощная мультимодальная модель',              cost: 2 },
-  { id: 't13', name: 'ChatGPT 4o Mini',     slug: 'gpt-4o-mini',        provider: 'OpenAI',      category: 'text', description: 'Быстрая и экономичная',                     cost: 1 },
+
+  // --- Evolink ---
+  { id: 't1', name: 'GPT-5.4',           slug: 'gpt-5.4',           provider: 'OpenAI',     category: 'text', description: 'Новейшая флагманская модель OpenAI',     cost: 0.20, hasVariants: true },
+  { id: 't2', name: 'Claude Sonnet 4.6', slug: 'claude-sonnet-4.6', provider: 'Anthropic',  category: 'text', description: 'Балансированная модель Anthropic',       cost: 0.20, hasVariants: true },
+  { id: 't3', name: 'Claude Opus 4.6',   slug: 'claude-opus-4.6',   provider: 'Anthropic',  category: 'text', description: 'Самая мощная модель Anthropic',          cost: 0.20, hasVariants: true },
+
+  // --- OpenRouter ---
+  { id: 't4',  name: 'GPT-OSS 120B',      slug: 'gpt-oss-120b',      provider: 'OpenRouter',  category: 'text', description: 'Open-source 117B MoE, бесплатная',     cost: 0.10, hasVariants: true },
+  { id: 't5',  name: 'Claude Haiku 4.5',   slug: 'claude-haiku-4.5',  provider: 'Anthropic',   category: 'text', description: 'Быстрая модель с расширенным мышлением', cost: 0.20, hasVariants: true },
+  { id: 't6',  name: 'DeepSeek V3.2',      slug: 'deepseek-v3.2',     provider: 'DeepSeek',    category: 'text', description: 'Улучшенная версия с DSA и reasoning',    cost: 0.10, hasVariants: true },
+  { id: 't7',  name: 'Grok 4.1 Fast',      slug: 'grok-4.1-fast',     provider: 'xAI',         category: 'text', description: 'Быстрая версия Grok от xAI',            cost: 0.10, hasVariants: true },
+  { id: 't8',  name: 'Grok 4',             slug: 'grok-4',            provider: 'xAI',         category: 'text', description: 'Флагманская reasoning модель',           cost: 0.40, hasVariants: true },
+  { id: 't9',  name: 'Perplexity Sonar',   slug: 'perplexity-sonar',  provider: 'Perplexity',  category: 'text', description: 'Поисковая модель с актуальными данными', cost: 0.10, hasVariants: true },
+  { id: 't10', name: 'GPT-5 Image',        slug: 'gpt-5-image-text',  provider: 'OpenAI',      category: 'text', description: 'Мультимодальная модель с генерацией',    cost: 0.70, hasVariants: true },
+
+  // --- KIE ---
+  { id: 't11', name: 'Gemini 3.1 Pro',     slug: 'gemini-3.1-pro',    provider: 'Google',      category: 'text', description: 'Продвинутая модель Google',              cost: 0.10, hasVariants: true },
+  { id: 't12', name: 'Gemini 3 Flash',     slug: 'gemini-3-flash',    provider: 'Google',      category: 'text', description: 'Быстрая модель Google',                 cost: 0.30 },
+
+  // --- УБРАНЫ (нет в таблице провайдеров) ---
+  // { id: 'tx', name: 'ChatGPT 4o',       slug: 'gpt-4o',       ... cost: 2 },
+  // { id: 'tx', name: 'ChatGPT 4o Mini',  slug: 'gpt-4o-mini',  ... cost: 1 },
 
   // ═══════════════════════════════════════
   // ИЗОБРАЖЕНИЯ (10 моделей)
   // ═══════════════════════════════════════
-  { id: 'i1',  name: 'GPT-5 Image',         slug: 'gpt-5-image',        provider: 'OpenAI',       category: 'image', description: 'Новейший генератор OpenAI',          cost: 4 },
-  { id: 'i2',  name: 'GPT Image 1.5 Lite',  slug: 'gpt-image-1.5-lite', provider: 'OpenAI',       category: 'image', description: 'Облегчённая версия',                 cost: 2 },
-  { id: 'i3',  name: 'Midjourney',          slug: 'midjourney',         provider: 'Midjourney',   category: 'image', description: 'Лучший генератор изображений',       cost: 2, hasVariants: true },
-  { id: 'i4',  name: 'Midjourney Img2Img',  slug: 'midjourney-img2img', provider: 'Midjourney',   category: 'image', description: 'Трансформация изображений',          cost: 2 },
-  { id: 'i5',  name: 'Seedream 5.0 Lite',   slug: 'seedream-5-lite',    provider: 'ByteDance',    category: 'image', description: 'Быстрый генератор Seedream',         cost: 2 },
-  { id: 'i6',  name: 'Imagen 4',            slug: 'imagen-4',           provider: 'Google',       category: 'image', description: 'Генератор от Google',                cost: 2 },
-  { id: 'i7',  name: 'Flux 2',              slug: 'flux-2',             provider: 'Black Forest', category: 'image', description: 'Новая версия Flux',                  cost: 2, hasVariants: true },
-  { id: 'i8',  name: 'Flux 2 Img2Img',      slug: 'flux-2-img2img',     provider: 'Black Forest', category: 'image', description: 'Flux для трансформации',             cost: 5 },
-  { id: 'i9',  name: 'Nano Banana 2',       slug: 'nano-banana-2',      provider: 'Community',    category: 'image', description: 'Стандартная версия',                  cost: 4, hasVariants: true },
-  { id: 'i10', name: 'Nano Banana Pro',     slug: 'nano-banana-pro',    provider: 'Community',    category: 'image', description: 'Продвинутая версия',                  cost: 6, hasVariants: true },
+
+  // --- Evolink ---
+  { id: 'i1', name: 'GPT Image 1.5 Lite',  slug: 'gpt-image-1.5-lite', provider: 'OpenAI',       category: 'image', description: 'Облегчённая версия GPT Image',     cost: 1.20 },
+
+  // --- KIE ---
+  { id: 'i2', name: 'Midjourney',           slug: 'midjourney',         provider: 'Midjourney',   category: 'image', description: 'Лучший генератор изображений',      cost: 1.30, hasVariants: true },
+  { id: 'i3', name: 'Nano Banana 2',        slug: 'nano-banana-2',      provider: 'Community',    category: 'image', description: 'Стандартная версия, 1K–4K',         cost: 3.30, hasVariants: true },
+  { id: 'i4', name: 'Nano Banana Pro',      slug: 'nano-banana-pro',    provider: 'Community',    category: 'image', description: 'Продвинутая версия, до 4K',         cost: 6.00, hasVariants: true },
+  { id: 'i5', name: 'Seedream 5.0 Lite',    slug: 'seedream-5-lite',    provider: 'ByteDance',    category: 'image', description: 'Быстрый генератор Seedream',        cost: 1.60 },
+  { id: 'i6', name: 'Flux 2',               slug: 'flux-2',             provider: 'Black Forest', category: 'image', description: 'Новая версия Flux, 1K–2K',          cost: 1.80, hasVariants: true },
+  { id: 'i7', name: 'Imagen 4',             slug: 'imagen-4',           provider: 'Google',       category: 'image', description: 'Генератор от Google',               cost: 1.20 },
+
+  // --- OpenRouter ---
+  { id: 'i8', name: 'GPT-5 Image',          slug: 'gpt-5-image',        provider: 'OpenAI',       category: 'image', description: 'Новейший генератор OpenAI',         cost: 0.70, hasVariants: true },
+
+  // --- Img2Img ---
+  { id: 'i9',  name: 'Midjourney Img2Img',  slug: 'midjourney-img2img', provider: 'Midjourney',   category: 'image', description: 'Трансформация изображений',         cost: 1.30 },
+  { id: 'i10', name: 'Flux 2 Img2Img',      slug: 'flux-2-img2img',     provider: 'Black Forest', category: 'image', description: 'Flux для трансформации',            cost: 5.00 },
 
   // ═══════════════════════════════════════
-  // ВИДЕО (10 моделей)
+  // ВИДЕО (11 моделей)
   // ═══════════════════════════════════════
-  { id: 'v1',  name: 'Sora 2',              slug: 'sora-2',              provider: 'OpenAI',   category: 'video', description: 'Текст → видео, 10–15 сек',          cost: 14, hasVariants: true },
-  { id: 'v2',  name: 'Sora 2 Img2Vid',      slug: 'sora-2-img2vid',      provider: 'OpenAI',   category: 'video', description: 'Изображение → видео',               cost: 14 },
-  { id: 'v3',  name: 'Sora 2 Pro',          slug: 'sora-2-pro',          provider: 'OpenAI',   category: 'video', description: 'Премиум версия HD 15 сек',          cost: 87 },
-  { id: 'v4',  name: 'Kling 3.0',           slug: 'kling-3.0',           provider: 'Kuaishou', category: 'video', description: 'Видео со звуком, 3–15 сек',         cost: 5,  hasVariants: true },
-  { id: 'v5',  name: 'Kling 3.0 Img2Vid',   slug: 'kling-3.0-img2vid',   provider: 'Kuaishou', category: 'video', description: 'Kling для анимации',                cost: 5 },
-  { id: 'v6',  name: 'Runway Gen-3',        slug: 'runway',              provider: 'Runway',   category: 'video', description: 'Кинематографичное видео',            cost: 6,  hasVariants: true },
-  { id: 'v7',  name: 'Hailuo 2.3 Std',      slug: 'hailuo-2.3-standard', provider: 'MiniMax',  category: 'video', description: 'Текст → видео, бюджетный',          cost: 10, hasVariants: true },
-  { id: 'v8',  name: 'Hailuo 2.3 Pro',      slug: 'hailuo-2.3-pro',      provider: 'MiniMax',  category: 'video', description: 'Улучшенное качество',               cost: 14, hasVariants: true },
-  { id: 'v9',  name: 'Veo 3.1 Fast',        slug: 'veo-3.1-fast',        provider: 'Google',   category: 'video', description: 'Быстрая версия Veo',                cost: 15, hasVariants: true },
-  { id: 'v10', name: 'Veo 3.1 Pro',         slug: 'veo-3.1-pro',         provider: 'Google',   category: 'video', description: 'Премиум версия Veo',                cost: 75, hasVariants: true },
+
+  // --- Evolink ---
+  { id: 'v1',  name: 'Veo 3.1 Fast',         slug: 'veo-3.1-fast',         provider: 'Google',    category: 'video', description: 'Быстрая версия Veo, 720p–4K',       cost: 15.00, hasVariants: true },
+  { id: 'v2',  name: 'Veo 3.1 Pro',          slug: 'veo-3.1-pro',          provider: 'Google',    category: 'video', description: 'Премиум версия Veo, до 4K',          cost: 75.00, hasVariants: true },
+  { id: 'v3',  name: 'Sora 2',               slug: 'sora-2',               provider: 'OpenAI',    category: 'video', description: 'Текст → видео, 10–15 сек',           cost: 13.00, hasVariants: true },
+  { id: 'v4',  name: 'Sora 2 Pro',           slug: 'sora-2-pro',           provider: 'OpenAI',    category: 'video', description: 'Премиум HD/Standard, 15–25 сек',     cost: 86.00, hasVariants: true },
+
+  // --- Evolink Kling (верхняя таблица) ---
+  { id: 'v5',  name: 'Kling 3.0',            slug: 'kling-3.0',            provider: 'Kuaishou',  category: 'video', description: 'Видео со звуком, 720–1080p',          cost: 4.30, hasVariants: true },
+
+  // --- KIE Kling (нижняя таблица) ---
+  { id: 'v6',  name: 'Kling 3.0 Motion',     slug: 'kling-3.0-motion',     provider: 'Kuaishou',  category: 'video', description: 'Motion control, 720–1080p',          cost: 9.00, hasVariants: true },
+
+  // --- KIE ---
+  { id: 'v7',  name: 'Runway Gen-3',         slug: 'runway',               provider: 'Runway',    category: 'video', description: 'Кинематографичное видео, 5–10с',     cost: 6.00, hasVariants: true },
+  { id: 'v8',  name: 'Hailuo 2.3 Std',       slug: 'hailuo-2.3-standard',  provider: 'MiniMax',   category: 'video', description: 'Текст → видео, бюджетный',           cost: 9.00, hasVariants: true },
+  { id: 'v9',  name: 'Hailuo 2.3 Pro',       slug: 'hailuo-2.3-pro',       provider: 'MiniMax',   category: 'video', description: 'Улучшенное качество',                cost: 14.00, hasVariants: true },
+
+  // --- Img2Vid (нет отдельной строки, но есть в прайсе) ---
+  // { id: 'v10', name: 'Sora 2 Img2Vid',    slug: 'sora-2-img2vid',    ... cost: 13.00 },
+  // { id: 'v11', name: 'Kling 3.0 Img2Vid', slug: 'kling-3.0-img2vid', ... cost: 4.30 },
 
   // ═══════════════════════════════════════
   // АУДИО (2 модели)
   // ═══════════════════════════════════════
-  { id: 'a1',  name: 'Suno V4',             slug: 'suno-v4',            provider: 'Suno',       category: 'audio', description: 'Генерация музыки и песен',       cost: 1, hasVariants: true },
-  { id: 'a2',  name: 'ElevenLabs',          slug: 'elevenlabs',         provider: 'ElevenLabs', category: 'audio', description: 'Реалистичный голос, TTS, STT',   cost: 1, hasVariants: true },
+
+  // --- KIE ---
+  { id: 'a1', name: 'Suno V4',       slug: 'suno-v4',    provider: 'Suno',       category: 'audio', description: 'Генерация музыки и песен',     cost: 0.40, hasVariants: true },
+  { id: 'a2', name: 'ElevenLabs',    slug: 'elevenlabs',  provider: 'ElevenLabs', category: 'audio', description: 'Реалистичный голос, TTS, STT', cost: 0.10, hasVariants: true },
 ]
 
 export interface ModelCategory {
@@ -104,7 +134,7 @@ export const chatFeedData: ChatItem[] = [
   {
     id: 'c1',
     title: 'Написать бизнес-план',
-    model: 'ChatGPT 4o',
+    model: 'GPT-5.4',
     preview: 'Помоги составить бизнес-план для стартапа...',
     time: '14:32',
     date: 'today',
@@ -174,7 +204,7 @@ export const chatFeedData: ChatItem[] = [
   {
     id: 'c8',
     title: 'Презентация продукта',
-    model: 'GPT-5.4',
+    model: 'Claude Opus 4.6',
     preview: 'Подготовь слайды для презентации...',
     time: '10:12',
     date: 'yesterday',
@@ -235,7 +265,7 @@ export const categoriesData: CategoryCardData[] = [
   {
     id: 'text',
     title: 'Текстовые ИИ',
-    description: 'ChatGPT, Claude, Gemini и другие',
+    description: 'GPT-5.4, Claude, Gemini и другие',
     coverUrl: '/covers/text.webp',
     modelCount: allModels.filter((m) => m.category === 'text').length,
   },
@@ -249,7 +279,7 @@ export const categoriesData: CategoryCardData[] = [
   {
     id: 'video',
     title: 'Генерация видео',
-    description: 'Sora, Kling, Runway и другие',
+    description: 'Sora, Kling, Runway, Veo и другие',
     coverUrl: '/covers/video.webp',
     modelCount: allModels.filter((m) => m.category === 'video').length,
   },

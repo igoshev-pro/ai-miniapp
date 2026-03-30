@@ -117,9 +117,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       selectedModelName,     // Что выбрано в UI
       currentModel,          // Объект модели
       modelSlug,            // Что отправляется на бэкенд
-      allModels: allModels.slice(0, 3).map(m => ({ 
-        name: m.name, 
-        slug: m.slug 
+      allModels: allModels.slice(0, 3).map(m => ({
+        name: m.name,
+        slug: m.slug
       })),
     });
   }, [selectedModelName, currentModel, modelSlug]);
@@ -246,7 +246,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       {
         onConversation: (data) => {
           store.setActiveChatId(data.id) // теперь безопасно - просто меняет ID
-        
+
           const exists = useChatStore.getState().chats.find((c) => c.id === data.id)
           if (!exists) {
             store.addChat({
@@ -261,7 +261,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             })
           }
         },
-        onMessageStart: () => {},
+        onMessageStart: () => { },
         onToken: (token) => {
           store.appendStreamingContent(token)
         },
@@ -333,7 +333,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const copyMessage = useCallback(
     (id: string, content: string) => {
-      navigator.clipboard.writeText(content).catch(() => {})
+      navigator.clipboard.writeText(content).catch(() => { })
       setCopiedId(id)
       haptic('light')
       setTimeout(() => setCopiedId(null), 2000)
@@ -391,12 +391,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         >
           <MessageSquare size={14} />
           <span>{selectedModelName}</span>
-          <span className="chat-model-selector__cost">{modelCost} 🔥</span>
+          <span className="chat-model-selector__cost">
+            {modelCost % 1 === 0 ? modelCost : modelCost.toFixed(2)} 🔥
+          </span>
           <ChevronDown
             size={14}
-            className={`chat-model-selector__chevron ${
-              showModelPicker ? 'chat-model-selector__chevron--open' : ''
-            }`}
+            className={`chat-model-selector__chevron ${showModelPicker ? 'chat-model-selector__chevron--open' : ''
+              }`}
           />
         </button>
 
@@ -418,9 +419,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           {textModels.map((m) => (
             <button
               key={m.id}
-              className={`chat-model-option ${
-                selectedModelName === m.name ? 'chat-model-option--active' : ''
-              }`}
+              className={`chat-model-option ${selectedModelName === m.name ? 'chat-model-option--active' : ''
+                }`}
               onClick={() => {
                 setSelectedModelName(m.name)
                 setShowModelPicker(false)
@@ -432,7 +432,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 <span className="chat-model-option__provider">{m.provider}</span>
               </div>
               <div className="chat-model-option__right">
-                <span className="chat-model-option__cost">{m.cost} 🔥</span>
+                <span className="chat-model-option__cost">
+                  {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
+                </span>
                 {selectedModelName === m.name && (
                   <Check size={14} className="chat-model-option__check" />
                 )}

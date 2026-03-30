@@ -53,7 +53,7 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
     const matchCategory = activeFilter ? m.category === activeFilter : true
     const matchSearch = search
       ? m.name.toLowerCase().includes(search.toLowerCase()) ||
-        m.provider.toLowerCase().includes(search.toLowerCase())
+      m.provider.toLowerCase().includes(search.toLowerCase())
       : true
     return matchCategory && matchSearch
   })
@@ -61,11 +61,11 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
   const grouped = activeFilter
     ? [{ category: activeFilter, models: filteredModels }]
     : (['text', 'image', 'video', 'audio'] as const)
-        .map((cat) => ({
-          category: cat,
-          models: filteredModels.filter((m) => m.category === cat),
-        }))
-        .filter((g) => g.models.length > 0)
+      .map((cat) => ({
+        category: cat,
+        models: filteredModels.filter((m) => m.category === cat),
+      }))
+      .filter((g) => g.models.length > 0)
 
   return (
     <div className="models-page">
@@ -164,7 +164,8 @@ function ModelCard({
         <div className="model-row__name-row">
           <span className="model-row__name">{model.name}</span>
           <span className="model-row__cost">
-            {model.hasVariants ? `от ${model.cost}` : model.cost} 🔥
+            {model.hasVariants ? 'от ' : ''}
+            {model.cost % 1 === 0 ? model.cost : model.cost.toFixed(2)} 🔥
           </span>
         </div>
         <div className="model-row__meta">
