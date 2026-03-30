@@ -5542,3 +5542,61 @@ body.tg-app .sticky-header {
   color: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
+
+/* ═══════════════ TOPUP PAGE v2 — additions ═══════════════ */
+
+.topup-base-price {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 14px;
+}
+
+.topup-package--best {
+  border-color: rgba(74, 222, 128, 0.25);
+}
+
+.topup-package__badge--best {
+  background: #4ade80 !important;
+}
+
+.topup-package__discount {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.topup-package__old-price {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  text-decoration: line-through;
+  margin-top: -2px;
+}
+
+.topup-info {
+  text-align: center;
+  padding: 16px 20px;
+}
+
+.topup-info__text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 6px;
+}
+
+.topup-info__legal {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.15);
+}
