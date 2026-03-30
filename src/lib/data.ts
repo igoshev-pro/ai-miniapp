@@ -30,11 +30,10 @@ export const allModels: ModelItem[] = [
   { id: 't7',  name: 'Grok 4.1 Fast',      slug: 'grok-4.1-fast',     provider: 'xAI',         category: 'text', description: 'Быстрая версия Grok от xAI',            cost: 0.10, hasVariants: true },
   { id: 't8',  name: 'Grok 4',             slug: 'grok-4',            provider: 'xAI',         category: 'text', description: 'Флагманская reasoning модель',           cost: 0.40, hasVariants: true },
   { id: 't9',  name: 'Perplexity Sonar',   slug: 'perplexity-sonar',  provider: 'Perplexity',  category: 'text', description: 'Поисковая модель с актуальными данными', cost: 0.10, hasVariants: true },
-  { id: 't10', name: 'GPT-5 Image',        slug: 'gpt-5-image-text',  provider: 'OpenAI',      category: 'text', description: 'Мультимодальная модель с генерацией',    cost: 0.70, hasVariants: true },
 
   // --- KIE ---
-  { id: 't11', name: 'Gemini 3.1 Pro',     slug: 'gemini-3.1-pro',    provider: 'Google',      category: 'text', description: 'Продвинутая модель Google',              cost: 0.10, hasVariants: true },
-  { id: 't12', name: 'Gemini 3 Flash',     slug: 'gemini-3-flash',    provider: 'Google',      category: 'text', description: 'Быстрая модель Google',                 cost: 0.30 },
+  { id: 't10', name: 'Gemini 3.1 Pro',     slug: 'gemini-3.1-pro',    provider: 'Google',      category: 'text', description: 'Продвинутая модель Google',              cost: 0.10, hasVariants: true },
+  { id: 't11', name: 'Gemini 3 Flash',     slug: 'gemini-3-flash',    provider: 'Google',      category: 'text', description: 'Быстрая модель Google',                 cost: 0.30 },
 
   // --- УБРАНЫ (нет в таблице провайдеров) ---
   // { id: 'tx', name: 'ChatGPT 4o',       slug: 'gpt-4o',       ... cost: 2 },
