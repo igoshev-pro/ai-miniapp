@@ -1,7 +1,3 @@
-// src/lib/data.ts
-
-// --- Модели ---
-
 export interface ModelItem {
   id: string
   name: string
@@ -34,10 +30,6 @@ export const allModels: ModelItem[] = [
   // --- KIE ---
   { id: 't10', name: 'Gemini 3.1 Pro',     slug: 'gemini-3.1-pro',    provider: 'Google',      category: 'text', description: 'Продвинутая модель Google',              cost: 0.10, hasVariants: true },
   { id: 't11', name: 'Gemini 3 Flash',     slug: 'gemini-3-flash',    provider: 'Google',      category: 'text', description: 'Быстрая модель Google',                 cost: 0.30 },
-
-  // --- УБРАНЫ (нет в таблице провайдеров) ---
-  // { id: 'tx', name: 'ChatGPT 4o',       slug: 'gpt-4o',       ... cost: 2 },
-  // { id: 'tx', name: 'ChatGPT 4o Mini',  slug: 'gpt-4o-mini',  ... cost: 1 },
 
   // ═══════════════════════════════════════
   // ИЗОБРАЖЕНИЯ (10 моделей)
@@ -82,17 +74,19 @@ export const allModels: ModelItem[] = [
   { id: 'v8',  name: 'Hailuo 2.3 Std',       slug: 'hailuo-2.3-standard',  provider: 'MiniMax',   category: 'video', description: 'Текст → видео, бюджетный',           cost: 9.00, hasVariants: true },
   { id: 'v9',  name: 'Hailuo 2.3 Pro',       slug: 'hailuo-2.3-pro',       provider: 'MiniMax',   category: 'video', description: 'Улучшенное качество',                cost: 14.00, hasVariants: true },
 
-  // --- Img2Vid (нет отдельной строки, но есть в прайсе) ---
-  // { id: 'v10', name: 'Sora 2 Img2Vid',    slug: 'sora-2-img2vid',    ... cost: 13.00 },
-  // { id: 'v11', name: 'Kling 3.0 Img2Vid', slug: 'kling-3.0-img2vid', ... cost: 4.30 },
-
   // ═══════════════════════════════════════
-  // АУДИО (2 модели)
+  // АУДИО (6 моделей)
   // ═══════════════════════════════════════
 
-  // --- KIE ---
-  { id: 'a1', name: 'Suno V4',       slug: 'suno-v4',    provider: 'Suno',       category: 'audio', description: 'Генерация музыки и песен',     cost: 0.40, hasVariants: true },
-  { id: 'a2', name: 'ElevenLabs',    slug: 'elevenlabs',  provider: 'ElevenLabs', category: 'audio', description: 'Реалистичный голос, TTS, STT', cost: 0.10, hasVariants: true },
+  // --- KIE: Suno ---
+  { id: 'a1', name: 'Suno V4',                slug: 'suno-v4',                    provider: 'Suno',       category: 'audio', description: 'Генерация музыки и песен',                cost: 4.00, hasVariants: true },
+
+  // --- KIE: ElevenLabs ---
+  { id: 'a2', name: 'ElevenLabs TTS Turbo',   slug: 'elevenlabs-tts-turbo',       provider: 'ElevenLabs', category: 'audio', description: 'Быстрая озвучка текста',                 cost: 2.70, hasVariants: true },
+  { id: 'a3', name: 'ElevenLabs TTS Multi',   slug: 'elevenlabs-tts-multilingual', provider: 'ElevenLabs', category: 'audio', description: 'Многоязычная озвучка текста',             cost: 5.40, hasVariants: true },
+  { id: 'a4', name: 'ElevenLabs Dialogue',    slug: 'elevenlabs-dialogue',         provider: 'ElevenLabs', category: 'audio', description: 'Генерация диалогов с разными голосами',   cost: 6.70, hasVariants: true },
+  { id: 'a5', name: 'ElevenLabs Isolation',   slug: 'elevenlabs-isolation',        provider: 'ElevenLabs', category: 'audio', description: 'Удаление шума, изоляция голоса',          cost: 0.10 },
+  { id: 'a6', name: 'ElevenLabs STT',         slug: 'elevenlabs-stt',              provider: 'ElevenLabs', category: 'audio', description: 'Распознавание речи в текст',              cost: 2.00 },
 ]
 
 export interface ModelCategory {
@@ -233,7 +227,7 @@ export const chatFeedData: ChatItem[] = [
   {
     id: 'c11',
     title: 'Озвучка статьи',
-    model: 'ElevenLabs',
+    model: 'ElevenLabs TTS Turbo',
     preview: 'Озвучь этот текст мужским голосом...',
     time: '09:00',
     date: 'earlier',
@@ -285,7 +279,7 @@ export const categoriesData: CategoryCardData[] = [
   {
     id: 'audio',
     title: 'Генерация аудио',
-    description: 'Suno, ElevenLabs',
+    description: 'Suno, ElevenLabs TTS, Dialogue, STT',
     coverUrl: '/covers/audio.webp',
     modelCount: allModels.filter((m) => m.category === 'audio').length,
   },
