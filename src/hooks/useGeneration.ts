@@ -1,4 +1,3 @@
-// src/hooks/useGeneration.ts
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
@@ -24,12 +23,14 @@ import { useModelsStore } from '@/stores/models.store'
 import { toast } from '@/stores/toast.store'
 import { allModels as fallbackModels } from '@/lib/data'
 
+
 interface GenerationRequest {
   model: string
   prompt: string
   type: GenerationType
   settings?: Record<string, unknown>
 }
+
 
 interface GenerationResponse {
   success: boolean
@@ -39,6 +40,7 @@ interface GenerationResponse {
     tokensCost: number
   }
 }
+
 
 function mapBackendGeneration(g: any): Generation {
   return {
@@ -59,8 +61,10 @@ function mapBackendGeneration(g: any): Generation {
   }
 }
 
+
 // Глобальный Set — переживает ремаунты компонента
 const shownToasts = new Set<string>()
+
 
 export function useGeneration() {
   const store = useGenerationStore()
@@ -71,6 +75,7 @@ export function useGeneration() {
   const wsSetup = useRef(false)
   const historyLoadAttempted = useRef(false)
 
+
   // Единая функция показа тоста — вызывается и из WS и из polling
   const showCompletedToast = useCallback((generationId: string) => {
     if (shownToasts.has(generationId)) return
@@ -78,12 +83,14 @@ export function useGeneration() {
     toast.success('Генерация завершена! 🎉')
   }, [])
 
+
   const showFailedToast = useCallback((generationId: string, errorMessage?: string, refunded?: boolean) => {
     if (shownToasts.has(generationId)) return
     shownToasts.add(generationId)
     toast.error(errorMessage || 'Ошибка генерации')
     if (refunded) toast.info('Спички возвращены на баланс')
   }, [])
+
 
   // ─── Загрузка истории ───────────────────────────
   useEffect(() => {
@@ -125,6 +132,7 @@ export function useGeneration() {
 
     loadHistory()
   }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // ─── WebSocket ──────────────────────────────────────────
   useEffect(() => {
@@ -191,6 +199,7 @@ export function useGeneration() {
       wsSetup.current = false
     }
   }, [token, showCompletedToast, showFailedToast]) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // ─── Polling ────────────────────────────────────────────
   const startPolling = useCallback(
@@ -261,6 +270,7 @@ export function useGeneration() {
     [showCompletedToast, showFailedToast],
   )
 
+
   // ─── generate ────────────────────────────────────────────────
   const generate = useCallback(
     async (request: GenerationRequest): Promise<Generation | null> => {
@@ -328,6 +338,11 @@ export function useGeneration() {
         if (s.customMode !== undefined) body.customMode = s.customMode
         if (s.stability !== undefined) body.stability = s.stability
         if (s.similarity !== undefined) body.similarity = s.similarity
+        if (s.speed !== undefined) body.speed = s.speed
+        if (s.loop !== undefined) body.loop = s.loop
+        if (s.promptInfluence !== undefined) body.promptInfluence = s.promptInfluence
+        if (s.audioUrl) body.audioUrl = s.audioUrl
+        if (s.dialogue && (s.dialogue as any[]).length > 0) body.dialogue = s.dialogue
       }
 
       try {
@@ -380,6 +395,7 @@ export function useGeneration() {
     [user, store, modelsStore, startPolling],
   )
 
+
   // ─── checkStatus ─────────────────────────────────────────────
   const checkStatus = useCallback(
     async (generationId: string) => {
@@ -409,6 +425,7 @@ export function useGeneration() {
     [store],
   )
 
+
   // ─── toggleFavorite ──────────────────────────────────────────
   const toggleFavorite = useCallback(
     async (generationId: string) => {
@@ -428,6 +445,7 @@ export function useGeneration() {
     },
     [store],
   )
+
 
   return {
     generations: store.generations,
