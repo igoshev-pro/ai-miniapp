@@ -3,7 +3,7 @@
 'use client'
 
 import { useCallback } from 'react'
-import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
+import { apiClient, ENDPOINTS } from '@/lib/api'
 import { useModelsStore } from '@/stores/models.store'
 import {
   allModels as fallbackModels,
@@ -80,37 +80,46 @@ function guessCost(type: string): number {
 }
 
 export function useModels() {
-  const store = useModelsStore()
+  const models = useModelsStore((s) => s.models)
+  const categories = useModelsStore((s) => s.categories)
+  const isLoaded = useModelsStore((s) => s.isLoaded)
+  const isLoading = useModelsStore((s) => s.isLoading)
 
   const loadModels = useCallback(async () => {
-    if (store.isLoaded || store.isLoading) return
+    // Читаем актуальное состояние через getState() — без замыканий
+    const state = useModelsStore.getState()
+    if (state.isLoaded || state.isLoading) return
 
-    store.setLoading(true)
+    useModelsStore.getState().setLoading(true)
 
     try {
       const { data } = await apiClient.get<ModelsResponse>(ENDPOINTS.MODELS)
 
-      const rawModels: BackendModel[] = data.data || []
+      const rawModels: BackendModel[] = data?.data || []
 
       if (rawModels.length > 0) {
         const mapped = rawModels.map(mapBackendModel)
-        store.setModels(mapped)
+        useModelsStore.getState().setModels(mapped)
         console.log(`[useModels] Loaded ${mapped.length} models from backend`)
       } else {
         console.warn('[useModels] Backend returned 0 models, using fallback')
-        store.setModels(fallbackModels)
+        useModelsStore.getState().setModels(fallbackModels)
       }
     } catch (err) {
       console.warn('[useModels] Failed to load from backend, using fallback:', err)
-      store.setModels(fallbackModels)
+      // Проверяем что ещё не загружено (защита от гонки)
+      const current = useModelsStore.getState()
+      if (!current.isLoaded) {
+        current.setModels(fallbackModels)
+      }
     }
-  }, [store])
+  }, []) // <-- ПУСТЫЕ зависимости! loadModels стабильна
 
   return {
-    models: store.isLoaded ? store.models : fallbackModels,
-    categories: store.isLoaded ? store.categories : fallbackCategories,
-    isLoaded: store.isLoaded,
-    isLoading: store.isLoading,
+    models: isLoaded ? models : fallbackModels,
+    categories: isLoaded ? categories : fallbackCategories,
+    isLoaded,
+    isLoading,
     loadModels,
   }
 }
