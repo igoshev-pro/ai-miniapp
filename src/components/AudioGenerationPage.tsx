@@ -1,7 +1,9 @@
 // src/components/pages/AudioGenerationPage.tsx (или ваш путь)
 // ПОЛНЫЙ ФАЙЛ — копировать целиком
 
+
 'use client'
+
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
@@ -14,9 +16,11 @@ import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
 
+
 interface Props {
   onBack?: () => void
 }
+
 
 // ═══════════ Capabilities per audio model slug ═══════════
 interface AudioModelCaps {
@@ -45,13 +49,25 @@ interface AudioModelCaps {
   supportsSpeed: boolean
 }
 
+
 interface DialogueLine {
   id: string
   text: string
   voice: string
 }
 
-const ELEVENLABS_VOICES = ['Adam', 'Antoni', 'Arnold', 'Bella', 'Domi', 'Elli', 'Josh', 'Rachel', 'Sam']
+
+// ═══════════ ПРОВЕРЕННЫЕ ГОЛОСА KIE ElevenLabs API ═══════════
+const ELEVENLABS_VOICES = [
+  'Aria', 'Roger', 'Sarah', 'Laura', 'Charlie',
+  'George', 'Callum', 'River', 'Lily', 'Alice',
+  'Jessica', 'Daniel', 'Charlotte', 'Chris', 'Brian',
+  'Matilda', 'Will', 'Liam', 'Bill',
+]
+
+const DEFAULT_VOICE = 'Aria'
+const DEFAULT_VOICE_2 = 'Roger'
+
 
 const LANGUAGES = [
   { code: 'ru', label: 'Русский' },
@@ -68,6 +84,7 @@ const LANGUAGES = [
   { code: 'zh', label: '中文' },
 ]
 
+
 const SUNO_CAPS: AudioModelCaps = {
   type: 'suno' as const, supportsCustomMode: true, supportsInstrumental: true,
   supportsStyle: true, supportsDuration: true, durationRange: [5, 300], durationStep: 5,
@@ -75,6 +92,7 @@ const SUNO_CAPS: AudioModelCaps = {
   supportsStability: false, supportsSimilarity: false,
   supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
 }
+
 
 const TTS_CAPS: AudioModelCaps = {
   type: 'elevenlabs-tts' as const, supportsCustomMode: false, supportsInstrumental: false,
@@ -84,6 +102,7 @@ const TTS_CAPS: AudioModelCaps = {
   supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: true,
 }
 
+
 const DIALOGUE_CAPS: AudioModelCaps = {
   type: 'elevenlabs-dialogue' as const, supportsCustomMode: false, supportsInstrumental: false,
   supportsStyle: false, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
@@ -91,6 +110,7 @@ const DIALOGUE_CAPS: AudioModelCaps = {
   supportsStability: true, supportsSimilarity: false,
   supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
 }
+
 
 const SFX_CAPS: AudioModelCaps = {
   type: 'elevenlabs-sfx' as const, supportsCustomMode: false, supportsInstrumental: false,
@@ -100,6 +120,7 @@ const SFX_CAPS: AudioModelCaps = {
   supportsAudioInput: false, supportsLoop: true, supportsPromptInfluence: true, supportsSpeed: false,
 }
 
+
 const ISOLATION_CAPS: AudioModelCaps = {
   type: 'elevenlabs-isolation' as const, supportsCustomMode: false, supportsInstrumental: false,
   supportsStyle: false, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
@@ -107,6 +128,7 @@ const ISOLATION_CAPS: AudioModelCaps = {
   supportsStability: false, supportsSimilarity: false,
   supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
 }
+
 
 const STT_CAPS: AudioModelCaps = {
   type: 'elevenlabs-stt' as const, supportsCustomMode: false, supportsInstrumental: false,
@@ -116,6 +138,7 @@ const STT_CAPS: AudioModelCaps = {
   supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
 }
 
+
 const DEFAULT_CAPS: AudioModelCaps = {
   type: 'generic' as const, supportsCustomMode: false, supportsInstrumental: false,
   supportsStyle: false, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
@@ -123,6 +146,7 @@ const DEFAULT_CAPS: AudioModelCaps = {
   supportsStability: false, supportsSimilarity: false,
   supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
 }
+
 
 const MODEL_CAPS: Record<string, AudioModelCaps> = {
   'suno-v3': SUNO_CAPS,
@@ -136,6 +160,7 @@ const MODEL_CAPS: Record<string, AudioModelCaps> = {
   'elevenlabs-isolation': ISOLATION_CAPS,
   'elevenlabs-stt': STT_CAPS,
 }
+
 
 const examplePrompts: Record<string, string[]> = {
   suno: [
@@ -164,6 +189,7 @@ const examplePrompts: Record<string, string[]> = {
   ],
 }
 
+
 function getCaps(slug: string): AudioModelCaps {
   if (MODEL_CAPS[slug]) return MODEL_CAPS[slug]
   if (slug.includes('suno')) return SUNO_CAPS
@@ -175,15 +201,18 @@ function getCaps(slug: string): AudioModelCaps {
   return DEFAULT_CAPS
 }
 
+
 function getExamples(caps: AudioModelCaps): string[] {
   return examplePrompts[caps.type] || examplePrompts.default
 }
 
+
 let dialogueIdCounter = 0
 function newDialogueLine(voice?: string): DialogueLine {
   dialogueIdCounter++
-  return { id: `dl_${dialogueIdCounter}_${Date.now()}`, text: '', voice: voice || 'Rachel' }
+  return { id: `dl_${dialogueIdCounter}_${Date.now()}`, text: '', voice: voice || DEFAULT_VOICE }
 }
+
 
 
 export function AudioGenerationPage({ onBack }: Props) {
@@ -207,7 +236,7 @@ export function AudioGenerationPage({ onBack }: Props) {
   const [duration, setDuration] = useState(30)
 
   // ElevenLabs TTS settings
-  const [voiceId, setVoiceId] = useState('Rachel')
+  const [voiceId, setVoiceId] = useState(DEFAULT_VOICE)
   const [language, setLanguage] = useState('ru')
   const [stability, setStability] = useState(50)
   const [similarity, setSimilarity] = useState(75)
@@ -219,8 +248,8 @@ export function AudioGenerationPage({ onBack }: Props) {
 
   // ElevenLabs Dialogue settings
   const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([
-    newDialogueLine('Rachel'),
-    newDialogueLine('Adam'),
+    newDialogueLine(DEFAULT_VOICE),
+    newDialogueLine(DEFAULT_VOICE_2),
   ])
 
   // Audio file (for isolation / STT)
@@ -264,14 +293,14 @@ export function AudioGenerationPage({ onBack }: Props) {
     setInstrumental(false)
     setStyle('')
     setDuration(c.supportsDuration ? Math.min(30, c.durationRange[1]) : 30)
-    setVoiceId('Rachel')
+    setVoiceId(DEFAULT_VOICE)
     setLanguage('ru')
     setStability(50)
     setSimilarity(75)
     setSpeed(100)
     setLoop(false)
     setPromptInfluence(30)
-    setDialogueLines([newDialogueLine('Rachel'), newDialogueLine('Adam')])
+    setDialogueLines([newDialogueLine(DEFAULT_VOICE), newDialogueLine(DEFAULT_VOICE_2)])
   }, [selectedModelSlug])
 
   const audioGenerations = generations.filter((g) => g.type === 'audio')
@@ -322,9 +351,9 @@ export function AudioGenerationPage({ onBack }: Props) {
   // ─── Dialogue helpers ───
   const addDialogueLine = useCallback(() => {
     setDialogueLines(prev => {
-      const lastVoice = prev.length > 0 ? prev[prev.length - 1].voice : 'Rachel'
+      const lastVoice = prev.length > 0 ? prev[prev.length - 1].voice : DEFAULT_VOICE
       // Alternate between first two voices
-      const nextVoice = lastVoice === 'Rachel' ? 'Adam' : 'Rachel'
+      const nextVoice = lastVoice === DEFAULT_VOICE ? DEFAULT_VOICE_2 : DEFAULT_VOICE
       return [...prev, newDialogueLine(nextVoice)]
     })
     haptic('light')
@@ -435,7 +464,7 @@ export function AudioGenerationPage({ onBack }: Props) {
       setInput('')
       setAudioUrl('')
       if (capsType === 'elevenlabs-dialogue') {
-        setDialogueLines([newDialogueLine('Rachel'), newDialogueLine('Adam')])
+        setDialogueLines([newDialogueLine(DEFAULT_VOICE), newDialogueLine(DEFAULT_VOICE_2)])
       }
       hapticNotification('success')
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
@@ -967,7 +996,7 @@ export function AudioGenerationPage({ onBack }: Props) {
                                   color: 'var(--tg-theme-text-color, #000)',
                                 }}
                               >
-                                                                {ELEVENLABS_VOICES.map(v => (
+                                {ELEVENLABS_VOICES.map(v => (
                                   <option key={v} value={v}>{v}</option>
                                 ))}
                               </select>
