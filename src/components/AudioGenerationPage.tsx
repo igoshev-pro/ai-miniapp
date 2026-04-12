@@ -1,20 +1,14 @@
-// src/components/pages/AudioGenerationPage.tsx (или ваш путь)
-// ПОЛНЫЙ ФАЙЛ — копировать целиком
-
-
 'use client'
-
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   ChevronDown, Send, Check, X, Music, Settings, Wand2,
-  Clock, Loader2, Upload, Mic, Volume2, Zap, Plus, Trash2, MessageSquare,
+  Clock, Loader2, Upload, Mic, Volume2, Zap, MessageSquare,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
-
 
 
 interface Props {
@@ -50,13 +44,6 @@ interface AudioModelCaps {
 }
 
 
-interface DialogueLine {
-  id: string
-  text: string
-  voice: string
-}
-
-
 // ═══════════ ПРОВЕРЕННЫЕ ГОЛОСА KIE ElevenLabs API ═══════════
 const ELEVENLABS_VOICES = [
   'Aria', 'Roger', 'Sarah', 'Laura', 'Charlie',
@@ -66,7 +53,6 @@ const ELEVENLABS_VOICES = [
 ]
 
 const DEFAULT_VOICE = 'Aria'
-const DEFAULT_VOICE_2 = 'Roger'
 
 
 const LANGUAGES = [
@@ -106,7 +92,7 @@ const TTS_CAPS: AudioModelCaps = {
 const DIALOGUE_CAPS: AudioModelCaps = {
   type: 'elevenlabs-dialogue' as const, supportsCustomMode: false, supportsInstrumental: false,
   supportsStyle: false, supportsDuration: false, durationRange: [0, 0], durationStep: 0,
-  supportsVoice: true, voices: ELEVENLABS_VOICES, supportsLanguage: true,
+  supportsVoice: false, voices: [], supportsLanguage: true,
   supportsStability: true, supportsSimilarity: false,
   supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
 }
@@ -176,7 +162,9 @@ const examplePrompts: Record<string, string[]> = {
     'В далёкой-далёкой галактике, где звёзды сияли ярче обычного...',
   ],
   'elevenlabs-dialogue': [
-    'Создайте диалог, добавив реплики ниже',
+    'Aria: Привет! Как прошёл твой день?\nRoger: Отлично! Я сегодня закончил проект.\nAria: Здорово! Расскажи подробнее.\nRoger: Мы запустили новое приложение, все в восторге!',
+    'Sarah: Ты слышал новости?\nCharlie: Нет, что случилось?\nSarah: Наша команда выиграла чемпионат!\nCharlie: Не может быть! Это потрясающе!',
+    'Laura: Какой у тебя любимый фильм?\nGeorge: Интерстеллар, однозначно.\nLaura: О, я тоже его обожаю! Ноланд — гений.',
   ],
   'elevenlabs-sfx': [
     'Раскат грома во время сильной грозы',
@@ -205,14 +193,6 @@ function getCaps(slug: string): AudioModelCaps {
 function getExamples(caps: AudioModelCaps): string[] {
   return examplePrompts[caps.type] || examplePrompts.default
 }
-
-
-let dialogueIdCounter = 0
-function newDialogueLine(voice?: string): DialogueLine {
-  dialogueIdCounter++
-  return { id: `dl_${dialogueIdCounter}_${Date.now()}`, text: '', voice: voice || DEFAULT_VOICE }
-}
-
 
 
 export function AudioGenerationPage({ onBack }: Props) {
@@ -245,12 +225,6 @@ export function AudioGenerationPage({ onBack }: Props) {
   // ElevenLabs SFX settings
   const [loop, setLoop] = useState(false)
   const [promptInfluence, setPromptInfluence] = useState(30)
-
-  // ElevenLabs Dialogue settings
-  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([
-    newDialogueLine(DEFAULT_VOICE),
-    newDialogueLine(DEFAULT_VOICE_2),
-  ])
 
   // Audio file (for isolation / STT)
   const [audioUrl, setAudioUrl] = useState('')
@@ -300,7 +274,6 @@ export function AudioGenerationPage({ onBack }: Props) {
     setSpeed(100)
     setLoop(false)
     setPromptInfluence(30)
-    setDialogueLines([newDialogueLine(DEFAULT_VOICE), newDialogueLine(DEFAULT_VOICE_2)])
   }, [selectedModelSlug])
 
   const audioGenerations = generations.filter((g) => g.type === 'audio')
@@ -309,7 +282,7 @@ export function AudioGenerationPage({ onBack }: Props) {
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px'
+      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 200) + 'px'
     }
   }, [input])
 
@@ -348,25 +321,44 @@ export function AudioGenerationPage({ onBack }: Props) {
     }
   }, [haptic])
 
-  // ─── Dialogue helpers ───
-  const addDialogueLine = useCallback(() => {
-    setDialogueLines(prev => {
-      const lastVoice = prev.length > 0 ? prev[prev.length - 1].voice : DEFAULT_VOICE
-      // Alternate between first two voices
-      const nextVoice = lastVoice === DEFAULT_VOICE ? DEFAULT_VOICE_2 : DEFAULT_VOICE
-      return [...prev, newDialogueLine(nextVoice)]
-    })
-    haptic('light')
-  }, [haptic])
+  // ─── Insert voice name into dialogue textarea ───
+  const insertVoiceName = useCallback((voice: string) => {
+    const textarea = inputRef.current
+    if (!textarea) {
+      // Если textarea не в фокусе — добавляем в конец
+      setInput(prev => {
+        const trimmed = prev.trimEnd()
+        if (trimmed === '') return `${voice}: `
+        // Добавляем на новую строку
+        return `${trimmed}\n${voice}: `
+      })
+      haptic('light')
+      return
+    }
 
-  const removeDialogueLine = useCallback((id: string) => {
-    setDialogueLines(prev => prev.length > 1 ? prev.filter(l => l.id !== id) : prev)
-    haptic('light')
-  }, [haptic])
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const text = input
+    const before = text.substring(0, start)
+    const after = text.substring(end)
 
-  const updateDialogueLine = useCallback((id: string, field: 'text' | 'voice', value: string) => {
-    setDialogueLines(prev => prev.map(l => l.id === id ? { ...l, [field]: value } : l))
-  }, [])
+    // Проверяем, нужен ли перенос строки
+    const needsNewLine = before.length > 0 && !before.endsWith('\n')
+    const insertText = `${needsNewLine ? '\n' : ''}${voice}: `
+
+    const newValue = before + insertText + after
+    setInput(newValue)
+
+    // Устанавливаем курсор после вставленного текста
+    setTimeout(() => {
+      const newPos = start + insertText.length
+      textarea.selectionStart = newPos
+      textarea.selectionEnd = newPos
+      textarea.focus()
+    }, 0)
+
+    haptic('light')
+  }, [input, haptic])
 
   // ─── Generate ───
   const handleGenerate = useCallback(async () => {
@@ -374,16 +366,10 @@ export function AudioGenerationPage({ onBack }: Props) {
     const capsType = caps.type as string
 
     // Validate based on model type
-    if (capsType === 'elevenlabs-dialogue') {
-      const validLines = dialogueLines.filter(l => l.text.trim())
-      if (validLines.length === 0) {
-        toast.warning('Добавьте хотя бы одну реплику')
-        return
-      }
-    } else if (caps.supportsAudioInput && !audioUrl) {
+    if (caps.supportsAudioInput && !audioUrl) {
       toast.warning('Загрузите аудиофайл')
       return
-    } else if (!caps.supportsAudioInput && capsType !== 'elevenlabs-dialogue' && !prompt) {
+    } else if (!caps.supportsAudioInput && !prompt) {
       toast.warning('Введите текст')
       return
     }
@@ -416,14 +402,11 @@ export function AudioGenerationPage({ onBack }: Props) {
       settings.speed = speed / 100
     }
 
-    // ElevenLabs Dialogue settings
+    // ElevenLabs Dialogue settings — просто передаём текст как prompt
     if (capsType === 'elevenlabs-dialogue') {
-      const validLines = dialogueLines
-        .filter(l => l.text.trim())
-        .map(l => ({ text: l.text.trim(), voice: l.voice }))
-      settings.dialogue = validLines
       settings.stability = stability / 100
       if (language) settings.language = language
+      // Prompt уже содержит диалог в формате "Aria: текст\nRoger: текст"
     }
 
     // ElevenLabs SFX settings
@@ -441,12 +424,8 @@ export function AudioGenerationPage({ onBack }: Props) {
       settings.language = language
     }
 
-    // Build prompt: for dialogue, join lines as summary for display
+    // Build prompt
     let finalPrompt = prompt
-    if (capsType === 'elevenlabs-dialogue') {
-      const validLines = dialogueLines.filter(l => l.text.trim())
-      finalPrompt = validLines.map(l => `[${l.voice}]: ${l.text.trim()}`).join(' | ')
-    }
     if (caps.supportsAudioInput && !finalPrompt) {
       finalPrompt = capsType === 'elevenlabs-isolation' ? 'Audio isolation' : 'Speech to text'
     }
@@ -463,9 +442,6 @@ export function AudioGenerationPage({ onBack }: Props) {
     if (result) {
       setInput('')
       setAudioUrl('')
-      if (capsType === 'elevenlabs-dialogue') {
-        setDialogueLines([newDialogueLine(DEFAULT_VOICE), newDialogueLine(DEFAULT_VOICE_2)])
-      }
       hapticNotification('success')
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
@@ -473,11 +449,13 @@ export function AudioGenerationPage({ onBack }: Props) {
     input, audioUrl, balance, modelCost, selectedModelSlug, caps,
     customMode, instrumental, style, duration,
     voiceId, language, stability, similarity, speed,
-    loop, promptInfluence, dialogueLines,
+    loop, promptInfluence,
     haptic, hapticNotification, generate,
   ])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Для dialogue разрешаем Enter без Shift (перенос строки)
+    if (caps.type === 'elevenlabs-dialogue') return
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate() }
   }
 
@@ -488,12 +466,9 @@ export function AudioGenerationPage({ onBack }: Props) {
   }
 
   // Determine if prompt input is needed
-  const needsPrompt = !caps.supportsAudioInput && caps.type !== 'elevenlabs-dialogue'
+  const needsPrompt = !caps.supportsAudioInput
 
   const canSend = !isGenerating && (() => {
-    if (caps.type === 'elevenlabs-dialogue') {
-      return dialogueLines.some(l => l.text.trim())
-    }
     if (caps.supportsAudioInput) return !!audioUrl
     return !!input.trim()
   })()
@@ -503,7 +478,7 @@ export function AudioGenerationPage({ onBack }: Props) {
     switch (caps.type) {
       case 'suno': return 'Опишите музыку...'
       case 'elevenlabs-tts': return 'Введите текст для озвучки...'
-      case 'elevenlabs-dialogue': return 'Реплики добавляются в настройках ⚙️'
+      case 'elevenlabs-dialogue': return 'Aria: Привет! Как дела?\nRoger: Отлично, спасибо!\nAria: Расскажи подробнее...'
       case 'elevenlabs-sfx': return 'Опишите звуковой эффект...'
       case 'elevenlabs-isolation': return 'Загрузите аудио для обработки'
       case 'elevenlabs-stt': return 'Загрузите аудио для распознавания'
@@ -540,10 +515,11 @@ export function AudioGenerationPage({ onBack }: Props) {
       params.push(lang?.label || language)
     }
     if (caps.type === 'elevenlabs-dialogue') {
-      const validCount = dialogueLines.filter(l => l.text.trim()).length
-      params.push(`${validCount} реплик`)
-      const uniqueVoices = [...new Set(dialogueLines.map(l => l.voice))]
-      params.push(`${uniqueVoices.length} голос${uniqueVoices.length > 1 ? 'а' : ''}`)
+      // Считаем строки диалога
+      const lines = input.split('\n').filter(l => l.trim() && l.includes(':'))
+      params.push(`${lines.length} реплик`)
+      const lang = LANGUAGES.find(l => l.code === language)
+      params.push(lang?.label || language)
     }
     if (caps.type === 'elevenlabs-sfx') {
       if (caps.supportsDuration) params.push(`${duration} сек`)
@@ -572,7 +548,7 @@ export function AudioGenerationPage({ onBack }: Props) {
     switch (caps.type) {
       case 'suno': return 'Опишите музыку, которую хотите создать. Генерация занимает до 2 минут.'
       case 'elevenlabs-tts': return 'Введите текст для озвучки. Выберите голос и язык в настройках.'
-      case 'elevenlabs-dialogue': return 'Создайте диалог: добавьте реплики и выберите голоса в настройках ⚙️'
+      case 'elevenlabs-dialogue': return 'Напишите диалог в формате «Имя: текст». Нажмите на имя голоса ниже, чтобы вставить.'
       case 'elevenlabs-sfx': return 'Опишите звуковой эффект, который нужно сгенерировать.'
       case 'elevenlabs-isolation': return 'Загрузите аудиофайл для удаления шума.'
       case 'elevenlabs-stt': return 'Загрузите аудиофайл для распознавания речи.'
@@ -673,14 +649,6 @@ export function AudioGenerationPage({ onBack }: Props) {
                 <Wand2 size={14} /> Пример промпта
               </button>
             )}
-            {caps.type === 'elevenlabs-dialogue' && (
-              <button
-                className="gen-page__example-btn"
-                onClick={() => { setShowSettings(true); haptic('light') }}
-              >
-                <MessageSquare size={14} /> Настроить реплики
-              </button>
-            )}
           </div>
         )}
 
@@ -704,7 +672,7 @@ export function AudioGenerationPage({ onBack }: Props) {
         <div ref={resultsRef} />
       </div>
 
-      {/* ── Input ── */}
+            {/* ── Input ── */}
       <div className="gen-page__input-area">
         {/* Audio file preview */}
         {audioUrl && (
@@ -719,20 +687,38 @@ export function AudioGenerationPage({ onBack }: Props) {
           </div>
         )}
 
-        {/* Dialogue preview in input area */}
-        {caps.type === 'elevenlabs-dialogue' && dialogueLines.filter(l => l.text.trim()).length > 0 && (
-          <div className="gen-page__audio-file-preview">
-            <div className="gen-page__audio-file-chip">
-              <MessageSquare size={14} />
-              <span>{dialogueLines.filter(l => l.text.trim()).length} реплик готово</span>
+        {/* Voice chips for dialogue — quick insert */}
+        {caps.type === 'elevenlabs-dialogue' && (
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '6px',
+            padding: '6px 12px 2px',
+          }}>
+            <span style={{
+              fontSize: '11px',
+              opacity: 0.5,
+              alignSelf: 'center',
+              marginRight: '2px',
+            }}>Голоса:</span>
+            {ELEVENLABS_VOICES.map(v => (
               <button
-                className="gen-page__audio-file-remove"
-                onClick={() => { setShowSettings(true); haptic('light') }}
-                style={{ background: 'none', border: 'none' }}
+                key={v}
+                onClick={() => insertVoiceName(v)}
+                style={{
+                  fontSize: '11px',
+                  padding: '3px 8px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--tg-theme-hint-color, #ccc)',
+                  background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)',
+                  color: 'var(--tg-theme-text-color, #000)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
               >
-                <Settings size={12} />
+                {v}
               </button>
-            </div>
+            ))}
           </div>
         )}
 
@@ -761,16 +747,6 @@ export function AudioGenerationPage({ onBack }: Props) {
             </>
           )}
 
-          {/* Dialogue: settings button instead of textarea */}
-          {caps.type === 'elevenlabs-dialogue' && (
-            <button
-              className="chat-input__attach"
-              onClick={() => { setShowSettings(true); haptic('light') }}
-            >
-              <MessageSquare size={18} />
-            </button>
-          )}
-
           <div className="chat-input__field-wrap">
             <textarea
               ref={inputRef}
@@ -779,8 +755,14 @@ export function AudioGenerationPage({ onBack }: Props) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              rows={1}
-              disabled={isGenerating || caps.supportsAudioInput || caps.type === 'elevenlabs-dialogue'}
+              rows={caps.type === 'elevenlabs-dialogue' ? 4 : 1}
+              disabled={isGenerating || caps.supportsAudioInput}
+              style={caps.type === 'elevenlabs-dialogue' ? {
+                minHeight: '100px',
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                lineHeight: '1.5',
+              } : undefined}
             />
           </div>
 
@@ -961,96 +943,44 @@ export function AudioGenerationPage({ onBack }: Props) {
               {/* ═══ ELEVENLABS DIALOGUE SETTINGS ═══ */}
               {caps.type === 'elevenlabs-dialogue' && (
                 <>
-                  {/* Dialogue lines */}
+                  {/* Формат подсказка */}
                   <div className="gen-field">
                     <label className="gen-field__label">
-                      <MessageSquare size={13} /> Реплики диалога
-                      <span className="gen-field__hint">Добавьте текст и выберите голос</span>
+                      <MessageSquare size={13} /> Формат диалога
                     </label>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {dialogueLines.map((line, idx) => (
-                        <div
-                          key={line.id}
-                          style={{
-                            background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)',
-                            borderRadius: '12px',
-                            padding: '10px',
-                          }}
-                        >
-                          <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            marginBottom: '6px',
-                          }}>
-                            <span style={{ fontSize: '12px', opacity: 0.6 }}>Реплика {idx + 1}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <select
-                                value={line.voice}
-                                onChange={(e) => updateDialogueLine(line.id, 'voice', e.target.value)}
-                                style={{
-                                  fontSize: '12px',
-                                  padding: '2px 6px',
-                                  borderRadius: '6px',
-                                  border: '1px solid var(--tg-theme-hint-color, #999)',
-                                  background: 'var(--tg-theme-bg-color, #fff)',
-                                  color: 'var(--tg-theme-text-color, #000)',
-                                }}
-                              >
-                                {ELEVENLABS_VOICES.map(v => (
-                                  <option key={v} value={v}>{v}</option>
-                                ))}
-                              </select>
-                              {dialogueLines.length > 1 && (
-                                <button
-                                  onClick={() => removeDialogueLine(line.id)}
-                                  style={{
-                                    background: 'none', border: 'none', cursor: 'pointer',
-                                    color: 'var(--tg-theme-destructive-text-color, #ff3b30)',
-                                    padding: '2px',
-                                  }}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <textarea
-                            value={line.text}
-                            onChange={(e) => updateDialogueLine(line.id, 'text', e.target.value)}
-                            placeholder={`Текст для ${line.voice}...`}
-                            rows={2}
-                            style={{
-                              width: '100%',
-                              resize: 'vertical',
-                              fontSize: '14px',
-                              padding: '8px',
-                              borderRadius: '8px',
-                              border: '1px solid var(--tg-theme-hint-color, #ccc)',
-                              background: 'var(--tg-theme-bg-color, #fff)',
-                              color: 'var(--tg-theme-text-color, #000)',
-                              fontFamily: 'inherit',
-                            }}
-                          />
-                        </div>
-                      ))}
+                    <div style={{
+                      fontSize: '12px',
+                      opacity: 0.7,
+                      lineHeight: 1.5,
+                      padding: '8px 10px',
+                      background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)',
+                      borderRadius: '10px',
+                      fontFamily: 'monospace',
+                    }}>
+                      Aria: Привет! Как дела?<br />
+                      Roger: Отлично, спасибо!<br />
+                      Aria: Рада слышать!
                     </div>
-
-                    <button
-                      onClick={addDialogueLine}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        marginTop: '8px', padding: '8px 14px',
-                        borderRadius: '10px', border: 'none', cursor: 'pointer',
-                        background: 'var(--tg-theme-button-color, #3390ec)',
-                        color: 'var(--tg-theme-button-text-color, #fff)',
-                        fontSize: '13px', fontWeight: 500,
-                      }}
-                    >
-                      <Plus size={14} /> Добавить реплику
-                    </button>
+                    <div style={{ fontSize: '11px', opacity: 0.5, marginTop: '4px' }}>
+                      Нажмите на имя голоса в поле ввода, чтобы быстро вставить
+                    </div>
                   </div>
 
-                  {/* Language for dialogue */}
+                  {/* Доступные голоса */}
+                  <div className="gen-field">
+                    <label className="gen-field__label"><Mic size={13} /> Доступные голоса</label>
+                    <div className="gen-field__chips gen-field__chips--wrap">
+                      {ELEVENLABS_VOICES.map((v) => (
+                        <button
+                          key={v}
+                          className="gen-chip"
+                          onClick={() => { insertVoiceName(v); haptic('light') }}
+                        >{v}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Language */}
                   {caps.supportsLanguage && (
                     <div className="gen-field">
                       <label className="gen-field__label">🌐 Язык</label>
@@ -1066,7 +996,7 @@ export function AudioGenerationPage({ onBack }: Props) {
                     </div>
                   )}
 
-                  {/* Stability for dialogue */}
+                  {/* Stability */}
                   {caps.supportsStability && (
                     <div className="gen-field">
                       <label className="gen-field__label">
