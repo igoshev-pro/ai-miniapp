@@ -1,5 +1,6 @@
 export const ENDPOINTS = {
   AUTH_TELEGRAM: '/auth/telegram',
+  AUTH_TELEGRAM_WIDGET: '/auth/telegram-widget',
   USER_ME: '/users/me',
 
   // Models

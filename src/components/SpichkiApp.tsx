@@ -5,6 +5,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useAuth, useModels, useUser } from '@/hooks'
+import { useAuthStore } from '@/stores'
 import { StickyHeader } from './StickyHeader'
 import { Background } from './Background'
 import { ActionCards } from './ActionCards'
@@ -26,6 +27,7 @@ import { FavoritesPage } from './FavoritesPage'
 import { SupportPage } from './SupportPage'
 import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
+import { TelegramLoginButton } from './auth/TelegramLoginButton'
 
 type Page =
   | 'home'
@@ -44,10 +46,11 @@ type Page =
   | 'support'
 
 export function SpichkiApp() {
-  const { isReady } = useTelegram()
-  const { isReady: authReady } = useAuth()
+  const { isReady, isTelegram } = useTelegram()
+  const { isReady: authReady, loginWithWidget } = useAuth()
   const { refetch: refetchUser } = useUser()
   const { loadModels } = useModels()
+  const token = useAuthStore((s) => s.token)
 
   const [activeNav, setActiveNav] = useState('feed')
   const [page, setPage] = useState<Page>('home')
@@ -95,7 +98,6 @@ export function SpichkiApp() {
   const openChat = useCallback(
     (modelNameOrSlug?: string, existingChatId?: string) => {
       setChatModel(modelNameOrSlug || 'gpt-4o-mini')
-      // Пустая строка = новый чат, не передаём
       setChatId(existingChatId && existingChatId.length > 0 ? existingChatId : undefined)
       navigateTo('chat')
       setActiveNav('create')
@@ -135,8 +137,6 @@ export function SpichkiApp() {
     (target: string) => {
       if (target === 'topup') navigateTo('topup')
       else if (target === 'transactions') navigateTo('transactions')
-      // убрано: else if (target === 'favorites') navigateTo('favorites')
-      // убрано: else if (target === 'support') navigateTo('support')
       else if (target === 'subscription') navigateTo('subscription')
       else if (target === 'referral') navigateTo('referral')
       else if (target.startsWith('subscribe:')) navigateTo('subscription')
@@ -173,6 +173,7 @@ export function SpichkiApp() {
     await refetchUser()
   }, [refetchUser])
 
+  // ─── Loading state ────────────────────────────────────────────
   if (!isReady || !authReady) {
     return (
       <div className="app-loading">
@@ -185,6 +186,17 @@ export function SpichkiApp() {
     )
   }
 
+  // ─── Not in Telegram & not authorized → show Login Widget ────
+  if (!isTelegram && !token) {
+    return (
+      <>
+        <Background />
+        <TelegramLoginButton onAuth={loginWithWidget} />
+      </>
+    )
+  }
+
+  // ─── Main App ─────────────────────────────────────────────────
   return (
     <>
       <Background />
