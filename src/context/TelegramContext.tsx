@@ -79,48 +79,52 @@ function applySafeArea(wa: WebApp) {
 export function TelegramProvider({ children }: { children: ReactNode }) {
   const [webApp, setWebApp] = useState<WebApp | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [isTelegram, setIsTelegram] = useState(false)
 
   useEffect(() => {
     const wa = getWebApp()
     if (wa) {
-      wa.ready()
-      wa.expand()
+      // Проверяем реальный запуск из Telegram Mini App:
+      // telegram-web-app.js создаёт объект даже в обычном браузере,
+      // но initData будет пустой строкой вне Telegram
+      const isRealTelegram = !!wa.initData && wa.initData.length > 0
 
-      // УБРАНО: disableVerticalSwipes — теперь можно свернуть свайпом
-      // if (wa.disableVerticalSwipes) {
-      //   wa.disableVerticalSwipes()
-      // }
+      if (isRealTelegram) {
+        wa.ready()
+        wa.expand()
 
-      wa.setHeaderColor('#0a0a0a')
-      wa.setBackgroundColor('#0a0a0a')
+        wa.setHeaderColor('#0a0a0a')
+        wa.setBackgroundColor('#0a0a0a')
 
-      if (wa.isVersionAtLeast('7.10')) {
-        wa.setBottomBarColor('#0a0a0a')
+        if (wa.isVersionAtLeast('7.10')) {
+          wa.setBottomBarColor('#0a0a0a')
+        }
+
+        wa.enableClosingConfirmation()
+
+        // Считаем safe area
+        applySafeArea(wa)
+
+        if (wa.onEvent) {
+          try {
+            wa.onEvent('safeAreaChanged' as any, () => applySafeArea(wa))
+            wa.onEvent('contentSafeAreaChanged' as any, () => applySafeArea(wa))
+          } catch { }
+        }
+
+        setTimeout(() => applySafeArea(wa), 500)
+        setTimeout(() => applySafeArea(wa), 1500)
+
+        setWebApp(wa)
+        setIsTelegram(true)
+      } else {
+        // WebApp объект есть, но initData пуст — мы в обычном браузере
+        setWebApp(null)
+        setIsTelegram(false)
       }
-
-      wa.enableClosingConfirmation()
-
-      // УБРАНО: requestFullscreen — теперь не на весь экран
-      // if (wa.isVersionAtLeast('8.0')) {
-      //   try {
-      //     wa.requestFullscreen()
-      //   } catch { }
-      // }
-
-      // Считаем safe area
-      applySafeArea(wa)
-
-      if (wa.onEvent) {
-        try {
-          wa.onEvent('safeAreaChanged' as any, () => applySafeArea(wa))
-          wa.onEvent('contentSafeAreaChanged' as any, () => applySafeArea(wa))
-        } catch { }
-      }
-
-      setTimeout(() => applySafeArea(wa), 500)
-      setTimeout(() => applySafeArea(wa), 1500)
-
-      setWebApp(wa)
+    } else {
+      setWebApp(null)
+      setIsTelegram(false)
     }
     setIsReady(true)
   }, [])
@@ -203,7 +207,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
     platform: webApp?.platform ?? 'unknown',
     startParam: webApp?.initDataUnsafe?.start_param ?? null,
     isReady,
-    isTelegram: !!webApp,
+    isTelegram,
     haptic: hapticFn,
     hapticNotification: hapticNotificationFn,
     hapticSelection: hapticSelectionFn,
