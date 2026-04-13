@@ -9,6 +9,7 @@ import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
+import { apiClient } from '@/lib/api'
 
 
 interface Props {
@@ -300,22 +301,25 @@ export function AudioGenerationPage({ onBack }: Props) {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const token = sessionStorage.getItem('jwt')
-      const API = process.env.NEXT_PUBLIC_API_URL || ''
-      const resp = await fetch(`${API}/upload/audio`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
+
+      // Используем apiClient — он автоматически добавит JWT
+      const resp = await apiClient.post('/upload/audio', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000, // 60 сек для больших файлов
       })
-      if (!resp.ok) throw new Error('Upload failed')
-      const data = await resp.json()
-      const url = data.data?.url || data.url
-      if (!url) throw new Error('No URL')
+
+      const url = resp.data?.data?.url
+      if (!url) throw new Error('Сервер не вернул URL')
+
       setAudioUrl(url)
       haptic('light')
       toast.success('Аудио загружено')
     } catch (err: any) {
-      toast.error(err.message || 'Ошибка загрузки')
+      const message = err?.message || 'Ошибка загрузки'
+      toast.error(message)
+      console.error('Audio upload error:', err)
     } finally {
       setUploadingAudio(false)
     }

@@ -44,4 +44,8 @@ export const ENDPOINTS = {
   // Referral
   REFERRAL_INFO: '/referral/info',
   REFERRAL_STATS: '/referral/stats',
+
+  // Upload
+  UPLOAD_AUDIO: '/upload/audio',
+  UPLOAD_IMAGE: '/upload/image',
 } as const
