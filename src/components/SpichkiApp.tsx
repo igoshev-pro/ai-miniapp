@@ -1,5 +1,3 @@
-// src/components/SpichkiApp.tsx
-
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
@@ -12,6 +10,7 @@ import { ActionCards } from './ActionCards'
 import { Categories } from './Categories'
 import { ChatFeed } from './ChatFeed'
 import { BottomNav } from './BottomNav'
+import { DesktopSidebar } from './DesktopSidebar'
 import { AllModelsPage } from './AllModelsPage'
 import { ChatPage } from './ChatPage'
 import { ImageGenerationPage } from './ImageGenerationPage'
@@ -198,64 +197,66 @@ export function SpichkiApp() {
 
   // ─── Main App ─────────────────────────────────────────────────
   return (
-    <>
+    <div className="app-layout">
       <Background />
-      <StickyHeader />
-      <OfflineBanner />
+      <DesktopSidebar active={activeNav} onChange={handleNavChange} />
+      <div className="app-layout__main">
+        <StickyHeader />
+        <OfflineBanner />
 
-      {page === 'home' && (
-        <PullToRefresh onRefresh={handleHomeRefresh}>
-          <div className="content">
-            <ActionCards onNavigate={handleActionNavigate} />
-            <Categories
-              onViewAll={() => openAllModels()}
-              onCategoryTap={(categoryId) => openAllModels(categoryId)}
-            />
-            <ChatFeed
-              onChatTap={(model, chatId) => openChat(model, chatId)}
-              onViewAll={openChatsHistory}
-            />
-          </div>
-        </PullToRefresh>
-      )}
+        {page === 'home' && (
+          <PullToRefresh onRefresh={handleHomeRefresh}>
+            <div className="content">
+              <ActionCards onNavigate={handleActionNavigate} />
+              <Categories
+                onViewAll={() => openAllModels()}
+                onCategoryTap={(categoryId) => openAllModels(categoryId)}
+              />
+              <ChatFeed
+                onChatTap={(model, chatId) => openChat(model, chatId)}
+                onViewAll={openChatsHistory}
+              />
+            </div>
+          </PullToRefresh>
+        )}
 
-      {page === 'all-models' && (
-        <AllModelsPage
-          onBack={goBack}
-          initialCategory={initialCategory}
-          onModelTap={(modelName, category) => {
-            if (category === 'image' || category === 'video' || category === 'audio') {
-              openGeneration(category)
-            } else {
-              openChat(modelName)
-            }
-          }}
-        />
-      )}
+        {page === 'all-models' && (
+          <AllModelsPage
+            onBack={goBack}
+            initialCategory={initialCategory}
+            onModelTap={(modelName, category) => {
+              if (category === 'image' || category === 'video' || category === 'audio') {
+                openGeneration(category)
+              } else {
+                openChat(modelName)
+              }
+            }}
+          />
+        )}
 
-      {page === 'chat' && (
-        <ChatPage key={chatId || chatModel} initialModel={chatModel} chatId={chatId} onBack={goBack} />
-      )}
+        {page === 'chat' && (
+          <ChatPage key={chatId || chatModel} initialModel={chatModel} chatId={chatId} onBack={goBack} />
+        )}
 
-      {page === 'image-generation' && <ImageGenerationPage onBack={goBack} />}
-      {page === 'video-generation' && <VideoGenerationPage onBack={goBack} />}
-      {page === 'audio-generation' && <AudioGenerationPage onBack={goBack} />}
-      {page === 'chats-history' && <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />}
-      {page === 'profile' && <ProfilePage onNavigate={handleProfileNavigate} />}
-      {page === 'topup' && <TopUpPage onBack={goBack} />}
-      {page === 'transactions' && <TransactionsPage onBack={goBack} />}
-      {page === 'subscription' && <SubscriptionPage onBack={goBack} />}
-      {page === 'referral' && <ReferralPage onBack={goBack} />}
-      {page === 'favorites' && (
-        <FavoritesPage
-          onBack={goBack}
-          onOpenChat={(modelSlug, chatId) => openChat(modelSlug, chatId)}
-          onOpenGeneration={(type) => openGeneration(type as 'image' | 'video' | 'audio')}
-        />
-      )}
-      {/* {page === 'support' && <SupportPage onBack={goBack} />} */}
+        {page === 'image-generation' && <ImageGenerationPage onBack={goBack} />}
+        {page === 'video-generation' && <VideoGenerationPage onBack={goBack} />}
+        {page === 'audio-generation' && <AudioGenerationPage onBack={goBack} />}
+        {page === 'chats-history' && <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />}
+        {page === 'profile' && <ProfilePage onNavigate={handleProfileNavigate} />}
+        {page === 'topup' && <TopUpPage onBack={goBack} />}
+        {page === 'transactions' && <TransactionsPage onBack={goBack} />}
+        {page === 'subscription' && <SubscriptionPage onBack={goBack} />}
+        {page === 'referral' && <ReferralPage onBack={goBack} />}
+        {page === 'favorites' && (
+          <FavoritesPage
+            onBack={goBack}
+            onOpenChat={(modelSlug, chatId) => openChat(modelSlug, chatId)}
+            onOpenGeneration={(type) => openGeneration(type as 'image' | 'video' | 'audio')}
+          />
+        )}
 
-      <BottomNav active={activeNav} onChange={handleNavChange} />
-    </>
+        <BottomNav active={activeNav} onChange={handleNavChange} />
+      </div>
+    </div>
   )
 }

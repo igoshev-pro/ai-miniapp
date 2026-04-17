@@ -5631,3 +5631,1283 @@ body.tg-app .sticky-header {
   flex-shrink: 0;
   letter-spacing: 0.2px;
 }
+
+/* Адаптив */
+
+/* ═══════════════ DESKTOP SIDEBAR ═══════════════ */
+
+.desktop-sidebar {
+  display: none; /* скрыт на мобайле */
+}
+
+/* ═══════════════ APP LAYOUT ═══════════════ */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-layout__main {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* ═══════════════ TABLET (768–1023px) ═══════════════ */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+
+  /* Sidebar — компактный (только иконки) */
+  .desktop-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 72px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 200;
+    background: var(--bg-glass-heavy);
+    backdrop-filter: var(--blur-heavy);
+    -webkit-backdrop-filter: var(--blur-heavy);
+    border-right: 1px solid var(--border-glass);
+    padding: 16px 0;
+    align-items: center;
+  }
+
+  .desktop-sidebar__logo {
+    padding: 8px 0 16px;
+    text-align: center;
+  }
+
+  .desktop-sidebar__logo-text {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--accent-yellow);
+    letter-spacing: 0.5px;
+  }
+
+  .desktop-sidebar__balance {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .desktop-sidebar__balance-flame {
+    color: var(--accent-red);
+  }
+
+  .desktop-sidebar__balance-amount {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  .desktop-sidebar__balance-label {
+    font-size: 8px;
+    color: var(--gray-600);
+    display: none;
+  }
+
+  .desktop-sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    width: 100%;
+    padding: 0 8px;
+  }
+
+  .desktop-sidebar__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: var(--gray-500);
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+  }
+
+  .desktop-sidebar__item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--gray-300);
+  }
+
+  .desktop-sidebar__item--active {
+    background: rgba(250, 204, 21, 0.08);
+    color: var(--accent-yellow);
+  }
+
+  .desktop-sidebar__item--create {
+    margin: 8px 0;
+  }
+
+  .desktop-sidebar__item--create .desktop-sidebar__item-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--accent-red);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    box-shadow: 0 4px 16px var(--glow-red);
+  }
+
+  .desktop-sidebar__item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .desktop-sidebar__item-label {
+    font-size: 9px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .desktop-sidebar__footer {
+    margin-top: auto;
+    padding-top: 12px;
+  }
+
+  .desktop-sidebar__version {
+    font-size: 9px;
+    color: var(--gray-700);
+  }
+
+  /* Скрываем мобильные элементы */
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .sticky-header {
+    display: none !important;
+  }
+
+  /* Main area сдвигается вправо */
+  .app-layout__main {
+    margin-left: 72px;
+  }
+
+  /* Body padding reset */
+  body {
+    padding-top: 0 !important;
+    padding-bottom: 16px !important;
+    background: #000;
+  }
+
+  /* Background заполняет main */
+  .bg-scene {
+    left: 72px;
+  }
+
+  /* Content */
+  .content {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 24px 0;
+  }
+
+  /* Action cards — шире */
+  .action-cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .action-card {
+    padding: 20px 12px;
+  }
+
+  /* Categories — 4 columns */
+  .categories-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  /* Feed items */
+  .feed-item {
+    padding: 14px 16px;
+  }
+
+  /* Models page */
+  .models-page__sticky {
+    position: fixed;
+    top: 0;
+    left: 72px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 16px 24px 0;
+  }
+
+  .models-page__list {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 148px 24px 0;
+  }
+
+  /* Chat page */
+  .chat-page {
+    height: 100vh;
+    height: 100dvh;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .chat-page__model-bar {
+    position: fixed;
+    top: 0;
+    left: 72px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 12px 24px 8px;
+  }
+
+  .chat-page__messages {
+    padding: 60px 24px 80px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .chat-page__input-area {
+    bottom: 0;
+    left: 72px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 10px 24px 16px;
+  }
+
+  .chat-model-dropdown {
+    left: 96px;
+    right: 24px;
+    max-width: 500px;
+    transform: none;
+  }
+
+  .chat-msg {
+    max-width: 75%;
+  }
+
+  /* Gen pages */
+  .gen-page {
+    height: 100vh;
+    height: 100dvh;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .gen-page__header {
+    position: fixed;
+    top: 0;
+    left: 72px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 12px 24px;
+  }
+
+  .gen-page__results {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 90px 24px 16px;
+  }
+
+  .gen-page__input-area {
+    bottom: 0;
+    left: 72px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 10px 24px 16px;
+  }
+
+  /* Profile page */
+  .profile-page {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 24px 24px 0;
+  }
+
+  /* Chats history */
+  .chats-history {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 24px 0;
+  }
+
+  /* Other pages */
+  .topup-page,
+  .transactions-page,
+  .subscription-page,
+  .referral-page,
+  .favorites-page {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 24px 100px;
+  }
+
+  /* Toast */
+  .toast-container {
+    left: 84px;
+    right: 12px;
+    max-width: 400px;
+  }
+
+  /* Settings modal */
+  .gen-settings-modal__content {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  /* Support reply */
+  .support-reply {
+    bottom: 0;
+    left: 72px;
+    right: 0;
+    max-width: none;
+  }
+}
+
+/* ═══════════════ DESKTOP (1024px+) ═══════════════ */
+
+@media (min-width: 1024px) {
+
+  /* Sidebar — полный (иконки + текст) */
+  .desktop-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 200;
+    background: var(--bg-glass-heavy);
+    backdrop-filter: var(--blur-heavy);
+    -webkit-backdrop-filter: var(--blur-heavy);
+    border-right: 1px solid var(--border-glass);
+    padding: 20px 0;
+  }
+
+  .desktop-sidebar__logo {
+    padding: 4px 20px 20px;
+  }
+
+  .desktop-sidebar__logo-text {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+  }
+
+  .desktop-sidebar__balance {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    margin: 0 12px 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+  }
+
+  .desktop-sidebar__balance-flame {
+    color: var(--accent-red);
+  }
+
+  .desktop-sidebar__balance-amount {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--white);
+  }
+
+  .desktop-sidebar__balance-label {
+    font-size: 11px;
+    color: var(--gray-500);
+  }
+
+  .desktop-sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    padding: 0 10px;
+  }
+
+  .desktop-sidebar__item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: var(--gray-400);
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+    width: 100%;
+    text-align: left;
+  }
+
+  .desktop-sidebar__item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--gray-200);
+  }
+
+  .desktop-sidebar__item--active {
+    background: rgba(250, 204, 21, 0.08);
+    color: var(--accent-yellow);
+  }
+
+  .desktop-sidebar__item--active:hover {
+    background: rgba(250, 204, 21, 0.12);
+  }
+
+  .desktop-sidebar__item--create {
+    margin: 8px 0;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    color: var(--white);
+  }
+
+  .desktop-sidebar__item--create:hover {
+    background: rgba(239, 68, 68, 0.14);
+  }
+
+  .desktop-sidebar__item--create .desktop-sidebar__item-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--accent-red);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    box-shadow: 0 2px 12px var(--glow-red);
+    flex-shrink: 0;
+  }
+
+  .desktop-sidebar__item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+  }
+
+  .desktop-sidebar__item-label {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .desktop-sidebar__footer {
+    margin-top: auto;
+    padding: 12px 20px 0;
+    border-top: 1px solid var(--border-glass);
+  }
+
+  .desktop-sidebar__version {
+    font-size: 11px;
+    color: var(--gray-700);
+  }
+
+  /* Скрываем мобильные элементы */
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .sticky-header {
+    display: none !important;
+  }
+
+  /* Main area сдвигается вправо */
+  .app-layout__main {
+    margin-left: 240px;
+  }
+
+  /* Body padding reset */
+  body {
+    padding-top: 0 !important;
+    padding-bottom: 16px !important;
+    background: #000;
+  }
+
+  /* Background в main зоне */
+  .bg-scene {
+    left: 240px;
+  }
+
+  /* ── HOME PAGE ── */
+  .content {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 32px 0;
+  }
+
+  .action-cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .action-card {
+    padding: 24px 16px;
+    border-radius: 16px;
+  }
+
+  .action-card__title {
+    font-size: 14px;
+  }
+
+  .action-card__subtitle {
+    font-size: 11px;
+  }
+
+  .action-card__icon svg {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Categories — 4 columns */
+  .categories-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .category-card__body {
+    padding: 16px 16px 18px;
+  }
+
+  .category-card__title {
+    font-size: 15px;
+  }
+
+    .category-card__desc {
+    font-size: 12px;
+  }
+
+  /* Section titles */
+  .section-title {
+    font-size: 19px;
+    margin-bottom: 16px;
+  }
+
+  /* Feed */
+  .feed-item {
+    padding: 14px 18px;
+    border-radius: 14px;
+  }
+
+  .feed-item__title {
+    font-size: 14px;
+  }
+
+  .feed-item__preview {
+    font-size: 12px;
+  }
+
+  /* ── ALL MODELS PAGE ── */
+  .models-page__sticky {
+    position: fixed;
+    top: 0;
+    left: 240px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 20px 32px 0;
+  }
+
+  .models-page__header {
+    padding-bottom: 12px;
+  }
+
+  .models-page__title {
+    font-size: 22px;
+  }
+
+  .models-page__search-input {
+    font-size: 14px;
+    padding: 12px 14px 12px 42px;
+  }
+
+  .models-page__list {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 160px 32px 0;
+  }
+
+  .model-row {
+    padding: 14px 16px;
+    border-radius: 14px;
+    margin-bottom: 8px;
+  }
+
+  .model-row__icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .model-row__name {
+    font-size: 15px;
+  }
+
+  .model-row__meta {
+    font-size: 12px;
+  }
+
+  /* ── CHAT PAGE ── */
+  .chat-page {
+    height: 100vh;
+    height: 100dvh;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .chat-page__model-bar {
+    position: fixed;
+    top: 0;
+    left: 240px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 14px 32px 10px;
+  }
+
+  .chat-page__messages {
+    padding: 64px 32px 90px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .chat-page__input-area {
+    bottom: 0;
+    left: 240px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 12px 32px 20px;
+  }
+
+  .chat-model-dropdown {
+    left: 272px;
+    right: 32px;
+    max-width: 520px;
+    transform: none;
+  }
+
+  .chat-msg {
+    max-width: 70%;
+  }
+
+  .chat-msg__bubble {
+    padding: 12px 18px;
+    font-size: 14.5px;
+    border-radius: 14px;
+  }
+
+  .chat-msg--user .chat-msg__bubble {
+    border-bottom-right-radius: 4px;
+  }
+
+  .chat-msg--ai .chat-msg__bubble {
+    border-bottom-left-radius: 4px;
+  }
+
+  .chat-input__field {
+    font-size: 15px;
+    padding: 12px 18px;
+    border-radius: 14px;
+  }
+
+  .chat-input__send,
+  .chat-input__attach {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  /* Empty state в чате */
+  .chat-page__empty {
+    padding: 80px 32px;
+  }
+
+  .chat-page__empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 24px;
+  }
+
+  .chat-page__empty-title {
+    font-size: 20px;
+  }
+
+  .chat-page__empty-text {
+    font-size: 14px;
+    max-width: 360px;
+  }
+
+  /* ── GEN PAGES (Image, Video, Audio) ── */
+  .gen-page {
+    height: 100vh;
+    height: 100dvh;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .gen-page__header {
+    position: fixed;
+    top: 0;
+    left: 240px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 14px 32px;
+  }
+
+  .gen-page__results {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 100px 32px 16px;
+  }
+
+  .gen-page__input-area {
+    bottom: 0;
+    left: 240px;
+    right: 0;
+    max-width: none;
+    margin: 0;
+    padding: 12px 32px 20px;
+  }
+
+  .gen-page__empty {
+    padding: 80px 32px;
+  }
+
+  .gen-page__empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 24px;
+  }
+
+  .gen-page__empty-title {
+    font-size: 20px;
+  }
+
+  .gen-page__empty-text {
+    font-size: 14px;
+    max-width: 360px;
+  }
+
+  /* Video gen page */
+  .video-gen-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 32px 80px;
+  }
+
+  .video-gen-page__gallery {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  /* Gen settings modal — центрируется */
+  .gen-settings-modal {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gen-settings-modal__content {
+    max-width: 540px;
+    max-height: 80vh;
+    border-radius: 20px;
+    margin: 0 auto;
+  }
+
+  /* Media result — ширина ограничена */
+  .media-result {
+    border-radius: 18px;
+  }
+
+  .media-result__image {
+    border-radius: 0;
+  }
+
+  /* ── PROFILE PAGE ── */
+  .profile-page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 32px 32px 0;
+  }
+
+  .profile-page__title {
+    font-size: 22px;
+  }
+
+  .profile-user {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .profile-user__avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+  }
+
+  .profile-user__name {
+    font-size: 17px;
+  }
+
+  .profile-balance {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .profile-balance__value {
+    font-size: 18px;
+  }
+
+  .profile-balance__btn {
+    padding: 11px 0;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  /* Stats grid — 2 columns on desktop */
+  .profile-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* ── CHATS HISTORY ── */
+  .chats-history {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 32px 32px 0;
+  }
+
+  .chats-history__title {
+    font-size: 22px;
+  }
+
+  .chats-history__search-input {
+    font-size: 14px;
+    padding: 12px 14px 12px 42px;
+  }
+
+  /* ── TOPUP PAGE ── */
+  .topup-page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 32px 100px;
+  }
+
+  .topup-page__title {
+    font-size: 24px;
+  }
+
+  .topup-packages {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  .topup-package {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  /* ── TRANSACTIONS PAGE ── */
+  .transactions-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 32px 100px;
+  }
+
+  .transactions-page__title {
+    font-size: 22px;
+  }
+
+  .tx-row {
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  /* ── SUBSCRIPTION PAGE ── */
+  .subscription-page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 32px 100px;
+  }
+
+  .subscription-page__title {
+    font-size: 26px;
+  }
+
+  .sub-card {
+    padding: 24px;
+    border-radius: 20px;
+  }
+
+  .sub-card__name {
+    font-size: 20px;
+  }
+
+  .sub-card__amount {
+    font-size: 26px;
+  }
+
+  .sub-card__btn {
+    padding: 15px;
+    font-size: 15px;
+    border-radius: 14px;
+  }
+
+  /* ── REFERRAL PAGE ── */
+  .referral-page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 32px 100px;
+  }
+
+  .referral-page__title {
+    font-size: 26px;
+  }
+
+  .referral-stats__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* ── FAVORITES PAGE ── */
+  .favorites-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 32px 100px;
+  }
+
+  .favorites-page__title {
+    font-size: 22px;
+  }
+
+  .favorites-page__list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* ── TOAST ── */
+  .toast-container {
+    left: 252px;
+    right: auto;
+    max-width: 420px;
+    top: 16px;
+  }
+
+  /* ── OFFLINE BANNER ── */
+  .offline-banner {
+    left: 240px;
+  }
+
+  /* ── Support reply ── */
+  .support-reply {
+    bottom: 0;
+    left: 240px;
+    right: 0;
+    max-width: none;
+  }
+
+  /* ── Support page ── */
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 32px 100px;
+  }
+
+  /* ── Markdown — wider code blocks ── */
+  .msg-markdown {
+    font-size: 14.5px;
+  }
+
+  .msg-code-block__pre {
+    font-size: 13px;
+  }
+
+  /* ── Hover effects (desktop only) ── */
+  .action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .category-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .category-card:hover .category-card__cover {
+    transform: scale(1.03);
+    transition: transform 0.3s ease;
+  }
+
+  .feed-item:hover {
+    background: var(--bg-card-hover);
+    transform: translateX(2px);
+  }
+
+  .model-row:hover {
+    background: var(--bg-card-hover);
+    transform: translateX(2px);
+  }
+
+  .chat-msg__action:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--gray-400);
+  }
+
+  .profile-menu-item:hover {
+    background: var(--bg-card-hover);
+  }
+
+  .profile-balance__btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .profile-balance__btn--primary:hover {
+    opacity: 0.9;
+  }
+
+  .gen-chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .gen-chip--active:hover {
+    background: rgba(251, 191, 36, 0.18);
+  }
+
+  .topup-package:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .favorite-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .support-ticket-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .chat-input__send:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .chat-input__attach:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Scrollbar styling for desktop */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  }
+}
+
+/* ═══════════════ LARGE DESKTOP (1400px+) ═══════════════ */
+
+@media (min-width: 1400px) {
+
+  .content {
+    max-width: 1200px;
+  }
+
+  .categories-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .models-page__list {
+    max-width: 1200px;
+  }
+
+  .chat-page,
+  .chat-page__messages {
+    max-width: 1100px;
+  }
+
+  .gen-page,
+  .gen-page__results {
+    max-width: 1100px;
+  }
+
+  .topup-packages {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .favorites-page__list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .referral-stats__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ═══════════════ TELEGRAM APP OVERRIDES ═══════════════ */
+/* Telegram Mini App всегда использует мобильный layout */
+
+body.tg-app {
+  padding-top: calc(var(--header-height) + var(--tg-top)) !important;
+  padding-bottom: calc(84px + var(--safe-bottom)) !important;
+}
+
+body.tg-app .sticky-header {
+  top: var(--tg-top) !important;
+  display: flex !important;
+  max-width: none !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+body.tg-app .bottom-nav {
+  display: flex !important;
+  max-width: none !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+body.tg-app .desktop-sidebar {
+  display: none !important;
+}
+
+body.tg-app .app-layout__main {
+  margin-left: 0 !important;
+}
+
+body.tg-app .bg-scene {
+  left: 0 !important;
+}
+
+body.tg-app .content {
+  max-width: none !important;
+  padding: var(--safe-area-top, 0px) 16px 0 16px !important;
+  padding-top: 12px !important;
+}
+
+body.tg-app .chat-page__model-bar,
+body.tg-app .gen-page__header {
+  left: 0 !important;
+  right: 0 !important;
+  max-width: none !important;
+  top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
+}
+
+body.tg-app .chat-page__input-area,
+body.tg-app .gen-page__input-area,
+body.tg-app .support-reply {
+  left: 0 !important;
+  right: 0 !important;
+  max-width: none !important;
+  bottom: calc(59px + var(--safe-bottom)) !important;
+}
+
+body.tg-app .models-page__sticky {
+  left: 0 !important;
+  right: 0 !important;
+  max-width: none !important;
+  top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
+}
+
+body.tg-app .chat-model-dropdown {
+  left: 16px !important;
+  right: 16px !important;
+  max-width: none !important;
+  transform: none !important;
+}
+
+body.tg-app .toast-container {
+  left: 12px !important;
+  right: 12px !important;
+  max-width: none !important;
+  top: calc(var(--header-height) + var(--tg-top, 0px) + 8px) !important;
+}
+
+body.tg-app .offline-banner {
+  left: 0 !important;
+}
+
+body.tg-app .chat-page {
+  max-width: none !important;
+  height: calc(100vh - var(--header-height) - 74px - var(--safe-bottom)) !important;
+  height: calc(var(--tg-viewport-stable-height, 100dvh) - var(--header-height) - 74px - var(--safe-bottom)) !important;
+}
+
+body.tg-app .chat-page__messages {
+  max-width: none !important;
+  padding: 52px 16px 70px !important;
+  padding-top: calc(var(--header-height) + 40px) !important;
+}
+
+body.tg-app .gen-page {
+  max-width: none !important;
+  height: calc(100dvh - var(--header-height) - 74px - var(--safe-area-top, 0px) - var(--safe-bottom, 0px)) !important;
+}
+
+body.tg-app .gen-page__results {
+  max-width: none !important;
+  padding: 90px 16px 16px !important;
+}
+
+body.tg-app .models-page__list {
+  max-width: none !important;
+  padding: 148px 16px 0 !important;
+}
+
+/* All page max-widths reset for TG */
+body.tg-app .profile-page,
+body.tg-app .chats-history,
+body.tg-app .topup-page,
+body.tg-app .transactions-page,
+body.tg-app .subscription-page,
+body.tg-app .referral-page,
+body.tg-app .favorites-page,
+body.tg-app .support-page,
+body.tg-app .video-gen-page {
+  max-width: none !important;
+  margin: 0 !important;
+}
