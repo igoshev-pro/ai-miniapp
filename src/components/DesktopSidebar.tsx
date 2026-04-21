@@ -19,11 +19,18 @@ const navItems = [
 
 export function DesktopSidebar({ active, onChange }: Props) {
   const { haptic } = useTelegram()
-  const { balance, isLoaded } = useUser()
+  const user = useUser()
   const switchToNewChat = useChatStore((s) => s.switchToNewChat)
+
+  // ── Защита от undefined ──
+  const balance = user?.balance ?? 0
+  const isLoaded = user?.isLoaded ?? false
 
   const formatted = isLoaded ? balance.toLocaleString() : '—'
   const barWidth = Math.min(100, Math.max(5, (balance / 10000) * 100))
+
+  // ── Дебаг: убери после проверки ──
+  console.log('[Sidebar] useUser =>', { balance, isLoaded, raw: user })
 
   return (
     <aside className="desktop-sidebar">
@@ -99,7 +106,7 @@ export function DesktopSidebar({ active, onChange }: Props) {
         <button
           onClick={() => {
             haptic('light')
-            onChange('profile')
+            onChange('topup')
           }}
           className="desktop-sidebar__topup-btn"
         >
