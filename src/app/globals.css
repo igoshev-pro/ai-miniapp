@@ -5391,6 +5391,11 @@ body.tg-app .sticky-header {
     color: #fff;
   }
 
+  .desktop-sidebar__balance-unit {
+    font-size: 0.75em;
+    margin-left: 2px;
+  }
+
   .desktop-sidebar__bar {
     width: 100%;
     height: 3px;
@@ -5837,6 +5842,11 @@ body.tg-app .sticky-header {
     color: #fff;
     line-height: 1.3;
     letter-spacing: -0.3px;
+  }
+
+  .desktop-sidebar__balance-unit {
+    font-size: 0.75em;
+    margin-left: 2px;
   }
 
   .desktop-sidebar__bar {
