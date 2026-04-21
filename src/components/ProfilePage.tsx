@@ -1,3 +1,4 @@
+// src/components/ProfilePage.tsx
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -10,7 +11,6 @@ import {
   Users,
   Copy,
   Check,
-  ChevronRight,
   HelpCircle,
   TrendingUp,
   Clock,
@@ -26,6 +26,13 @@ interface Props {
 }
 
 const SUPPORT_TG_LINK = 'https://t.me/d_igoshev'
+
+const planLabels: Record<string, string> = {
+  free: 'Free',
+  basic: 'Basic',
+  pro: 'Pro',
+  unlimited: 'Unlimited',
+}
 
 export function ProfilePage({ onNavigate }: Props) {
   const { user: tgUser, haptic, hapticNotification, webApp } = useTelegram()
@@ -46,15 +53,9 @@ export function ProfilePage({ onNavigate }: Props) {
     loadReferralInfo()
   }, [isLoaded, refetch, loadReferralInfo])
 
-  const planLabels: Record<string, string> = {
-    free: 'Free',
-    basic: 'Basic',
-    pro: 'Pro',
-    unlimited: 'Unlimited',
-  }
-
   const copyReferral = useCallback(() => {
-    const code = referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
+    const code =
+      referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
     navigator.clipboard.writeText(code).catch(() => {})
     setCopiedRef(true)
     hapticNotification('success')
@@ -209,7 +210,9 @@ export function ProfilePage({ onNavigate }: Props) {
             </div>
             <div className="profile-referral__stat">
               <Flame size={14} />
-              <span>+{(referralInfo?.totalEarned ?? 0).toLocaleString()} спичек</span>
+              <span>
+                +{(referralInfo?.totalEarned ?? 0).toLocaleString()} спичек
+              </span>
             </div>
           </div>
           <div className="profile-referral__hint">

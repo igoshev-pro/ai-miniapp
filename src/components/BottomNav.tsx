@@ -31,25 +31,24 @@ export function BottomNav({ active, onChange }: Props) {
               className="bottom-nav__item bottom-nav__item--center"
               onClick={() => {
                 haptic('medium')
-                switchToNewChat() // ← чистим стор перед новым чатом
+                switchToNewChat()
                 onChange(item.id)
               }}
             >
               <div className="bottom-nav__create">
-                <Plus size={24} />
+                <Plus size={24} strokeWidth={2.5} />
               </div>
             </button>
           )
         }
 
         const Icon = item.icon
+        const isActive = active === item.id
 
         return (
           <button
             key={item.id}
-            className={`bottom-nav__item ${
-              active === item.id ? 'bottom-nav__item--active' : ''
-            }`}
+            className={`bottom-nav__item ${isActive ? 'bottom-nav__item--active' : ''}`}
             onClick={() => {
               haptic('light')
               onChange(item.id)

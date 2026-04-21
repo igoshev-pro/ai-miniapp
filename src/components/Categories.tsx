@@ -27,11 +27,18 @@ export function Categories({ onViewAll, onCategoryTap }: Props) {
 
   return (
     <div className="fade-in fade-in--3">
-      <div className="section-title">
+      {/* Section title */}
+      <div className="flex items-center gap-2 text-[17px] font-bold text-[var(--text-primary)] mb-3">
         Модели ИИ
-        <span className="section-title__badge">{totalModels} моделей</span>
+        <span className="text-[10px] py-[3px] px-2 rounded-[20px] bg-white/5 text-[var(--gray-500)] font-semibold tracking-wide">
+          {totalModels} моделей
+        </span>
         <span
-          className="section-title__link"
+          className="
+            ml-auto text-[12px] text-[var(--accent-yellow)] font-semibold
+            cursor-pointer flex items-center gap-0.5
+            select-none [-webkit-tap-highlight-color:transparent]
+          "
           onClick={() => {
             haptic('light')
             onViewAll()
@@ -43,11 +50,22 @@ export function Categories({ onViewAll, onCategoryTap }: Props) {
         </span>
       </div>
 
-      <div className="categories-grid">
+      {/* Grid */}
+      <div className="grid grid-cols-2 gap-2.5 -mb-1">
         {categoriesData.map((cat) => (
           <div
             key={cat.id}
-            className="category-card"
+            className="
+              category-card
+              p-0 rounded-[var(--radius)] overflow-hidden
+              bg-[var(--bg-glass)]
+              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+              border border-white/[0.08]
+              cursor-pointer
+              transition-all duration-200
+              active:scale-[0.97] active:bg-[var(--bg-card-hover)]
+              flex flex-col relative
+            "
             onClick={() => {
               haptic('light')
               onCategoryTap(cat.id)
@@ -55,21 +73,42 @@ export function Categories({ onViewAll, onCategoryTap }: Props) {
             role="button"
             tabIndex={0}
           >
-            <div className="category-card__cover-wrap">
+            {/* Cover */}
+            <div className="relative overflow-hidden w-full pt-[100%]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={cat.coverUrl}
                 alt={cat.title}
-                className="category-card__cover"
+                className="
+                  absolute inset-0 w-full h-full object-cover
+                  transition-opacity duration-300
+                "
                 loading="lazy"
+              />
+              {/* Gradient overlay on cover */}
+              <div
+                className="absolute bottom-0 left-0 right-0 h-[60%] pointer-events-none"
+                style={{
+                  background: 'linear-gradient(to top, var(--bg-glass), transparent)',
+                }}
               />
             </div>
 
-            <div className="category-card__body">
-              <div className="category-card__title">{cat.title}</div>
-              <div className="category-card__desc">{cat.description}</div>
-              <div className="category-card__count">
-                {cat.modelCount} {cat.modelCount === 1 ? 'модель' : cat.modelCount < 5 ? 'модели' : 'моделей'}
+            {/* Body */}
+            <div className="p-3.5 pb-4 flex flex-col gap-2.5 flex-1">
+              <div className="text-[14px] font-bold text-[var(--accent-red)]">
+                {cat.title}
+              </div>
+              <div className="text-[11px] text-[var(--gray-500)] leading-[1.5]">
+                {cat.description}
+              </div>
+              <div className="text-[10px] text-[var(--gray-500)] py-[3px] px-2 bg-white/[0.04] rounded w-fit whitespace-nowrap">
+                {cat.modelCount}{' '}
+                {cat.modelCount === 1
+                  ? 'модель'
+                  : cat.modelCount < 5
+                    ? 'модели'
+                    : 'моделей'}
               </div>
             </div>
           </div>

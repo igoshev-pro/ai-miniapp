@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useAuth, useModels, useUser } from '@/hooks'
-import { useAuthStore } from '@/stores'
 import { StickyHeader } from './StickyHeader'
 import { Background } from './Background'
 import { ActionCards } from './ActionCards'
@@ -23,10 +22,8 @@ import { TransactionsPage } from './TransactionsPage'
 import { SubscriptionPage } from './SubscriptionPage'
 import { ReferralPage } from './ReferralPage'
 import { FavoritesPage } from './FavoritesPage'
-import { SupportPage } from './SupportPage'
 import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
-import { TelegramLoginButton } from './auth/TelegramLoginButton'
 
 type Page =
   | 'home'
@@ -45,11 +42,10 @@ type Page =
   | 'support'
 
 export function SpichkiApp() {
-  const { isReady, isTelegram } = useTelegram()
-  const { isReady: authReady, loginWithWidget } = useAuth()
+  const { isReady } = useTelegram()
+  const { isReady: authReady } = useAuth()
   const { refetch: refetchUser } = useUser()
   const { loadModels } = useModels()
-  const token = useAuthStore((s) => s.token)
 
   const [activeNav, setActiveNav] = useState('feed')
   const [page, setPage] = useState<Page>('home')
@@ -97,18 +93,14 @@ export function SpichkiApp() {
   const openChat = useCallback(
     (modelNameOrSlug?: string, existingChatId?: string) => {
       setChatModel(modelNameOrSlug || 'gpt-4o-mini')
-      setChatId(existingChatId && existingChatId.length > 0 ? existingChatId : undefined)
+      setChatId(
+        existingChatId && existingChatId.length > 0 ? existingChatId : undefined,
+      )
       navigateTo('chat')
       setActiveNav('create')
     },
     [navigateTo],
   )
-
-  useEffect(() => {
-    if (authReady) {
-      loadModels()
-    }
-  }, [authReady, loadModels])
 
   const openGeneration = useCallback(
     (type: 'image' | 'video' | 'audio') => {
@@ -146,23 +138,29 @@ export function SpichkiApp() {
   const handleNavChange = useCallback(
     (id: string) => {
       setPageHistory([])
-      if (id === 'models') {
-        setPage('all-models')
-        setInitialCategory(null)
-        setActiveNav('models')
-      } else if (id === 'create') {
-        setChatId(undefined)
-        setChatModel('ChatGPT 4o')
-        setPage('chat')
-        setActiveNav('create')
-      } else if (id === 'favorites') {
-        setPage('favorites')
-        setActiveNav('favorites')
-      } else if (id === 'profile') {
-        setPage('profile')
-        setActiveNav('profile')
-      } else if (id === 'feed') {
-        goHome()
+      switch (id) {
+        case 'models':
+          setPage('all-models')
+          setInitialCategory(null)
+          setActiveNav('models')
+          break
+        case 'create':
+          setChatId(undefined)
+          setChatModel('ChatGPT 4o')
+          setPage('chat')
+          setActiveNav('create')
+          break
+        case 'favorites':
+          setPage('favorites')
+          setActiveNav('favorites')
+          break
+        case 'profile':
+          setPage('profile')
+          setActiveNav('profile')
+          break
+        case 'feed':
+        default:
+          goHome()
       }
     },
     [goHome],
@@ -172,7 +170,10 @@ export function SpichkiApp() {
     await refetchUser()
   }, [refetchUser])
 
-  // ─── Loading state ────────────────────────────────────────────
+  useEffect(() => {
+    if (authReady) loadModels()
+  }, [authReady, loadModels])
+
   if (!isReady || !authReady) {
     return (
       <div className="app-loading">
@@ -185,21 +186,11 @@ export function SpichkiApp() {
     )
   }
 
-  // ─── Not in Telegram & not authorized → show Login Widget ────
-  if (!isTelegram && !token) {
-    return (
-      <>
-        <Background />
-        <TelegramLoginButton onAuth={loginWithWidget} />
-      </>
-    )
-  }
-
-  // ─── Main App ─────────────────────────────────────────────────
   return (
     <div className="app-layout">
       <Background />
       <DesktopSidebar active={activeNav} onChange={handleNavChange} />
+
       <div className="app-layout__main">
         <StickyHeader />
         <OfflineBanner />
@@ -213,7 +204,7 @@ export function SpichkiApp() {
                 onCategoryTap={(categoryId) => openAllModels(categoryId)}
               />
               <ChatFeed
-                onChatTap={(model, chatId) => openChat(model, chatId)}
+                onChatTap={(model, id) => openChat(model, id)}
                 onViewAll={openChatsHistory}
               />
             </div>
@@ -235,13 +226,20 @@ export function SpichkiApp() {
         )}
 
         {page === 'chat' && (
-          <ChatPage key={chatId || chatModel} initialModel={chatModel} chatId={chatId} onBack={goBack} />
+          <ChatPage
+            key={chatId || chatModel}
+            initialModel={chatModel}
+            chatId={chatId}
+            onBack={goBack}
+          />
         )}
 
         {page === 'image-generation' && <ImageGenerationPage onBack={goBack} />}
         {page === 'video-generation' && <VideoGenerationPage onBack={goBack} />}
         {page === 'audio-generation' && <AudioGenerationPage onBack={goBack} />}
-        {page === 'chats-history' && <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />}
+        {page === 'chats-history' && (
+          <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />
+        )}
         {page === 'profile' && <ProfilePage onNavigate={handleProfileNavigate} />}
         {page === 'topup' && <TopUpPage onBack={goBack} />}
         {page === 'transactions' && <TransactionsPage onBack={goBack} />}
@@ -250,8 +248,10 @@ export function SpichkiApp() {
         {page === 'favorites' && (
           <FavoritesPage
             onBack={goBack}
-            onOpenChat={(modelSlug, chatId) => openChat(modelSlug, chatId)}
-            onOpenGeneration={(type) => openGeneration(type as 'image' | 'video' | 'audio')}
+            onOpenChat={(modelSlug, id) => openChat(modelSlug, id)}
+            onOpenGeneration={(type) =>
+              openGeneration(type as 'image' | 'video' | 'audio')
+            }
           />
         )}
 

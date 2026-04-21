@@ -1,5 +1,3 @@
-// src/components/ChatFeed.tsx
-
 'use client'
 
 import { useEffect, useCallback } from 'react'
@@ -41,14 +39,18 @@ export function ChatFeed({ onChatTap, onViewAll }: Props) {
   const recentChats = chats.slice(0, 6)
   const grouped = groupByDate(recentChats)
 
+  // ── Loading state ──
   if (!chatsLoaded) {
     return (
       <div className="fade-in fade-in--4">
-        <div className="section-title" style={{ marginTop: 24 }}>
+        {/* Section title */}
+        <div className="flex items-center gap-2 text-[17px] font-bold text-[var(--text-primary)] mb-3 mt-6">
           Последние чаты
-          <span className="section-title__badge">...</span>
+          <span className="text-[10px] py-[3px] px-2 rounded-[20px] bg-white/5 text-[var(--gray-500)] font-semibold tracking-wide">
+            ...
+          </span>
         </div>
-        <div className="chats-history__loading">
+        <div className="flex flex-col items-center gap-2 py-10 text-white/30 text-[13px]">
           <Loader2 size={16} className="spin" />
           <span>Загрузка...</span>
         </div>
@@ -62,27 +64,50 @@ export function ChatFeed({ onChatTap, onViewAll }: Props) {
 
   return (
     <div className="fade-in fade-in--4">
-      <div className="section-title" style={{ marginTop: 24 }}>
+      {/* Section title */}
+      <div className="flex items-center gap-2 text-[17px] font-bold text-[var(--text-primary)] mb-3 mt-6">
         Последние чаты
-        <span className="section-title__badge">{chats.length}</span>
+        <span className="text-[10px] py-[3px] px-2 rounded-[20px] bg-white/5 text-[var(--gray-500)] font-semibold tracking-wide">
+          {chats.length}
+        </span>
         {chats.length > 6 && (
-          <span className="section-title__link" onClick={onViewAll}>
+          <span
+            className="ml-auto text-[12px] text-[var(--accent-yellow)] font-semibold cursor-pointer flex items-center gap-0.5 select-none [-webkit-tap-highlight-color:transparent]"
+            onClick={onViewAll}
+          >
             Все <ChevronRight size={12} />
           </span>
         )}
       </div>
 
-      <div className="feed">
+      {/* Feed */}
+      <div className="flex flex-col mb-3">
         {grouped.map((group) => (
-          <div key={group.label} className="feed__date-group">
-            <div className="feed__date-label">{group.label}</div>
+          <div key={group.label} className="mb-0.5">
+            {/* Date label */}
+            <div className="text-[11px] font-semibold text-[var(--gray-600)] uppercase tracking-wide pt-3 pb-1.5">
+              {group.label}
+            </div>
+
             {group.items.map((chat) => {
               const fav = isFavorite('conversation', chat.id)
 
               return (
                 <div
                   key={chat.id}
-                  className="feed-item"
+                  className="
+                    feed-item
+                    flex items-center gap-3
+                    py-[11px] px-[13px]
+                    rounded-[var(--radius-sm)]
+                    bg-[var(--bg-glass)]
+                    backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+                    border border-white/[0.08]
+                    cursor-pointer
+                    transition-all duration-200
+                    active:scale-[0.98] active:bg-[var(--bg-card-hover)]
+                    mb-1.5
+                  "
                   onClick={() => {
                     haptic('light')
                     onChatTap?.(chat.modelSlug || chat.model, chat.id)
@@ -90,32 +115,50 @@ export function ChatFeed({ onChatTap, onViewAll }: Props) {
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="feed-item__icon">
+                  {/* Icon */}
+                  <div className="w-9 h-9 rounded-[9px] flex items-center justify-center shrink-0 bg-white/[0.04] text-[var(--gray-500)]">
                     <MessageSquare size={15} />
                   </div>
 
-                  <div className="feed-item__body">
-                    <div className="feed-item__top">
-                      <div className="feed-item__title">{chat.title || 'Новый чат'}</div>
-                      <div className="feed-item__time">{formatTime(chat.updatedAt)}</div>
+                  {/* Body */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <div className="text-[13px] font-semibold text-white truncate flex-1 min-w-0">
+                        {chat.title || 'Новый чат'}
+                      </div>
+                      <div className="text-[10px] text-[var(--gray-600)] shrink-0">
+                        {formatTime(chat.updatedAt)}
+                      </div>
                     </div>
-                    <div className="feed-item__bottom">
-                      <span className="feed-item__model-badge">{chat.model}</span>
-                      <span className="feed-item__preview">
+                    <div className="flex items-center gap-1.5 mt-[3px]">
+                      <span className="text-[9px] py-[1px] px-1.5 rounded font-semibold bg-white/[0.04] text-[var(--gray-500)] shrink-0">
+                        {chat.model}
+                      </span>
+                      <span className="text-[11px] text-[var(--gray-600)] truncate">
                         {chat.lastMessage || `${chat.messageCount} сообщений`}
                       </span>
                     </div>
                   </div>
 
-                  <div className="feed-item__actions">
+                  {/* Actions */}
+                  <div className="flex flex-col items-center gap-1 shrink-0">
                     <button
-                      className={`feed-item__star ${fav ? 'feed-item__star--active' : ''}`}
+                      className={`
+                        bg-transparent border-none p-1 cursor-pointer
+                        flex items-center justify-center rounded-[6px]
+                        transition-all duration-200
+                        active:scale-[0.85]
+                        ${fav
+                          ? 'text-[var(--accent-yellow)] [&>svg]:fill-[var(--accent-yellow)]'
+                          : 'text-[var(--gray-700)]'
+                        }
+                      `}
                       onClick={(e) => handleToggleFavorite(chat, e)}
                       aria-label={fav ? 'Убрать из избранного' : 'В избранное'}
                     >
                       <Star size={14} />
                     </button>
-                    <div className="feed-item__arrow">
+                    <div className="text-[var(--gray-700)]">
                       <ChevronRight size={14} />
                     </div>
                   </div>

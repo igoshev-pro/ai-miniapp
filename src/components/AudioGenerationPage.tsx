@@ -20,13 +20,13 @@ interface Props {
 // ═══════════ Capabilities per audio model slug ═══════════
 interface AudioModelCaps {
   type:
-    | 'suno'
-    | 'elevenlabs-tts'
-    | 'elevenlabs-sfx'
-    | 'elevenlabs-isolation'
-    | 'elevenlabs-stt'
-    | 'elevenlabs-dialogue'
-    | 'generic'
+  | 'suno'
+  | 'elevenlabs-tts'
+  | 'elevenlabs-sfx'
+  | 'elevenlabs-isolation'
+  | 'elevenlabs-stt'
+  | 'elevenlabs-dialogue'
+  | 'generic'
   supportsCustomMode: boolean
   supportsInstrumental: boolean
   supportsStyle: boolean
@@ -599,10 +599,9 @@ export function AudioGenerationPage({ onBack }: Props) {
           {getQuickParams().map((p, i) => (
             <span
               key={i}
-              className={`gen-page__param-badge ${
-                caps.supportsAudioInput && audioUrl && p.includes('Аудио')
+              className={`gen-page__param-badge ${caps.supportsAudioInput && audioUrl && p.includes('Аудио')
                   ? 'gen-page__param-badge--active' : ''
-              }`}
+                }`}
               onClick={() => { setShowSettings(true); haptic('light') }}
             >
               {p}
@@ -676,7 +675,7 @@ export function AudioGenerationPage({ onBack }: Props) {
         <div ref={resultsRef} />
       </div>
 
-            {/* ── Input ── */}
+      {/* ── Input ── */}
       <div className="gen-page__input-area">
         {/* Audio file preview */}
         {audioUrl && (
@@ -693,32 +692,13 @@ export function AudioGenerationPage({ onBack }: Props) {
 
         {/* Voice chips for dialogue — quick insert */}
         {caps.type === 'elevenlabs-dialogue' && (
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '6px',
-            padding: '6px 12px 2px',
-          }}>
-            <span style={{
-              fontSize: '11px',
-              opacity: 0.5,
-              alignSelf: 'center',
-              marginRight: '2px',
-            }}>Голоса:</span>
+          <div className="flex flex-wrap gap-1.5 px-3 pt-1.5 pb-0.5">
+            <span className="text-[11px] opacity-50 self-center mr-0.5">Голоса:</span>
             {ELEVENLABS_VOICES.map(v => (
               <button
                 key={v}
                 onClick={() => insertVoiceName(v)}
-                style={{
-                  fontSize: '11px',
-                  padding: '3px 8px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--tg-theme-hint-color, #ccc)',
-                  background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)',
-                  color: 'var(--tg-theme-text-color, #000)',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
+                className="text-[11px] py-[3px] px-2 rounded-lg border border-white/[0.08] bg-white/[0.04] text-white/50 cursor-pointer whitespace-nowrap transition-all duration-150 active:scale-[0.96] active:bg-white/[0.08]"
               >
                 {v}
               </button>
@@ -754,19 +734,17 @@ export function AudioGenerationPage({ onBack }: Props) {
           <div className="chat-input__field-wrap">
             <textarea
               ref={inputRef}
-              className="chat-input__field"
+              className={`chat-input__field ${
+                caps.type === 'elevenlabs-dialogue'
+                  ? 'min-h-[100px] font-mono !text-[13px] !leading-relaxed'
+                  : ''
+              }`}
               placeholder={getPlaceholder()}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={caps.type === 'elevenlabs-dialogue' ? 4 : 1}
               disabled={isGenerating || caps.supportsAudioInput}
-              style={caps.type === 'elevenlabs-dialogue' ? {
-                minHeight: '100px',
-                fontFamily: 'monospace',
-                fontSize: '13px',
-                lineHeight: '1.5',
-              } : undefined}
             />
           </div>
 
@@ -952,20 +930,12 @@ export function AudioGenerationPage({ onBack }: Props) {
                     <label className="gen-field__label">
                       <MessageSquare size={13} /> Формат диалога
                     </label>
-                    <div style={{
-                      fontSize: '12px',
-                      opacity: 0.7,
-                      lineHeight: 1.5,
-                      padding: '8px 10px',
-                      background: 'var(--tg-theme-secondary-bg-color, #f0f0f0)',
-                      borderRadius: '10px',
-                      fontFamily: 'monospace',
-                    }}>
+                     <div className="text-xs opacity-70 leading-relaxed p-2 bg-white/[0.04] rounded-[10px] font-mono">
                       Aria: Привет! Как дела?<br />
                       Roger: Отлично, спасибо!<br />
                       Aria: Рада слышать!
                     </div>
-                    <div style={{ fontSize: '11px', opacity: 0.5, marginTop: '4px' }}>
+                    <div className="text-[11px] opacity-50 mt-1">
                       Нажмите на имя голоса в поле ввода, чтобы быстро вставить
                     </div>
                   </div>

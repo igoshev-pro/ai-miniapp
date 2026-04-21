@@ -1,5 +1,3 @@
-// src/components/FavoritesPage.tsx
-
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -35,7 +33,7 @@ interface FavoriteItem {
   id: string
   favoriteId: string
   type: string
-  subtype?: string // для generation: 'image' | 'video' | 'audio'
+  subtype?: string
   itemId: string
   title: string
   preview?: string
@@ -69,7 +67,7 @@ function mapFavorite(fav: BackendFavorite): FavoriteItem {
     id: fav.itemId,
     favoriteId: fav._id,
     type: fav.type,
-    subtype: fav.metadata?.type || undefined, // для generation: 'image' | 'video' | 'audio'
+    subtype: fav.metadata?.type || undefined,
     itemId: fav.itemId,
     title: fav.title || 'Без названия',
     preview: fav.metadata?.preview || undefined,
@@ -82,7 +80,7 @@ function mapFavorite(fav: BackendFavorite): FavoriteItem {
 export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenModel }: Props) {
   const { haptic, webApp } = useTelegram()
   const { models: allModels } = useModels()
-  
+
   const [favorites, setFavorites] = useState<FavoriteItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<FavoriteType>('all')
@@ -91,7 +89,6 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const loaderRef = useRef<HTMLDivElement>(null)
 
-  // ─── Telegram BackButton ───────────────────────────
   useEffect(() => {
     if (webApp?.BackButton && onBack) {
       webApp.BackButton.show()
@@ -104,37 +101,37 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
     }
   }, [webApp, onBack])
 
-  const loadFavorites = useCallback(async (pageNum: number, append: boolean) => {
-    try {
-      if (pageNum === 1) setIsLoading(true)
-      else setIsLoadingMore(true)
+  const loadFavorites = useCallback(
+    async (pageNum: number, append: boolean) => {
+      try {
+        if (pageNum === 1) setIsLoading(true)
+        else setIsLoadingMore(true)
 
-      const params: Record<string, string | number> = { page: pageNum, limit: 20 }
-      if (filter !== 'all') params.type = filter
+        const params: Record<string, string | number> = { page: pageNum, limit: 20 }
+        if (filter !== 'all') params.type = filter
 
-      const { data } = await apiClient.get<FavoritesResponse>(
-        ENDPOINTS.FAVORITES,
-        { params },
-      )
+        const { data } = await apiClient.get<FavoritesResponse>(ENDPOINTS.FAVORITES, { params })
 
-      const items = (data.data?.favorites || []).map(mapFavorite)
-      const totalPages = data.data?.pagination?.pages || 1
+        const items = (data.data?.favorites || []).map(mapFavorite)
+        const totalPages = data.data?.pagination?.pages || 1
 
-      if (append) {
-        setFavorites((prev) => [...prev, ...items])
-      } else {
-        setFavorites(items)
+        if (append) {
+          setFavorites((prev) => [...prev, ...items])
+        } else {
+          setFavorites(items)
+        }
+
+        setHasMore(pageNum < totalPages)
+        setCurrentPage(pageNum)
+      } catch {
+        if (!append) setFavorites([])
+      } finally {
+        setIsLoading(false)
+        setIsLoadingMore(false)
       }
-
-      setHasMore(pageNum < totalPages)
-      setCurrentPage(pageNum)
-    } catch {
-      if (!append) setFavorites([])
-    } finally {
-      setIsLoading(false)
-      setIsLoadingMore(false)
-    }
-  }, [filter])
+    },
+    [filter],
+  )
 
   useEffect(() => {
     loadFavorites(1, false)
@@ -178,52 +175,61 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
       haptic('light')
 
       if (item.type === 'conversation') {
-        // Передаём modelSlug и chatId
         onOpenChat?.(item.model || 'gpt-4o-mini', item.itemId)
       } else if (item.type === 'generation') {
-        // Используем subtype для навигации на правильную страницу генерации
         onOpenGeneration?.(item.subtype || 'image')
       } else if (item.type === 'model') {
-        // Определяем категорию модели по slug из allModels
         const modelData = allModels.find((m: any) => m.slug === item.itemId)
         const category = modelData?.category || 'text'
 
         if (category === 'text') {
-          // Открываем чат с этой моделью (без существующего chatId)
           onOpenChat?.(item.itemId, '')
         } else {
           onOpenGeneration?.(category)
         }
       }
     },
-    [haptic, onOpenChat, onOpenGeneration],
+    [haptic, onOpenChat, onOpenGeneration, allModels],
   )
 
   const typeIcon = (type: string) => {
     switch (type) {
-      case 'conversation': return <MessageSquare size={14} />
-      case 'generation': return <ImageIcon size={14} />
-      case 'model': return <Layers size={14} />
-      default: return <Star size={14} />
+      case 'conversation':
+        return <MessageSquare size={14} />
+      case 'generation':
+        return <ImageIcon size={14} />
+      case 'model':
+        return <Layers size={14} />
+      default:
+        return <Star size={14} />
     }
   }
 
   const typeLabel = (type: string) => {
     switch (type) {
-      case 'conversation': return 'Чат'
-      case 'generation': return 'Генерация'
-      case 'model': return 'Модель'
-      default: return type
+      case 'conversation':
+        return 'Чат'
+      case 'generation':
+        return 'Генерация'
+      case 'model':
+        return 'Модель'
+      default:
+        return type
     }
   }
 
   const filterLabel = (type: FavoriteType) => {
     switch (type) {
-      case 'all': return 'Все'
-      case 'conversation': return 'Чаты'
-      case 'generation': return 'Генерации'
-      case 'model': return 'Модели'
-      default: return type
+      case 'all':
+        return 'Все'
+      case 'conversation':
+        return 'Чаты'
+      case 'generation':
+        return 'Генерации'
+      case 'model':
+        return 'Модели'
+      default:
+        return type
     }
   }
 
@@ -243,20 +249,36 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
   }
 
   return (
-    <div className="favorites-page">
-      <div className="favorites-page__header fade-in fade-in--1">
-        <div className="favorites-page__title">
+    <div className="favorites-page px-4 pb-[100px]">
+      {/* Header */}
+      <div className="flex items-center justify-between pt-4 pb-2 fade-in fade-in--1">
+        <div className="flex items-center gap-2 text-[20px] font-bold text-white">
           <Star size={18} />
           Избранное
         </div>
-        <div className="favorites-page__count">{favorites.length}</div>
+        <div className="text-[13px] text-white/30 bg-white/[0.06] py-[3px] px-2.5 rounded-[10px]">
+          {favorites.length}
+        </div>
       </div>
 
-      <div className="favorites-page__filters fade-in fade-in--1">
+      {/* Filters */}
+      <div className="flex gap-1.5 pb-3 overflow-x-auto [-webkit-overflow-scrolling:touch] scrollbar-none fade-in fade-in--1">
         {(['all', 'conversation', 'generation', 'model'] as FavoriteType[]).map((f) => (
           <button
             key={f}
-            className={`favorites-filter ${filter === f ? 'favorites-filter--active' : ''}`}
+            className={`
+              shrink-0 flex items-center gap-1
+              py-[7px] px-3
+              rounded-[8px] border
+              text-[12px] font-[inherit]
+              cursor-pointer transition-all duration-150
+              [-webkit-tap-highlight-color:transparent]
+              ${
+                filter === f
+                  ? 'bg-[rgba(251,191,36,0.1)] border-[rgba(251,191,36,0.3)] text-[#fbbf24]'
+                  : 'bg-white/[0.04] border-white/[0.06] text-white/50'
+              }
+            `}
             onClick={() => {
               setFilter(f)
               haptic('light')
@@ -268,47 +290,83 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
         ))}
       </div>
 
-      <div className="favorites-page__list fade-in fade-in--2">
+      {/* List */}
+      <div className="favorites-page__list flex flex-col gap-1.5 fade-in fade-in--2">
         {isLoading ? (
-          <div className="chats-history__loading">
+          /* Loading */
+          <div className="flex flex-col items-center gap-2 py-10 text-white/30 text-[13px]">
             <Loader2 size={20} className="spin" />
             <span>Загрузка...</span>
           </div>
         ) : favorites.length > 0 ? (
           <>
             {favorites.map((item) => (
-              <div key={item.favoriteId} className="favorite-card" onClick={() => handleTap(item)}>
+              <div
+                key={item.favoriteId}
+                className="
+                  favorite-card
+                  flex items-start gap-2.5
+                  p-3
+                  bg-white/[0.02] border border-white/[0.04]
+                  rounded-[12px]
+                  cursor-pointer transition-[background] duration-150
+                  active:bg-white/[0.05]
+                "
+                onClick={() => handleTap(item)}
+              >
+                {/* Thumbnail */}
                 {item.thumbnailUrl && (
-                  <div className="favorite-card__thumb">
+                  <div className="w-12 h-12 rounded-[8px] overflow-hidden shrink-0 bg-white/[0.04]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.thumbnailUrl} alt="" />
+                    <img
+                      src={item.thumbnailUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 )}
 
-                <div className="favorite-card__body">
-                  <div className="favorite-card__top">
-                    <span className="favorite-card__type-badge">
+                {/* Body */}
+                <div className="flex-1 min-w-0">
+                  {/* Top: type badge + model */}
+                  <div className="flex items-center gap-1.5 mb-[3px]">
+                    <span className="flex items-center gap-[3px] text-[10px] text-white/40 bg-white/[0.06] py-[2px] px-1.5 rounded">
                       {typeIcon(item.type)}
                       {typeLabel(item.type)}
                     </span>
                     {item.model && (
-                      <span className="favorite-card__model">{item.model}</span>
+                      <span className="text-[10px] text-white/30">{item.model}</span>
                     )}
                   </div>
 
-                  <div className="favorite-card__title">{item.title}</div>
+                  {/* Title */}
+                  <div className="text-[13px] text-white/85 truncate">
+                    {item.title}
+                  </div>
 
+                  {/* Preview */}
                   {item.preview && (
-                    <div className="favorite-card__preview">{item.preview}</div>
+                    <div className="text-[11px] text-white/30 mt-0.5 truncate">
+                      {item.preview}
+                    </div>
                   )}
 
-                  <div className="favorite-card__bottom">
-                    <span className="favorite-card__date">{formatDate(item.createdAt)}</span>
+                  {/* Date */}
+                  <div className="mt-1">
+                    <span className="text-[10px] text-white/20">
+                      {formatDate(item.createdAt)}
+                    </span>
                   </div>
                 </div>
 
+                {/* Remove */}
                 <button
-                  className="favorite-card__remove"
+                  className="
+                    shrink-0 bg-transparent border-none
+                    p-1.5 text-white/20
+                    cursor-pointer transition-colors duration-150
+                    hover:text-[#f87171]
+                  "
                   onClick={(e) => {
                     e.stopPropagation()
                     removeFavorite(item)
@@ -319,17 +377,22 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
               </div>
             ))}
 
+            {/* Infinite scroll loader */}
             {hasMore && (
-              <div ref={loaderRef} className="chats-history__loading" style={{ padding: '16px 0' }}>
+              <div
+                ref={loaderRef}
+                className="flex flex-col items-center gap-2 py-4 text-white/30 text-[13px]"
+              >
                 <Loader2 size={16} className="spin" />
               </div>
             )}
           </>
         ) : (
-          <div className="favorites-page__empty">
+          /* Empty */
+          <div className="flex flex-col items-center gap-2 py-[60px] px-5 text-white/20 text-center">
             <Star size={32} />
-            <div className="favorites-page__empty-title">Пусто</div>
-            <div className="favorites-page__empty-text">
+            <div className="text-[16px] font-semibold text-white/40">Пусто</div>
+            <div className="text-[13px] max-w-[240px]">
               Добавляйте чаты и генерации в избранное, чтобы быстро находить их
             </div>
           </div>

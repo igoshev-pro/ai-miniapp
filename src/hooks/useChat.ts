@@ -115,22 +115,45 @@ export function useChat() {
   const { user, updateBalance } = useUserStore()
   const abortRef = useRef<AbortController | null>(null)
 
-  // Загрузить список чатов
-  const loadChats = useCallback(async () => {
-    try {
-      const { data } = await apiClient.get<ConversationsResponse>(
-        ENDPOINTS.CHAT_CONVERSATIONS,
-        { params: { page: 1, limit: 50 } },
-      )
-
-      const chats = (data.data?.conversations || []).map(mapConversationToChat)
-      store.setChats(chats)
-    } catch (err) {
-      console.error('[useChat] loadChats failed:', err)
-      // Не показываем ошибку если просто нет чатов
+const loadChats = useCallback(async () => {
+  try {
+    // Проверяем наличие токена до запроса
+    const token = sessionStorage.getItem('jwt')
+    if (!token) {
+      console.warn('[useChat] loadChats: no token yet, skipping')
       store.setChats([])
+      return
     }
-  }, [store])
+
+    const { data } = await apiClient.get<ConversationsResponse>(
+      ENDPOINTS.CHAT_CONVERSATIONS,
+      { params: { page: 1, limit: 50 } },
+    )
+
+    const conversations = data?.data?.conversations
+    if (!conversations || !Array.isArray(conversations)) {
+      console.warn('[useChat] loadChats: unexpected response shape', data)
+      store.setChats([])
+      return
+    }
+
+    const chats = conversations.map(mapConversationToChat)
+    store.setChats(chats)
+  } catch (err: any) {
+    // Не падаем — просто логируем и ставим пустой список
+    const status = err?.response?.status
+    const message = err?.response?.data?.message || err?.message || 'unknown'
+
+    console.warn(`[useChat] loadChats failed (${status}): ${message}`)
+
+    // 401 = не авторизован, 403 = нет доступа — нормальные ситуации при старте
+    if (status === 401 || status === 403) {
+      console.warn('[useChat] Auth issue — token may be expired')
+    }
+
+    store.setChats([])
+  }
+}, [store])
 
   // Загрузить сообщения чата
   const loadMessages = useCallback(async (chatId: string) => {

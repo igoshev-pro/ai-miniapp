@@ -1,5 +1,4 @@
 // src/components/ReferralPage.tsx
-
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -29,11 +28,11 @@ export function ReferralPage({ onBack }: Props) {
   const [copiedLink, setCopiedLink] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  const code = referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
+  const code =
+    referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
   const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || 'SpichkiBot'
   const referralLink = `https://t.me/${botUsername}?start=ref_${code}`
 
-  // ─── Telegram BackButton ───────────────────────────
   useEffect(() => {
     if (webApp?.BackButton) {
       webApp.BackButton.show()
@@ -74,7 +73,9 @@ export function ReferralPage({ onBack }: Props) {
 
     if (webApp?.openTelegramLink) {
       webApp.openTelegramLink(
-        `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('🔥 SPICHKI AI — все нейросети в одном месте! Получи бонус при регистрации')}`
+        `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(
+          '🔥 SPICHKI AI — все нейросети в одном месте! Получи бонус при регистрации',
+        )}`,
       )
     } else if (navigator.share) {
       navigator.share({ text, url: referralLink }).catch(() => {})
@@ -84,8 +85,7 @@ export function ReferralPage({ onBack }: Props) {
   }, [haptic, webApp, referralLink, copyLink])
 
   function formatDate(dateStr: string): string {
-    const d = new Date(dateStr)
-    return d.toLocaleDateString('ru-RU', {
+    return new Date(dateStr).toLocaleDateString('ru-RU', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -189,7 +189,9 @@ export function ReferralPage({ onBack }: Props) {
                       <div className="referral-list__name">
                         {ref.firstName}
                         {ref.username && (
-                          <span className="referral-list__username">@{ref.username}</span>
+                          <span className="referral-list__username">
+                            @{ref.username}
+                          </span>
                         )}
                       </div>
                       <div className="referral-list__date">
@@ -204,7 +206,8 @@ export function ReferralPage({ onBack }: Props) {
               </div>
             )}
 
-            {(!referralInfo?.referrals || referralInfo.referrals.length === 0) && (
+            {(!referralInfo?.referrals ||
+              referralInfo.referrals.length === 0) && (
               <div className="referral-empty">
                 <Users size={24} />
                 <div>Пока никого нет</div>

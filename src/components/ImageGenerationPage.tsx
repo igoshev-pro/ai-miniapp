@@ -16,11 +16,10 @@ interface Props {
   onBack?: () => void
 }
 
-// Конфиг возможностей каждой модели (по slug)
 interface ModelCaps {
   aspectRatios: string[]
-  resolutions: string[]       // '1K','2K','4K' или пусто
-  qualities?: string[]        // 'basic','high' для seedream
+  resolutions: string[]
+  qualities?: string[]
   supportsNegativePrompt: boolean
   supportsImg2Img: boolean
   maxInputImages: number
@@ -102,7 +101,6 @@ const MODEL_CAPS: Record<string, ModelCaps> = {
     supportsOutputFormat: true,
     supportsSeed: false,
   },
-  // Fallback для OpenRouter/Evolink моделей
   'gpt-5-image': {
     aspectRatios: ['1:1', '3:2', '2:3'],
     resolutions: [],
@@ -113,13 +111,10 @@ const MODEL_CAPS: Record<string, ModelCaps> = {
     supportsSeed: false,
   },
   'gpt-image-1.5-lite': {
-    // Эти соотношения маппятся в size параметр Evolink API
     aspectRatios: ['1:1', '2:3', '3:2'],
     resolutions: [],
-    // quality маппится напрямую в Evolink API
     qualities: ['auto', 'low', 'medium', 'high'],
     supportsNegativePrompt: false,
-    // Поддерживает редактирование через image_urls
     supportsImg2Img: true,
     maxInputImages: 16,
     supportsOutputFormat: false,
@@ -160,6 +155,9 @@ const RESOLUTION_LABELS: Record<string, string> = {
 const QUALITY_LABELS: Record<string, string> = {
   'basic': 'Basic (2K)',
   'high': 'High (4K)',
+  'auto': 'Авто',
+  'low': 'Low',
+  'medium': 'Medium',
 }
 
 const examplePrompts = [
@@ -181,22 +179,22 @@ export function ImageGenerationPage({ onBack }: Props) {
 
   const [input, setInput] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
-  const [selectedModelSlug, setSelectedModelSlug] = useState(imageModels[0]?.slug ?? 'midjourney')
+  const [selectedModelSlug, setSelectedModelSlug] = useState(
+    imageModels[0]?.slug ?? 'midjourney',
+  )
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  // Параметры генерации
   const [aspectRatio, setAspectRatio] = useState('1:1')
   const [resolution, setResolution] = useState('1K')
   const [quality, setQuality] = useState('basic')
   const [outputFormat, setOutputFormat] = useState('png')
   const [seed, setSeed] = useState<number | undefined>(undefined)
-  
-  // Img2img
+
   const [inputImages, setInputImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
-  
+
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -234,11 +232,11 @@ export function ImageGenerationPage({ onBack }: Props) {
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px'
+      inputRef.current.style.height =
+        Math.min(inputRef.current.scrollHeight, 140) + 'px'
     }
   }, [input])
 
-  // Загрузка изображения для img2img
   const handleImageUpload = useCallback(async (file: File) => {
     if (!file) return
     if (!file.type.match(/image\/(jpeg|png|webp)/)) {
@@ -266,7 +264,6 @@ export function ImageGenerationPage({ onBack }: Props) {
         method: 'POST',
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          // НЕ ставим Content-Type — браузер сам поставит multipart/form-data с boundary
         },
         body: formData,
       })
@@ -280,7 +277,7 @@ export function ImageGenerationPage({ onBack }: Props) {
       const url = data.data?.url || data.url
       if (!url) throw new Error('No URL in response')
 
-      setInputImages(prev => [...prev, url])
+      setInputImages((prev) => [...prev, url])
       haptic('light')
       toast.success('Фото загружено')
     } catch (err: any) {
@@ -298,7 +295,7 @@ export function ImageGenerationPage({ onBack }: Props) {
   }
 
   const removeInputImage = (index: number) => {
-    setInputImages(prev => prev.filter((_, i) => i !== index))
+    setInputImages((prev) => prev.filter((_, i) => i !== index))
     haptic('light')
   }
 
@@ -306,8 +303,11 @@ export function ImageGenerationPage({ onBack }: Props) {
     const prompt = input.trim()
     if (!prompt) return
 
-    // Для img2img моделей требуем хотя бы одно изображение
-    if (caps.supportsImg2Img && selectedModelSlug.includes('img2img') && inputImages.length === 0) {
+    if (
+      caps.supportsImg2Img &&
+      selectedModelSlug.includes('img2img') &&
+      inputImages.length === 0
+    ) {
       toast.warning('Загрузите хотя бы одно изображение для трансформации')
       return
     }
@@ -321,9 +321,7 @@ export function ImageGenerationPage({ onBack }: Props) {
     haptic('medium')
     setIsGenerating(true)
 
-    const settings: Record<string, unknown> = {
-      aspectRatio,
-    }
+    const settings: Record<string, unknown> = { aspectRatio }
 
     if (caps.resolutions.length > 0) settings.resolution = resolution
     if (caps.qualities && caps.qualities.length > 0) settings.quality = quality
@@ -348,7 +346,10 @@ export function ImageGenerationPage({ onBack }: Props) {
     if (result) {
       setInput('')
       hapticNotification('success')
-      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
+      setTimeout(
+        () => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }),
+        200,
+      )
     }
   }, [
     input, negativePrompt, balance, modelCost, selectedModelSlug,
@@ -357,7 +358,10 @@ export function ImageGenerationPage({ onBack }: Props) {
   ])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate() }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleGenerate()
+    }
   }
 
   const insertExample = () => {
@@ -370,8 +374,8 @@ export function ImageGenerationPage({ onBack }: Props) {
     haptic('light')
   }
 
-  // Определяем является ли модель img2img
-  const isImg2ImgModel = selectedModelSlug.includes('img2img') || 
+  const isImg2ImgModel =
+    selectedModelSlug.includes('img2img') ||
     (caps.supportsImg2Img && caps.maxInputImages > 0)
 
   return (
@@ -381,16 +385,25 @@ export function ImageGenerationPage({ onBack }: Props) {
         <div className="gen-page__model-select-container">
           <button
             className="gen-page__model-select"
-            onClick={() => { setShowModelPicker(!showModelPicker); haptic('light') }}
+            onClick={() => {
+              setShowModelPicker(!showModelPicker)
+              haptic('light')
+            }}
           >
             <ImageIcon size={16} />
             <span>{currentModel?.name ?? selectedModelSlug}</span>
             <span className="gen-page__model-cost">{modelCost} 🔥</span>
-            <ChevronDown size={14} className={showModelPicker ? 'rotate-180' : ''} />
+            <ChevronDown
+              size={14}
+              className={showModelPicker ? 'rotate-180' : ''}
+            />
           </button>
           <button
             className="gen-page__settings-button"
-            onClick={() => { setShowSettings(true); haptic('light') }}
+            onClick={() => {
+              setShowSettings(true)
+              haptic('light')
+            }}
           >
             <Settings size={18} />
           </button>
@@ -401,7 +414,9 @@ export function ImageGenerationPage({ onBack }: Props) {
             {imageModels.map((m: any) => (
               <button
                 key={m.slug}
-                className={`gen-page__model-list-item ${selectedModelSlug === m.slug ? 'selected' : ''}`}
+                className={`gen-page__model-list-item ${
+                  selectedModelSlug === m.slug ? 'selected' : ''
+                }`}
                 onClick={() => {
                   setSelectedModelSlug(m.slug)
                   setShowModelPicker(false)
@@ -412,7 +427,9 @@ export function ImageGenerationPage({ onBack }: Props) {
                   <span className="gen-page__model-name">{m.name}</span>
                   <span className="gen-page__model-provider">
                     {m.provider}
-                    {m.capabilities?.includes('image_to_image') ? ' · img2img' : ''}
+                    {m.capabilities?.includes('image_to_image')
+                      ? ' · img2img'
+                      : ''}
                   </span>
                 </div>
                 <div className="gen-page__model-right">
@@ -426,22 +443,50 @@ export function ImageGenerationPage({ onBack }: Props) {
 
         {/* Текущие параметры — быстрый просмотр */}
         <div className="gen-page__params-row">
-          <span className="gen-page__param-badge" onClick={() => { setShowSettings(true); haptic('light') }}>
+          <span
+            className="gen-page__param-badge"
+            onClick={() => {
+              setShowSettings(true)
+              haptic('light')
+            }}
+          >
             {aspectRatio}
           </span>
           {caps.resolutions.length > 0 && (
-            <span className="gen-page__param-badge" onClick={() => { setShowSettings(true); haptic('light') }}>
+            <span
+              className="gen-page__param-badge"
+              onClick={() => {
+                setShowSettings(true)
+                haptic('light')
+              }}
+            >
               {resolution}
             </span>
           )}
           {caps.qualities && caps.qualities.length > 0 && (
-            <span className="gen-page__param-badge" onClick={() => { setShowSettings(true); haptic('light') }}>
+            <span
+              className="gen-page__param-badge"
+              onClick={() => {
+                setShowSettings(true)
+                haptic('light')
+              }}
+            >
               {QUALITY_LABELS[quality] || quality}
             </span>
           )}
           {isImg2ImgModel && (
-            <span className={`gen-page__param-badge ${inputImages.length > 0 ? 'gen-page__param-badge--active' : ''}`}>
-              {inputImages.length > 0 ? `${inputImages.length} фото` : 'img2img'}
+            <span
+              className={`gen-page__param-badge ${
+                inputImages.length > 0 ? 'gen-page__param-badge--active' : ''
+              }`}
+              onClick={() => {
+                setShowSettings(true)
+                haptic('light')
+              }}
+            >
+              {inputImages.length > 0
+                ? `${inputImages.length} фото`
+                : 'img2img'}
             </span>
           )}
         </div>
@@ -456,7 +501,8 @@ export function ImageGenerationPage({ onBack }: Props) {
             </div>
             <div className="gen-page__empty-title">Генерация изображений</div>
             <div className="gen-page__empty-text">
-              Опишите что хотите увидеть. Чем детальнее промпт — тем лучше результат.
+              Опишите что хотите увидеть. Чем детальнее промпт — тем лучше
+              результат.
             </div>
             <button className="gen-page__example-btn" onClick={insertExample}>
               <Wand2 size={14} />
@@ -473,12 +519,14 @@ export function ImageGenerationPage({ onBack }: Props) {
             </div>
             <MediaResult
               generation={gen}
-              onRetry={() => generate({
-                type: 'image',
-                model: gen.modelSlug,
-                prompt: gen.prompt,
-                settings: gen.settings,
-              })}
+              onRetry={() =>
+                generate({
+                  type: 'image',
+                  model: gen.modelSlug,
+                  prompt: gen.prompt,
+                  settings: gen.settings,
+                })
+              }
             />
           </div>
         ))}
@@ -487,7 +535,6 @@ export function ImageGenerationPage({ onBack }: Props) {
 
       {/* ── Input Area ── */}
       <div className="gen-page__input-area">
-        {/* Превью загруженных изображений */}
         {inputImages.length > 0 && (
           <div className="gen-page__input-images">
             {inputImages.map((url, idx) => (
@@ -513,8 +560,7 @@ export function ImageGenerationPage({ onBack }: Props) {
           </div>
         )}
 
-        <div className="chat-input__row">
-          {/* Кнопка загрузки для img2img */}
+                <div className="chat-input__row">
           {caps.supportsImg2Img && (
             <>
               <input
@@ -525,15 +571,18 @@ export function ImageGenerationPage({ onBack }: Props) {
                 onChange={handleFileChange}
               />
               <button
-                className={`chat-input__attach ${uploadingImage ? 'chat-input__attach--loading' : ''} ${inputImages.length > 0 ? 'chat-input__attach--active' : ''}`}
+                className={`chat-input__attach ${
+                  uploadingImage ? 'chat-input__attach--loading' : ''
+                } ${inputImages.length > 0 ? 'chat-input__attach--active' : ''}`}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingImage || inputImages.length >= caps.maxInputImages}
                 title="Добавить изображение для img2img"
               >
-                {uploadingImage
-                  ? <Loader2 size={18} className="spin" />
-                  : <Upload size={18} />
-                }
+                {uploadingImage ? (
+                  <Loader2 size={18} className="spin" />
+                ) : (
+                  <Upload size={18} />
+                )}
               </button>
             </>
           )}
@@ -560,10 +609,11 @@ export function ImageGenerationPage({ onBack }: Props) {
             onClick={handleGenerate}
             disabled={!input.trim() || isGenerating}
           >
-            {isGenerating
-              ? <Loader2 size={18} className="spin" />
-              : <Send size={18} />
-            }
+            {isGenerating ? (
+              <Loader2 size={18} className="spin" />
+            ) : (
+              <Send size={18} />
+            )}
           </button>
         </div>
       </div>
@@ -571,19 +621,24 @@ export function ImageGenerationPage({ onBack }: Props) {
       {/* ── Settings Modal ── */}
       {showSettings && (
         <div className="gen-settings-modal" onClick={() => setShowSettings(false)}>
-          <div className="gen-settings-modal__content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="gen-settings-modal__content"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="gen-settings-modal__header">
               <h2 className="gen-settings-modal__title">
                 <Settings size={16} />
                 Настройки · {currentModel?.name ?? selectedModelSlug}
               </h2>
-              <button className="gen-settings-modal__close" onClick={() => setShowSettings(false)}>
+              <button
+                className="gen-settings-modal__close"
+                onClick={() => setShowSettings(false)}
+              >
                 <X size={20} />
               </button>
             </div>
 
             <div className="gen-settings-modal__body">
-
               {/* Aspect Ratio */}
               <div className="gen-field">
                 <label className="gen-field__label">
@@ -593,8 +648,13 @@ export function ImageGenerationPage({ onBack }: Props) {
                   {caps.aspectRatios.map((ar) => (
                     <button
                       key={ar}
-                      className={`gen-chip ${aspectRatio === ar ? 'gen-chip--active' : ''}`}
-                      onClick={() => { setAspectRatio(ar); haptic('light') }}
+                      className={`gen-chip ${
+                        aspectRatio === ar ? 'gen-chip--active' : ''
+                      }`}
+                      onClick={() => {
+                        setAspectRatio(ar)
+                        haptic('light')
+                      }}
                     >
                       {ASPECT_RATIO_LABELS[ar] || ar}
                     </button>
@@ -602,7 +662,7 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               </div>
 
-              {/* Resolution (для flux, nano-banana, midjourney) */}
+              {/* Resolution */}
               {caps.resolutions.length > 0 && (
                 <div className="gen-field">
                   <label className="gen-field__label">
@@ -612,8 +672,13 @@ export function ImageGenerationPage({ onBack }: Props) {
                     {caps.resolutions.map((r) => (
                       <button
                         key={r}
-                        className={`gen-chip ${resolution === r ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setResolution(r); haptic('light') }}
+                        className={`gen-chip ${
+                          resolution === r ? 'gen-chip--active' : ''
+                        }`}
+                        onClick={() => {
+                          setResolution(r)
+                          haptic('light')
+                        }}
                       >
                         {RESOLUTION_LABELS[r] || r}
                       </button>
@@ -622,7 +687,7 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Quality (seedream) */}
+              {/* Quality */}
               {caps.qualities && caps.qualities.length > 0 && (
                 <div className="gen-field">
                   <label className="gen-field__label">
@@ -632,8 +697,13 @@ export function ImageGenerationPage({ onBack }: Props) {
                     {caps.qualities.map((q) => (
                       <button
                         key={q}
-                        className={`gen-chip ${quality === q ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setQuality(q); haptic('light') }}
+                        className={`gen-chip ${
+                          quality === q ? 'gen-chip--active' : ''
+                        }`}
+                        onClick={() => {
+                          setQuality(q)
+                          haptic('light')
+                        }}
                       >
                         {QUALITY_LABELS[q] || q}
                       </button>
@@ -642,7 +712,7 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Output Format (nano-banana) */}
+              {/* Output Format */}
               {caps.supportsOutputFormat && (
                 <div className="gen-field">
                   <label className="gen-field__label">Формат файла</label>
@@ -650,8 +720,13 @@ export function ImageGenerationPage({ onBack }: Props) {
                     {['png', 'jpg'].map((fmt) => (
                       <button
                         key={fmt}
-                        className={`gen-chip ${outputFormat === fmt ? 'gen-chip--active' : ''}`}
-                        onClick={() => { setOutputFormat(fmt); haptic('light') }}
+                        className={`gen-chip ${
+                          outputFormat === fmt ? 'gen-chip--active' : ''
+                        }`}
+                        onClick={() => {
+                          setOutputFormat(fmt)
+                          haptic('light')
+                        }}
                       >
                         {fmt.toUpperCase()}
                       </button>
@@ -660,7 +735,7 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Negative Prompt (imagen4) */}
+              {/* Negative Prompt */}
               {caps.supportsNegativePrompt && (
                 <div className="gen-field">
                   <label className="gen-field__label">
@@ -677,7 +752,7 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Seed (imagen4) */}
+              {/* Seed */}
               {caps.supportsSeed && (
                 <div className="gen-field">
                   <label className="gen-field__label">
@@ -690,16 +765,21 @@ export function ImageGenerationPage({ onBack }: Props) {
                       className="gen-field__seed-input"
                       placeholder="Случайный"
                       value={seed ?? ''}
-                      onChange={(e) => setSeed(e.target.value ? Number(e.target.value) : undefined)}
+                      onChange={(e) =>
+                        setSeed(e.target.value ? Number(e.target.value) : undefined)
+                      }
                     />
-                    <button className="gen-field__seed-random" onClick={randomSeed}>
+                    <button
+                      className="gen-field__seed-random"
+                      onClick={randomSeed}
+                    >
                       <Shuffle size={14} />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Img2Img — загрузка изображений */}
+              {/* Img2Img */}
               {caps.supportsImg2Img && (
                 <div className="gen-field">
                   <label className="gen-field__label">
@@ -729,10 +809,11 @@ export function ImageGenerationPage({ onBack }: Props) {
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadingImage}
                       >
-                        {uploadingImage
-                          ? <Loader2 size={20} className="spin" />
-                          : <Upload size={20} />
-                        }
+                        {uploadingImage ? (
+                          <Loader2 size={20} className="spin" />
+                        ) : (
+                          <Upload size={20} />
+                        )}
                         <span>
                           {uploadingImage ? 'Загрузка...' : 'Добавить'}
                         </span>
@@ -741,7 +822,6 @@ export function ImageGenerationPage({ onBack }: Props) {
                   </div>
                 </div>
               )}
-
             </div>
           </div>
         </div>
