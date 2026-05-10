@@ -94,6 +94,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const didLoadRef = useRef(false)
@@ -132,8 +133,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       .finally(() => setIsLoadingMessages(false))
   }, [existingChatId])
 
+  // Автоскролл вниз — внутри контейнера, без scrollIntoView (не дёргает страницу)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesContainerRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
   }, [messages, streamingContent])
 
   useEffect(() => {
@@ -315,18 +319,17 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     <div
       className="
         chat-page
-        relative z-[1] flex flex-col
-        h-[calc(100vh-var(--header-height)-74px-var(--safe-bottom))]
-        h-[calc(var(--tg-viewport-stable-height,100dvh)-var(--header-height)-74px-var(--safe-bottom))]
+        fixed inset-0 z-[5] flex flex-col
+        bg-[var(--bg-primary,#08080a)]
+        pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
+        pb-[calc(59px+var(--safe-bottom))]
       "
     >
       {/* ── Model bar ── */}
       <div
         className="
           chat-page__model-bar
-          fade-in fade-in--1
-          fixed top-[calc(var(--header-height)+var(--safe-area-top,0px))]
-          left-0 right-0 z-40
+          shrink-0 relative z-40
           flex items-center gap-2
           px-4 pt-2.5 pb-1.5
           bg-[rgba(8,8,10,0.95)]
@@ -391,70 +394,68 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             <Star size={16} />
           </button>
         )}
-      </div>
 
-      {/* ── Model dropdown ── */}
-      {showModelPicker && (
-        <div
-          className="
-            chat-model-dropdown
-            fade-in
-            fixed top-[calc(var(--header-height)+var(--safe-area-top,0px)+46px)]
-            left-4 right-4 z-[39]
-            rounded-[var(--radius-sm)]
-            border border-[var(--border-glass)]
-            bg-[var(--bg-glass-heavy)]
-            backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
-            overflow-hidden max-h-[400px] overflow-y-auto
-          "
-        >
-          {textModels.map((m) => (
-            <button
-              key={m.id}
-              className={`
-                flex items-center justify-between w-full
-                py-[11px] px-3.5
-                border-none bg-transparent
-                text-[var(--gray-400)] text-[13px]
-                cursor-pointer transition-[background] duration-150
-                font-[inherit] text-left
-                border-b border-[var(--border)]
-                last:border-b-0
-                active:bg-white/[0.04]
-                ${selectedModelName === m.name ? 'text-white' : ''}
-              `}
-              onClick={() => {
-                setSelectedModelName(m.name)
-                setShowModelPicker(false)
-                haptic('light')
-              }}
-            >
-              <div className="flex flex-col gap-[1px]">
-                <span className="font-semibold">{m.name}</span>
-                <span className="text-[11px] text-[var(--gray-600)]">{m.provider}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-white/40">
-                  {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
-                </span>
-                {selectedModelName === m.name && (
-                  <Check size={14} className="text-[var(--accent-yellow)]" />
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+        {/* Model dropdown — абсолютный, относительно model-bar */}
+        {showModelPicker && (
+          <div
+            className="
+              chat-model-dropdown fade-in
+              absolute top-[calc(100%+2px)] left-4 right-4 z-50
+              rounded-[var(--radius-sm)]
+              border border-[var(--border-glass)]
+              bg-[var(--bg-glass-heavy)]
+              backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+              overflow-hidden max-h-[400px] overflow-y-auto
+            "
+          >
+            {textModels.map((m) => (
+              <button
+                key={m.id}
+                className={`
+                  flex items-center justify-between w-full
+                  py-[11px] px-3.5
+                  border-none bg-transparent
+                  text-[var(--gray-400)] text-[13px]
+                  cursor-pointer transition-[background] duration-150
+                  font-[inherit] text-left
+                  border-b border-[var(--border)]
+                  last:border-b-0
+                  active:bg-white/[0.04]
+                  ${selectedModelName === m.name ? 'text-white' : ''}
+                `}
+                onClick={() => {
+                  setSelectedModelName(m.name)
+                  setShowModelPicker(false)
+                  haptic('light')
+                }}
+              >
+                <div className="flex flex-col gap-[1px]">
+                  <span className="font-semibold">{m.name}</span>
+                  <span className="text-[11px] text-[var(--gray-600)]">{m.provider}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-white/40">
+                    {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
+                  </span>
+                  {selectedModelName === m.name && (
+                    <Check size={14} className="text-[var(--accent-yellow)]" />
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Messages ── */}
       <div
+        ref={messagesContainerRef}
         className="
           chat-page__messages
-          flex-1 overflow-y-auto
-          px-4 pb-[70px] pt-[calc(var(--safe-area-top,0px)+56px)]
+          flex-1 min-h-0 overflow-y-auto
+          px-4 py-3
           flex flex-col gap-3.5
-          overscroll-y-contain [-webkit-overflow-scrolling:touch]
-          pt-[calc(var(--header-height)+40px)]
+          overscroll-contain [-webkit-overflow-scrolling:touch]
         "
       >
         {/* Empty state */}
@@ -501,10 +502,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             key={msg.id}
             className={`
               flex flex-col max-w-[85%] animate-[fadeIn_0.3s_ease-out]
-              ${msg.role === 'user'
-                ? 'self-end items-end'
-                : 'self-start items-start'
-              }
+              ${msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'}
             `}
           >
             {msg.role === 'assistant' && (
@@ -569,7 +567,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]
               "
             >
-              {streamingContent ? (
+                            {streamingContent ? (
                 <div className="msg-streaming-cursor">
                   <MessageContent content={streamingContent} />
                 </div>
@@ -587,15 +585,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Input area ── */}
+      {/* ── Input area — обычный flex-блок, не fixed ── */}
       <div
         className="
           chat-page__input-area
           shrink-0 flex flex-col gap-2
           px-4 pt-2 pb-2.5
           border-t border-[var(--border-glass)]
-          fixed bottom-[calc(59px+var(--safe-bottom))]
-          left-0 right-0 z-50
           bg-[var(--bg-glass-heavy)]
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
@@ -694,7 +690,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           </div>
         )}
 
-                {/* Input row */}
+        {/* Input row */}
         <div className="flex items-center gap-2">
           <button
             className={`
