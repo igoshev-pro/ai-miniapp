@@ -19,9 +19,9 @@ interface Props {
 
 interface AudioModelCaps {
   type:
-  | 'suno' | 'elevenlabs-tts' | 'elevenlabs-sfx'
-  | 'elevenlabs-isolation' | 'elevenlabs-stt'
-  | 'elevenlabs-dialogue' | 'generic'
+    | 'suno' | 'elevenlabs-tts' | 'elevenlabs-sfx'
+    | 'elevenlabs-isolation' | 'elevenlabs-stt'
+    | 'elevenlabs-dialogue' | 'generic'
   supportsCustomMode: boolean
   supportsInstrumental: boolean
   supportsStyle: boolean
@@ -42,70 +42,70 @@ interface AudioModelCaps {
 /* ─── Constants ─── */
 
 const ELEVENLABS_VOICES = [
-  'Aria', 'Roger', 'Sarah', 'Laura', 'Charlie', 'George', 'Callum', 'River',
-  'Lily', 'Alice', 'Jessica', 'Daniel', 'Charlotte', 'Chris', 'Brian',
-  'Matilda', 'Will', 'Liam', 'Bill',
+  'Aria','Roger','Sarah','Laura','Charlie','George','Callum','River',
+  'Lily','Alice','Jessica','Daniel','Charlotte','Chris','Brian',
+  'Matilda','Will','Liam','Bill',
 ]
 
 const DEFAULT_VOICE = 'Aria'
 
 const LANGUAGES = [
-  { code: 'ru', label: 'Русский' }, { code: 'en', label: 'English' },
-  { code: 'es', label: 'Español' }, { code: 'fr', label: 'Français' },
-  { code: 'de', label: 'Deutsch' }, { code: 'it', label: 'Italiano' },
-  { code: 'pt', label: 'Português' }, { code: 'pl', label: 'Polski' },
-  { code: 'hi', label: 'हिन्दी' }, { code: 'ja', label: '日本語' },
-  { code: 'ko', label: '한국어' }, { code: 'zh', label: '中文' },
+  { code:'ru', label:'Русский' }, { code:'en', label:'English' },
+  { code:'es', label:'Español' }, { code:'fr', label:'Français' },
+  { code:'de', label:'Deutsch' }, { code:'it', label:'Italiano' },
+  { code:'pt', label:'Português' }, { code:'pl', label:'Polski' },
+  { code:'hi', label:'हिन्दी' }, { code:'ja', label:'日本語' },
+  { code:'ko', label:'한국어' }, { code:'zh', label:'中文' },
 ]
 
 const SUNO_CAPS: AudioModelCaps = {
-  type: 'suno', supportsCustomMode: true, supportsInstrumental: true, supportsStyle: true,
-  supportsDuration: true, durationRange: [5, 300], durationStep: 5,
-  supportsVoice: false, voices: [], supportsLanguage: false,
-  supportsStability: false, supportsSimilarity: false,
-  supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  type:'suno', supportsCustomMode:true, supportsInstrumental:true, supportsStyle:true,
+  supportsDuration:true, durationRange:[5,300], durationStep:5,
+  supportsVoice:false, voices:[], supportsLanguage:false,
+  supportsStability:false, supportsSimilarity:false,
+  supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
 }
 const TTS_CAPS: AudioModelCaps = {
-  type: 'elevenlabs-tts', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
-  supportsDuration: false, durationRange: [0, 0], durationStep: 0,
-  supportsVoice: true, voices: ELEVENLABS_VOICES, supportsLanguage: true,
-  supportsStability: true, supportsSimilarity: true,
-  supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: true,
+  type:'elevenlabs-tts', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
+  supportsDuration:false, durationRange:[0,0], durationStep:0,
+  supportsVoice:true, voices:ELEVENLABS_VOICES, supportsLanguage:true,
+  supportsStability:true, supportsSimilarity:true,
+  supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:true,
 }
 const DIALOGUE_CAPS: AudioModelCaps = {
-  type: 'elevenlabs-dialogue', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
-  supportsDuration: false, durationRange: [0, 0], durationStep: 0,
-  supportsVoice: false, voices: [], supportsLanguage: true,
-  supportsStability: true, supportsSimilarity: false,
-  supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  type:'elevenlabs-dialogue', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
+  supportsDuration:false, durationRange:[0,0], durationStep:0,
+  supportsVoice:false, voices:[], supportsLanguage:true,
+  supportsStability:true, supportsSimilarity:false,
+  supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
 }
 const SFX_CAPS: AudioModelCaps = {
-  type: 'elevenlabs-sfx', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
-  supportsDuration: true, durationRange: [1, 30], durationStep: 1,
-  supportsVoice: false, voices: [], supportsLanguage: false,
-  supportsStability: false, supportsSimilarity: false,
-  supportsAudioInput: false, supportsLoop: true, supportsPromptInfluence: true, supportsSpeed: false,
+  type:'elevenlabs-sfx', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
+  supportsDuration:true, durationRange:[1,30], durationStep:1,
+  supportsVoice:false, voices:[], supportsLanguage:false,
+  supportsStability:false, supportsSimilarity:false,
+  supportsAudioInput:false, supportsLoop:true, supportsPromptInfluence:true, supportsSpeed:false,
 }
 const ISOLATION_CAPS: AudioModelCaps = {
-  type: 'elevenlabs-isolation', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
-  supportsDuration: false, durationRange: [0, 0], durationStep: 0,
-  supportsVoice: false, voices: [], supportsLanguage: false,
-  supportsStability: false, supportsSimilarity: false,
-  supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  type:'elevenlabs-isolation', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
+  supportsDuration:false, durationRange:[0,0], durationStep:0,
+  supportsVoice:false, voices:[], supportsLanguage:false,
+  supportsStability:false, supportsSimilarity:false,
+  supportsAudioInput:true, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
 }
 const STT_CAPS: AudioModelCaps = {
-  type: 'elevenlabs-stt', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
-  supportsDuration: false, durationRange: [0, 0], durationStep: 0,
-  supportsVoice: false, voices: [], supportsLanguage: true,
-  supportsStability: false, supportsSimilarity: false,
-  supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  type:'elevenlabs-stt', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
+  supportsDuration:false, durationRange:[0,0], durationStep:0,
+  supportsVoice:false, voices:[], supportsLanguage:true,
+  supportsStability:false, supportsSimilarity:false,
+  supportsAudioInput:true, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
 }
 const DEFAULT_CAPS: AudioModelCaps = {
-  type: 'generic', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
-  supportsDuration: false, durationRange: [0, 0], durationStep: 0,
-  supportsVoice: false, voices: [], supportsLanguage: false,
-  supportsStability: false, supportsSimilarity: false,
-  supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
+  type:'generic', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
+  supportsDuration:false, durationRange:[0,0], durationStep:0,
+  supportsVoice:false, voices:[], supportsLanguage:false,
+  supportsStability:false, supportsSimilarity:false,
+  supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
 }
 
 const MODEL_CAPS: Record<string, AudioModelCaps> = {
@@ -341,12 +341,12 @@ export function AudioGenerationPage({ onBack }: Props) {
       finalPrompt = caps.type === 'elevenlabs-isolation' ? 'Audio isolation' : 'Speech to text'
     }
 
-    const ok = await generate({ type: 'audio', model: slug, prompt: finalPrompt, settings })
+    const ok = await generate({ type:'audio', model:slug, prompt:finalPrompt, settings })
     setIsGenerating(false)
     if (ok) {
       setInput(''); setAudioUrl('')
       hapticNotification('success')
-      setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
+      setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior:'smooth' }), 200)
     }
   }, [
     input, audioUrl, balance, modelCost, slug, caps,
@@ -424,23 +424,23 @@ export function AudioGenerationPage({ onBack }: Props) {
   const quickParams: { label: string; active?: boolean }[] = (() => {
     const out: { label: string; active?: boolean }[] = []
     if (caps.type === 'suno') {
-      if (caps.supportsDuration) out.push({ label: `${duration} сек` })
-      if (customMode) out.push({ label: 'Custom', active: true })
-      if (instrumental) out.push({ label: 'Инструментал', active: true })
-      if (style.trim()) out.push({ label: style.trim(), active: true })
+      if (caps.supportsDuration) out.push({ label:`${duration} сек` })
+      if (customMode) out.push({ label:'Custom', active:true })
+      if (instrumental) out.push({ label:'Инструментал', active:true })
+      if (style.trim()) out.push({ label:style.trim(), active:true })
     }
     if (caps.type === 'elevenlabs-tts') {
-      out.push({ label: voiceId })
+      out.push({ label:voiceId })
       out.push({ label: LANGUAGES.find(l => l.code === language)?.label || language })
     }
     if (caps.type === 'elevenlabs-dialogue') {
       const lines = input.split('\n').filter(l => l.trim() && l.includes(':')).length
-      out.push({ label: `${lines} реплик` })
+      out.push({ label:`${lines} реплик` })
       out.push({ label: LANGUAGES.find(l => l.code === language)?.label || language })
     }
     if (caps.type === 'elevenlabs-sfx') {
-      if (caps.supportsDuration) out.push({ label: `${duration} сек` })
-      if (loop) out.push({ label: 'Зацикл.', active: true })
+      if (caps.supportsDuration) out.push({ label:`${duration} сек` })
+      if (loop) out.push({ label:'Зацикл.', active:true })
     }
     if (caps.supportsAudioInput) {
       out.push({ label: audioUrl ? '🎵 Аудио' : 'Нужен файл', active: !!audioUrl })
@@ -448,7 +448,7 @@ export function AudioGenerationPage({ onBack }: Props) {
     return out
   })()
 
-  // Loading state
+    // Loading state
   if (audioModels.length === 0) {
     return (
       <div
@@ -842,44 +842,42 @@ export function AudioGenerationPage({ onBack }: Props) {
       {showSettings && (
         <div
           className="
-      fixed inset-0 z-[100]
-      bg-black/60 backdrop-blur-[8px]
-      flex items-end justify-center
-      animate-[fadeIn_0.2s_ease-out]
-    "
+            fixed inset-0 z-[100]
+            bg-black/60 backdrop-blur-[8px]
+            flex items-end justify-center
+            animate-[fadeIn_0.2s_ease-out]
+          "
           onClick={() => setShowSettings(false)}
         >
           <div
             className="
-        w-full max-w-[600px]
-        max-h-[calc(85vh-59px-var(--safe-bottom,0px))]
-        mb-[calc(59px+var(--safe-bottom,0px))]
-        rounded-t-[20px]
-        bg-[#141418] border-t border-x border-white/[0.06]
-        flex flex-col overflow-hidden
-        animate-[slideUp_0.25s_ease-out]
-      "
+              w-full max-w-[600px] max-h-[85vh]
+              rounded-t-[20px]
+              bg-[#141418] border-t border-x border-white/[0.06]
+              flex flex-col overflow-hidden
+              animate-[slideUp_0.25s_ease-out]
+            "
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
             <div
               className="
-          shrink-0
-          flex items-center justify-between
-          px-5 pt-[18px] pb-3.5
-          border-b border-white/[0.06]
-          bg-[#141418]
-        "
+                shrink-0
+                flex items-center justify-between
+                px-5 pt-[18px] pb-3.5
+                border-b border-white/[0.06]
+                bg-[#141418]
+              "
             >
               <h2 className="flex items-center gap-2 text-[16px] font-semibold text-white m-0">
                 <Music size={16} /> Настройки · {currentModel?.name}
               </h2>
               <button
                 className="
-            bg-white/[0.06] border-none rounded-[10px]
-            p-1.5 text-white/50 cursor-pointer
-            active:scale-[0.92]
-          "
+                  bg-white/[0.06] border-none rounded-[10px]
+                  p-1.5 text-white/50 cursor-pointer
+                  active:scale-[0.92]
+                "
                 onClick={() => setShowSettings(false)}
               >
                 <X size={20} />
@@ -887,8 +885,274 @@ export function AudioGenerationPage({ onBack }: Props) {
             </div>
 
             {/* Modal body */}
-            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-6 flex flex-col gap-5 [-webkit-overflow-scrolling:touch] overscroll-contain">
-              {/* ... всё содержимое настроек ... */}
+            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-10 flex flex-col gap-5">
+
+              {/* ═══ SUNO ═══ */}
+              {caps.type === 'suno' && (
+                <>
+                  {caps.supportsCustomMode && (
+                    <Field label={<><Zap size={13} /> Режим</>}>
+                      <Chips>
+                        <Chip active={!customMode} onClick={() => { setCustomMode(false); haptic('light') }}>Авто</Chip>
+                        <Chip active={customMode} onClick={() => { setCustomMode(true); haptic('light') }}>Custom Mode</Chip>
+                      </Chips>
+                    </Field>
+                  )}
+
+                  {caps.supportsInstrumental && (
+                    <Field label={<><Volume2 size={13} /> Вокал</>}>
+                      <Chips>
+                        <Chip active={!instrumental} onClick={() => { setInstrumental(false); haptic('light') }}>С вокалом</Chip>
+                        <Chip active={instrumental} onClick={() => { setInstrumental(true); haptic('light') }}>Инструментал</Chip>
+                      </Chips>
+                    </Field>
+                  )}
+
+                  {caps.supportsStyle && (
+                    <Field label="🎨 Стиль" hint="pop, rock, jazz, electronic...">
+                      <input
+                        type="text"
+                        className="
+                          w-full py-[10px] px-3.5
+                          rounded-[10px] border border-white/[0.08]
+                          bg-white/[0.03] text-white text-[13px]
+                          outline-none transition-[border-color] duration-200
+                          placeholder:text-white/25
+                          focus:border-amber-400/30
+                          font-[inherit]
+                        "
+                        placeholder="Например: pop, energetic, upbeat"
+                        value={style}
+                        onChange={(e) => setStyle(e.target.value)}
+                      />
+                    </Field>
+                  )}
+
+                  {caps.supportsDuration && (
+                    <Slider
+                      label={<><Clock size={13} /> Длительность</>}
+                      value={duration}
+                      onChange={setDuration}
+                      min={caps.durationRange[0]}
+                      max={caps.durationRange[1]}
+                      step={caps.durationStep}
+                      unit="сек"
+                      minLabel={`${caps.durationRange[0]} сек`}
+                      maxLabel={`${caps.durationRange[1]} сек`}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* ═══ TTS ═══ */}
+              {caps.type === 'elevenlabs-tts' && (
+                <>
+                  {caps.supportsVoice && (
+                    <Field label={<><Mic size={13} /> Голос</>}>
+                      <ChipsWrap>
+                        {caps.voices.map((v) => (
+                          <Chip key={v} active={voiceId === v} onClick={() => { setVoiceId(v); haptic('light') }}>{v}</Chip>
+                        ))}
+                      </ChipsWrap>
+                    </Field>
+                  )}
+
+                  {caps.supportsLanguage && (
+                    <Field label="🌐 Язык">
+                      <ChipsWrap>
+                        {LANGUAGES.map((l) => (
+                          <Chip key={l.code} active={language === l.code} onClick={() => { setLanguage(l.code); haptic('light') }}>{l.label}</Chip>
+                        ))}
+                      </ChipsWrap>
+                    </Field>
+                  )}
+
+                  {caps.supportsStability && (
+                    <Slider
+                      label="Стабильность"
+                      hint="Низкая = эмоциональнее"
+                      value={stability}
+                      onChange={setStability}
+                      min={0}
+                      max={100}
+                      step={5}
+                      unit="%"
+                      minLabel="Эмоции"
+                      maxLabel="Стабильность"
+                    />
+                  )}
+
+                  {caps.supportsSimilarity && (
+                    <Slider
+                      label="Схожесть"
+                      hint="Насколько близко к оригиналу"
+                      value={similarity}
+                      onChange={setSimilarity}
+                      min={0}
+                      max={100}
+                      step={5}
+                      unit="%"
+                      minLabel="Свободнее"
+                      maxLabel="Точнее"
+                    />
+                  )}
+
+                  {caps.supportsSpeed && (
+                    <Slider
+                      label="Скорость"
+                      value={speed}
+                      onChange={setSpeed}
+                      min={50}
+                      max={200}
+                      step={5}
+                      unit="%"
+                      minLabel="0.5x"
+                      maxLabel="2x"
+                    />
+                  )}
+                </>
+              )}
+
+              {/* ═══ DIALOGUE ═══ */}
+              {caps.type === 'elevenlabs-dialogue' && (
+                <>
+                  <Field label={<><MessageSquare size={13} /> Формат диалога</>}>
+                    <div className="text-[12px] text-white/55 leading-relaxed p-3 bg-white/[0.04] rounded-[10px] font-mono border border-white/[0.06]">
+                      Aria: Привет! Как дела?<br />
+                      Roger: Отлично, спасибо!<br />
+                      Aria: Рада слышать!
+                    </div>
+                    <div className="text-[11px] text-white/40 mt-1.5">
+                      Нажмите на имя голоса под полем ввода — оно вставится автоматически
+                    </div>
+                  </Field>
+
+                  <Field label={<><Mic size={13} /> Доступные голоса</>}>
+                    <ChipsWrap>
+                      {ELEVENLABS_VOICES.map((v) => (
+                        <Chip key={v} active={false} onClick={() => { insertVoiceName(v); haptic('light') }}>{v}</Chip>
+                      ))}
+                    </ChipsWrap>
+                  </Field>
+
+                  {caps.supportsLanguage && (
+                    <Field label="🌐 Язык">
+                      <ChipsWrap>
+                        {LANGUAGES.map((l) => (
+                          <Chip key={l.code} active={language === l.code} onClick={() => { setLanguage(l.code); haptic('light') }}>{l.label}</Chip>
+                        ))}
+                      </ChipsWrap>
+                    </Field>
+                  )}
+
+                  {caps.supportsStability && (
+                    <Slider
+                      label="Стабильность"
+                      hint="Низкая = эмоциональнее"
+                      value={stability}
+                      onChange={setStability}
+                      min={0}
+                      max={100}
+                      step={5}
+                      unit="%"
+                      minLabel="Эмоции"
+                      maxLabel="Стабильность"
+                    />
+                  )}
+                </>
+              )}
+
+                            {/* ═══ SFX ═══ */}
+              {caps.type === 'elevenlabs-sfx' && (
+                <>
+                  {caps.supportsDuration && (
+                    <Slider
+                      label={<><Clock size={13} /> Длительность</>}
+                      value={duration}
+                      onChange={setDuration}
+                      min={caps.durationRange[0]}
+                      max={caps.durationRange[1]}
+                      step={caps.durationStep}
+                      unit="сек"
+                      minLabel={`${caps.durationRange[0]} сек`}
+                      maxLabel={`${caps.durationRange[1]} сек`}
+                    />
+                  )}
+
+                  {caps.supportsLoop && (
+                    <Field label="🔁 Зацикливание">
+                      <Chips>
+                        <Chip active={!loop} onClick={() => { setLoop(false); haptic('light') }}>Выключено</Chip>
+                        <Chip active={loop} onClick={() => { setLoop(true); haptic('light') }}>Включено</Chip>
+                      </Chips>
+                    </Field>
+                  )}
+
+                  {caps.supportsPromptInfluence && (
+                    <Slider
+                      label="Влияние промпта"
+                      hint="Насколько точно следовать описанию"
+                      value={promptInfluence}
+                      onChange={setPromptInfluence}
+                      min={0}
+                      max={100}
+                      step={5}
+                      unit="%"
+                      minLabel="Свободнее"
+                      maxLabel="Точнее"
+                    />
+                  )}
+                </>
+              )}
+
+              {/* ═══ ISOLATION ═══ */}
+              {caps.type === 'elevenlabs-isolation' && (
+                <Field
+                  label={<><Upload size={13} /> Аудиофайл для обработки</>}
+                  hint="WAV, MP3, OGG · макс 10MB"
+                >
+                  <AudioUploadField
+                    audioUrl={audioUrl}
+                    uploading={uploadingAudio}
+                    onPick={() => fileInputRef.current?.click()}
+                    onClear={() => setAudioUrl('')}
+                  />
+                </Field>
+              )}
+
+              {/* ═══ STT ═══ */}
+              {caps.type === 'elevenlabs-stt' && (
+                <>
+                  <Field
+                    label={<><Upload size={13} /> Аудиофайл для распознавания</>}
+                    hint="WAV, MP3, OGG · макс 10MB"
+                  >
+                    <AudioUploadField
+                      audioUrl={audioUrl}
+                      uploading={uploadingAudio}
+                      onPick={() => fileInputRef.current?.click()}
+                      onClear={() => setAudioUrl('')}
+                    />
+                  </Field>
+
+                  {caps.supportsLanguage && (
+                    <Field label="🌐 Язык аудио">
+                      <ChipsWrap>
+                        {LANGUAGES.map((l) => (
+                          <Chip
+                            key={l.code}
+                            active={language === l.code}
+                            onClick={() => { setLanguage(l.code); haptic('light') }}
+                          >
+                            {l.label}
+                          </Chip>
+                        ))}
+                      </ChipsWrap>
+                    </Field>
+                  )}
+                </>
+              )}
+
             </div>
           </div>
         </div>
