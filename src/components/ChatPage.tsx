@@ -137,7 +137,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+    if (el.scrollHeight > el.clientHeight) {
+      el.scrollTop = el.scrollHeight
+    }
   }, [messages, streamingContent])
 
   useEffect(() => {
@@ -453,136 +455,136 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         className="
           chat-page__messages
           flex-1 min-h-0 overflow-y-auto
-          px-4 py-3
-          flex flex-col gap-3.5
           overscroll-contain [-webkit-overflow-scrolling:touch]
         "
       >
-        {/* Empty state */}
-        {!hasMessages && !isStreaming && !isLoadingMessages && (
-          <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-[60px] text-center flex-1 fade-in fade-in--2">
-            <div className="w-16 h-16 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/15 mb-1">
-              <MessageSquare size={36} strokeWidth={1.5} />
-            </div>
-            <div className="text-[17px] font-semibold text-white/60">Чат с ИИ</div>
-            <div className="text-[13px] text-white/30 max-w-[280px] leading-[1.5]">
-              Задайте вопрос, попросите помощь с кодом, текстом или переводом. ИИ готов помочь.
-            </div>
-            <button
-              className="
-                flex items-center gap-1.5
-                bg-white/[0.06] border border-white/[0.08]
-                rounded-[10px] py-2.5 px-5
-                text-white/50 text-[13px]
-                cursor-pointer mt-2 transition-all duration-150
-                [-webkit-tap-highlight-color:transparent] font-[inherit]
-                active:bg-white/10
-              "
-              onClick={insertExample}
-            >
-              <Wand2 size={14} /> Пример промпта
-            </button>
-          </div>
-        )}
-
-        {/* Loading messages */}
-        {isLoadingMessages && (
-          <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-[60px] text-center flex-1">
-            <div className="flex gap-1 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.15s]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.3s]" />
-            </div>
-          </div>
-        )}
-
-        {/* Message list */}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`
-              flex flex-col max-w-[85%] animate-[fadeIn_0.3s_ease-out]
-              ${msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'}
-            `}
-          >
-            {msg.role === 'assistant' && (
-              <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
-                {msg.model || selectedModelName}
+        <div className="flex flex-col gap-3.5 px-4 py-3">
+          {/* Empty state */}
+          {!hasMessages && !isStreaming && !isLoadingMessages && (
+            <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-[60px] text-center fade-in fade-in--2">
+              <div className="w-16 h-16 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/15 mb-1">
+                <MessageSquare size={36} strokeWidth={1.5} />
               </div>
-            )}
+              <div className="text-[17px] font-semibold text-white/60">Чат с ИИ</div>
+              <div className="text-[13px] text-white/30 max-w-[280px] leading-[1.5]">
+                Задайте вопрос, попросите помощь с кодом, текстом или переводом. ИИ готов помочь.
+              </div>
+              <button
+                className="
+                  flex items-center gap-1.5
+                  bg-white/[0.06] border border-white/[0.08]
+                  rounded-[10px] py-2.5 px-5
+                  text-white/50 text-[13px]
+                  cursor-pointer mt-2 transition-all duration-150
+                  [-webkit-tap-highlight-color:transparent] font-[inherit]
+                  active:bg-white/10
+                "
+                onClick={insertExample}
+              >
+                <Wand2 size={14} /> Пример промпта
+              </button>
+            </div>
+          )}
 
+          {/* Loading messages */}
+          {isLoadingMessages && (
+            <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-[60px] text-center">
+              <div className="flex gap-1 py-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.15s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.3s]" />
+              </div>
+            </div>
+          )}
+
+          {/* Message list */}
+          {messages.map((msg) => (
             <div
+              key={msg.id}
               className={`
-                py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
-                ${msg.role === 'user'
-                  ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
-                  : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
-                }
+                flex flex-col max-w-[85%] animate-[fadeIn_0.3s_ease-out]
+                ${msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'}
               `}
             >
-              {msg.role === 'assistant' ? (
-                <MessageContent content={msg.content} />
-              ) : (
-                <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mt-1 px-0.5">
-              <span className="text-[10px] text-[var(--gray-600)]">
-                {formatTime(msg.createdAt)}
-              </span>
               {msg.role === 'assistant' && (
-                <div className="flex gap-1">
-                  <button
-                    className="
-                      w-6 h-6 rounded-[6px] border-none
-                      bg-white/[0.04] text-[var(--gray-600)]
-                      flex items-center justify-center
-                      cursor-pointer transition-all duration-150
-                      active:scale-[0.88] active:bg-white/[0.08] active:text-[var(--gray-400)]
-                    "
-                    onClick={() => copyMessage(msg.id, msg.content)}
-                  >
-                    {copiedId === msg.id ? <Check size={12} /> : <Copy size={12} />}
-                  </button>
-                  {msg.tokensUsed && (
-                    <span className="text-[10px] text-white/30 ml-1">{msg.tokensUsed} 🔥</span>
-                  )}
+                <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
+                  {msg.model || selectedModelName}
                 </div>
               )}
-            </div>
-          </div>
-        ))}
 
-        {/* Streaming message */}
-        {isStreaming && (
-          <div className="flex flex-col max-w-[85%] self-start items-start animate-[fadeIn_0.3s_ease-out]">
-            <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
-              {selectedModelName}
-            </div>
-            <div
-              className="
-                py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
-                bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-                border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]
-              "
-            >
-                            {streamingContent ? (
-                <div className="msg-streaming-cursor">
-                  <MessageContent content={streamingContent} />
-                </div>
-              ) : (
-                <div className="flex gap-1 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.15s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.3s]" />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+              <div
+                className={`
+                  py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
+                  ${msg.role === 'user'
+                    ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
+                    : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
+                  }
+                `}
+              >
+                {msg.role === 'assistant' ? (
+                  <MessageContent content={msg.content} />
+                ) : (
+                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                )}
+              </div>
 
-        <div ref={messagesEndRef} />
+              <div className="flex items-center gap-2 mt-1 px-0.5">
+                <span className="text-[10px] text-[var(--gray-600)]">
+                  {formatTime(msg.createdAt)}
+                </span>
+                {msg.role === 'assistant' && (
+                  <div className="flex gap-1">
+                    <button
+                      className="
+                        w-6 h-6 rounded-[6px] border-none
+                        bg-white/[0.04] text-[var(--gray-600)]
+                        flex items-center justify-center
+                        cursor-pointer transition-all duration-150
+                        active:scale-[0.88] active:bg-white/[0.08] active:text-[var(--gray-400)]
+                      "
+                      onClick={() => copyMessage(msg.id, msg.content)}
+                    >
+                      {copiedId === msg.id ? <Check size={12} /> : <Copy size={12} />}
+                    </button>
+                    {msg.tokensUsed && (
+                      <span className="text-[10px] text-white/30 ml-1">{msg.tokensUsed} 🔥</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Streaming message */}
+          {isStreaming && (
+            <div className="flex flex-col max-w-[85%] self-start items-start animate-[fadeIn_0.3s_ease-out]">
+              <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
+                {selectedModelName}
+              </div>
+              <div
+                className="
+                  py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
+                  bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+                  border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]
+                "
+              >
+                {streamingContent ? (
+                  <div className="msg-streaming-cursor">
+                    <MessageContent content={streamingContent} />
+                  </div>
+                ) : (
+                  <div className="flex gap-1 py-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.15s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--gray-500)] animate-[typingBounce_1.2s_ease-in-out_infinite_0.3s]" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* ── Input area — обычный flex-блок, не fixed ── */}
