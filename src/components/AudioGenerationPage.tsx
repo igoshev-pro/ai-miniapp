@@ -840,25 +840,26 @@ export function AudioGenerationPage({ onBack }: Props) {
 
       {/* ── Settings Modal ── */}
       {showSettings && (
-        <div
-          className="
-            fixed inset-0 z-[100]
-            bg-black/60 backdrop-blur-[8px]
-            flex items-end justify-center
-            animate-[fadeIn_0.2s_ease-out]
-          "
-          onClick={() => setShowSettings(false)}
-        >
-          <div
-            className="
-              w-full max-w-[600px] max-h-[85vh]
-              rounded-t-[20px]
-              bg-[#141418] border-t border-x border-white/[0.06]
-              flex flex-col overflow-hidden
-              animate-[slideUp_0.25s_ease-out]
-            "
-            onClick={(e) => e.stopPropagation()}
-          >
+  <div
+    className="
+      fixed inset-0 z-[200]
+      bg-black/60 backdrop-blur-[8px]
+      flex items-end justify-center
+      animate-[fadeIn_0.2s_ease-out]
+    "
+    onClick={() => setShowSettings(false)}
+  >
+    <div
+      className="
+        w-full max-w-[600px]
+        max-h-[90dvh]
+        rounded-t-[20px]
+        bg-[#141418] border-t border-x border-white/[0.06]
+        flex flex-col overflow-hidden
+        animate-[slideUp_0.25s_ease-out]
+      "
+      onClick={(e) => e.stopPropagation()}
+    >
             {/* Modal header */}
             <div
               className="
@@ -885,8 +886,15 @@ export function AudioGenerationPage({ onBack }: Props) {
             </div>
 
             {/* Modal body */}
-            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-10 flex flex-col gap-5">
-
+            <div
+  className="
+    flex-1 overflow-y-auto
+    px-5 pt-4
+    pb-[calc(24px+var(--safe-bottom,0px))]
+    flex flex-col gap-5
+    [-webkit-overflow-scrolling:touch] overscroll-contain
+  "
+>
               {/* ═══ SUNO ═══ */}
               {caps.type === 'suno' && (
                 <>
