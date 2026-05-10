@@ -133,7 +133,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       .finally(() => setIsLoadingMessages(false))
   }, [existingChatId])
 
-  // Автоскролл вниз — внутри контейнера, без scrollIntoView (не дёргает страницу)
+  // Автоскролл вниз
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
@@ -320,7 +320,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   return (
     <div
       className="
-        chat-page
         fixed inset-0 z-[5] flex flex-col
         bg-[var(--bg-primary,#08080a)]
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
@@ -330,7 +329,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       {/* ── Model bar ── */}
       <div
         className="
-          chat-page__model-bar
           shrink-0 relative z-40
           flex items-center gap-2
           px-4 pt-2.5 pb-1.5
@@ -341,7 +339,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       >
         <button
           className="
-            chat-model-selector
             inline-flex items-center gap-1.5
             py-[7px] px-3.5
             rounded-[var(--radius-xs)]
@@ -377,7 +374,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         {activeChatId && !activeChatId.startsWith('pending-') && (
           <button
             className="
-              chat-page__favorite-btn
               w-9 h-9 rounded-[9px]
               border border-[var(--border-glass)]
               bg-[var(--bg-glass)]
@@ -397,11 +393,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           </button>
         )}
 
-        {/* Model dropdown — абсолютный, относительно model-bar */}
+        {/* Model dropdown */}
         {showModelPicker && (
           <div
             className="
-              chat-model-dropdown fade-in
+              fade-in
               absolute top-[calc(100%+2px)] left-4 right-4 z-50
               rounded-[var(--radius-sm)]
               border border-[var(--border-glass)]
@@ -453,7 +449,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       <div
         ref={messagesContainerRef}
         className="
-          chat-page__messages
           flex-1 min-h-0 overflow-y-auto
           overscroll-contain [-webkit-overflow-scrolling:touch]
         "
@@ -555,7 +550,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             </div>
           ))}
 
-          {/* Streaming message */}
+                    {/* Streaming message */}
           {isStreaming && (
             <div className="flex flex-col max-w-[85%] self-start items-start animate-[fadeIn_0.3s_ease-out]">
               <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
@@ -587,10 +582,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         </div>
       </div>
 
-      {/* ── Input area — обычный flex-блок, не fixed ── */}
+      {/* ── Input area ── */}
       <div
         className="
-          chat-page__input-area
           shrink-0 flex flex-col gap-2
           px-4 pt-2 pb-2.5
           border-t border-[var(--border-glass)]
@@ -600,7 +594,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       >
         {/* Attachments */}
         {attachments.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none [-webkit-overflow-scrolling:touch]">
+          <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
             {attachments.map((att) => (
               <div
                 key={att.id}
@@ -741,7 +735,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             <button
               className="
                 w-[38px] h-[38px] rounded-[10px] border-none
-                !bg-[var(--accent-red)]
+                bg-[var(--accent-red)]
                 text-[var(--accent-yellow)]
                 flex items-center justify-center
                 cursor-pointer transition-all duration-150
