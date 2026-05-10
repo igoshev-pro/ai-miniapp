@@ -72,7 +72,8 @@ function getModelName(slug: string): string {
 export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
-  const { toggle: toggleFavorite } = useFavorites()
+  // ✅ берём и toggle и isFavorite
+  const { toggle: toggleFavorite, isFavorite } = useFavorites()
 
   const messages = useChatStore((s) => s.messages)
   const isStreaming = useChatStore((s) => s.isStreaming)
@@ -105,6 +106,12 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   )
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
+
+  // ✅ вычисляем избранное для текущего чата
+  const isCurrentChatFavorite = useMemo(() => {
+    if (!activeChatId || activeChatId.startsWith('pending-')) return false
+    return isFavorite('conversation', activeChatId)
+  }, [activeChatId, isFavorite])
 
   // ─── Загрузка сообщений ───
   useEffect(() => {
@@ -337,8 +344,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           border-b border-white/[0.04]
         "
       >
+        {/* ✅ Селектор растянут на всё свободное место */}
         <button
           className="
+            flex-1 min-w-0
             inline-flex items-center gap-1.5
             py-[7px] px-3.5
             rounded-[var(--radius-xs)]
@@ -357,39 +366,46 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             }
           }}
         >
-          <MessageSquare size={14} className="text-[var(--gray-500)]" />
-          <span>{selectedModelName}</span>
-          <span className="text-[11px] text-white/40 ml-1">
+          <MessageSquare size={14} className="text-[var(--gray-500)] shrink-0" />
+          <span className="truncate">{selectedModelName}</span>
+          {/* ✅ Цена прижимается вправо */}
+          <span className="text-[11px] text-white/40 ml-auto shrink-0">
             {modelCost % 1 === 0 ? modelCost : modelCost.toFixed(2)} 🔥
           </span>
           <ChevronDown
             size={14}
             className={`
-              text-[var(--gray-500)] transition-transform duration-200
+              text-[var(--gray-500)] transition-transform duration-200 shrink-0
               ${showModelPicker ? 'rotate-180' : ''}
             `}
           />
         </button>
 
+        {/* ✅ Звезда: меняет цвет и заполнение в зависимости от isCurrentChatFavorite */}
         {activeChatId && !activeChatId.startsWith('pending-') && (
           <button
-            className="
+            className={`
               w-9 h-9 rounded-[9px]
               border border-[var(--border-glass)]
-              bg-[var(--bg-glass)]
               backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-              text-[var(--gray-500)]
               flex items-center justify-center
               cursor-pointer transition-all duration-150
               shrink-0 [-webkit-tap-highlight-color:transparent]
-              active:scale-[0.9] active:text-[var(--accent-yellow)]
-            "
+              active:scale-[0.9]
+              ${isCurrentChatFavorite
+                ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
+              }
+            `}
             onClick={() => {
               haptic('light')
               toggleFavorite('conversation', activeChatId, selectedModelName)
             }}
           >
-            <Star size={16} />
+            <Star
+              size={16}
+              fill={isCurrentChatFavorite ? 'currentColor' : 'none'}
+            />
           </button>
         )}
 
@@ -516,7 +532,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   }
                 `}
               >
-                {msg.role === 'assistant' ? (
+                                {msg.role === 'assistant' ? (
                   <MessageContent content={msg.content} />
                 ) : (
                   <div className="whitespace-pre-wrap break-words">{msg.content}</div>
@@ -550,7 +566,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             </div>
           ))}
 
-                    {/* Streaming message */}
+          {/* Streaming message */}
           {isStreaming && (
             <div className="flex flex-col max-w-[85%] self-start items-start animate-[fadeIn_0.3s_ease-out]">
               <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
@@ -686,14 +702,14 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           </div>
         )}
 
-        {/* Input row */}
+        {/* ✅ Input row — выравнивание по центру по вертикали */}
         <div className="flex items-center gap-2">
           <button
             className={`
               w-[38px] h-[38px] rounded-[10px] border-none
               flex items-center justify-center
               cursor-pointer transition-all duration-150
-              shrink-0
+              shrink-0 self-center
               ${showAttachMenu
                 ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
                 : 'bg-white/[0.04] text-[var(--gray-500)]'
@@ -708,28 +724,28 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             <Paperclip size={18} />
           </button>
 
-          <div className="flex-1 min-w-0">
-            <textarea
-              ref={inputRef}
-              className="
-                w-full py-[9px] px-3.5
-                rounded-[var(--radius-sm)]
-                border border-[var(--border-glass)]
-                bg-white/[0.03]
-                text-white text-[14px] font-[inherit]
-                outline-none resize-none leading-[1.4]
-                max-h-[120px]
-                transition-[border-color] duration-200
-                placeholder:text-[var(--gray-600)]
-                focus:border-[rgba(250,204,21,0.2)]
-              "
-              placeholder="Написать сообщение..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-            />
-          </div>
+          {/* ✅ textarea напрямую (без обёртки), block + align-middle убирают baseline-смещение */}
+          <textarea
+            ref={inputRef}
+            className="
+              flex-1 min-w-0 block align-middle
+              py-[9px] px-3.5
+              rounded-[var(--radius-sm)]
+              border border-[var(--border-glass)]
+              bg-white/[0.03]
+              text-white text-[14px] font-[inherit]
+              outline-none resize-none leading-[1.4]
+              max-h-[120px]
+              transition-[border-color] duration-200
+              placeholder:text-[var(--gray-600)]
+              focus:border-[rgba(250,204,21,0.2)]
+            "
+            placeholder="Написать сообщение..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+          />
 
           {isStreaming ? (
             <button
@@ -739,7 +755,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 text-[var(--accent-yellow)]
                 flex items-center justify-center
                 cursor-pointer transition-all duration-150
-                shrink-0
+                shrink-0 self-center
                 active:scale-[0.92]
               "
               onClick={stopStreaming}
@@ -753,7 +769,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 bg-white/[0.04] text-[var(--accent-yellow)]
                 flex items-center justify-center
                 cursor-pointer transition-all duration-150
-                shrink-0
+                shrink-0 self-center
                 active:scale-[0.92]
                 disabled:cursor-default disabled:opacity-50
               "
