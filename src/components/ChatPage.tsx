@@ -593,16 +593,16 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       </div>
 
       {/* ── Input area ── */}
-      <div
-        className="
-          shrink-0 flex flex-col gap-2
-          px-2.5 py-2.5
-          mb-[calc(59px+var(--safe-bottom))]
-          border-t border-[var(--border-glass)]
-          bg-[var(--bg-glass-heavy)]
-          backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
-        "
-      >
+<div
+  className="
+    shrink-0 flex flex-col gap-2
+    px-2.5 pt-2.5 pb-4
+    mb-[calc(59px+var(--safe-bottom))]
+    border-t border-[var(--border-glass)]
+    bg-[var(--bg-glass-heavy)]
+    backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+  "
+>
         {/* Attachments */}
         {attachments.length > 0 && (
           <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
