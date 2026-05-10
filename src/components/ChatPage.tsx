@@ -451,7 +451,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         className="
           chat-page__messages
           flex-1 overflow-y-auto
-          px-4 pb-[70px] pt-[52px]
+          px-4 pb-[70px] pt-[calc(var(--safe-area-top,0px)+56px)]
           flex flex-col gap-3.5
           overscroll-y-contain [-webkit-overflow-scrolling:touch]
           pt-[calc(var(--header-height)+40px)]
