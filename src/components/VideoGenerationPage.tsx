@@ -27,26 +27,26 @@ interface VideoModelCaps {
 }
 
 const MODEL_CAPS: Record<string, VideoModelCaps> = {
-  'sora-2':              { aspectRatios: ['landscape','portrait'], durations: [10,15], qualities: [], resolutions: [], supportsImageInput: false, supportsSound: false, supportsRemoveWatermark: true, hasMode: false, hasQuality: false },
-  'sora-2-img2vid':      { aspectRatios: ['landscape','portrait'], durations: [10,15], qualities: [], resolutions: [], supportsImageInput: true,  supportsSound: false, supportsRemoveWatermark: true, hasMode: false, hasQuality: false },
-  'kling-3.0':           { aspectRatios: ['16:9','9:16','1:1'], durations: [3,5,7,10,15], qualities: ['720p','1080p'], resolutions: [], supportsImageInput: false, supportsSound: true,  supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
-  'kling-3.0-img2vid':   { aspectRatios: ['16:9','9:16','1:1'], durations: [3,5,7,10,15], qualities: ['720p','1080p'], resolutions: [], supportsImageInput: true,  supportsSound: true,  supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
-  'kling-3.0-motion':    { aspectRatios: [], durations: [], qualities: ['720p','1080p'], resolutions: [], supportsImageInput: true,  supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
-  'runway':              { aspectRatios: ['16:9','9:16','1:1','4:3','3:4'], durations: [5,10], qualities: ['720p','1080p'], resolutions: [], supportsImageInput: true,  supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
-  'hailuo-2.3-standard': { aspectRatios: [], durations: [6,10], qualities: [], resolutions: [], supportsImageInput: false, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: false },
-  'hailuo-2.3-pro':      { aspectRatios: [], durations: [6,10], qualities: [], resolutions: ['768P','1080P'], supportsImageInput: true,  supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: false },
-  'veo-3.1-fast':        { aspectRatios: ['16:9','9:16'], durations: [4,6,8], qualities: ['720p','1080p','4k'], resolutions: [], supportsImageInput: true,  supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
-  'veo-3.1-pro':         { aspectRatios: ['16:9','9:16'], durations: [4,6,8], qualities: ['720p','1080p','4k'], resolutions: [], supportsImageInput: true,  supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
-  'sora-2-pro':          { aspectRatios: ['16:9','9:16'], durations: [4,8,12], qualities: ['720p','1080p'], resolutions: [], supportsImageInput: true,  supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
+  'sora-2': { aspectRatios: ['landscape', 'portrait'], durations: [10, 15], qualities: [], resolutions: [], supportsImageInput: false, supportsSound: false, supportsRemoveWatermark: true, hasMode: false, hasQuality: false },
+  'sora-2-img2vid': { aspectRatios: ['landscape', 'portrait'], durations: [10, 15], qualities: [], resolutions: [], supportsImageInput: true, supportsSound: false, supportsRemoveWatermark: true, hasMode: false, hasQuality: false },
+  'kling-3.0': { aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 7, 10, 15], qualities: ['720p', '1080p'], resolutions: [], supportsImageInput: false, supportsSound: true, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
+  'kling-3.0-img2vid': { aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 7, 10, 15], qualities: ['720p', '1080p'], resolutions: [], supportsImageInput: true, supportsSound: true, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
+  'kling-3.0-motion': { aspectRatios: [], durations: [], qualities: ['720p', '1080p'], resolutions: [], supportsImageInput: true, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
+  'runway': { aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10], qualities: ['720p', '1080p'], resolutions: [], supportsImageInput: true, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
+  'hailuo-2.3-standard': { aspectRatios: [], durations: [6, 10], qualities: [], resolutions: [], supportsImageInput: false, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: false },
+  'hailuo-2.3-pro': { aspectRatios: [], durations: [6, 10], qualities: [], resolutions: ['768P', '1080P'], supportsImageInput: true, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: false },
+  'veo-3.1-fast': { aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'], resolutions: [], supportsImageInput: true, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
+  'veo-3.1-pro': { aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'], resolutions: [], supportsImageInput: true, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
+  'sora-2-pro': { aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], qualities: ['720p', '1080p'], resolutions: [], supportsImageInput: true, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: true },
 }
 
 const DEFAULT_CAPS: VideoModelCaps = {
-  aspectRatios: ['16:9','9:16','1:1'], durations: [5,10], qualities: [], resolutions: [],
+  aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], qualities: [], resolutions: [],
   supportsImageInput: false, supportsSound: false, supportsRemoveWatermark: false, hasMode: false, hasQuality: false,
 }
 
-const AR_L: Record<string,string> = { landscape:'🖥 Пейзаж', portrait:'📱 Портрет', '16:9':'16:9', '9:16':'9:16', '1:1':'1:1', '4:3':'4:3', '3:4':'3:4' }
-const Q_L:  Record<string,string> = { '720p':'720p Стандарт', '1080p':'1080p HD', '4k':'4K Ultra', '768P':'768P', '1080P':'1080P' }
+const AR_L: Record<string, string> = { landscape: '🖥 Пейзаж', portrait: '📱 Портрет', '16:9': '16:9', '9:16': '9:16', '1:1': '1:1', '4:3': '4:3', '3:4': '3:4' }
+const Q_L: Record<string, string> = { '720p': '720p Стандарт', '1080p': '1080p HD', '4k': '4K Ultra', '768P': '768P', '1080P': '1080P' }
 
 const EXAMPLES = [
   'Кинематографичный пролёт над горами на рассвете, облака ниже камеры',
@@ -299,75 +299,135 @@ export function VideoGenerationPage({ onBack }: Props) {
         <div ref={resultsRef} />
       </div>
 
-      {/* ═══ INPUT AREA (layout class kept) ═══ */}
-      <div className="gen-page__input-area">
-        {/* Image preview */}
+      {/* ═══ INPUT AREA — chat-style ═══ */}
+      <div
+        className="
+    shrink-0 flex flex-col gap-2
+    px-2.5 pt-2.5 pb-4
+    mb-[calc(59px+var(--safe-bottom))]
+    border-t border-[var(--border-glass)]
+    bg-[var(--bg-glass-heavy)]
+    backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+  "
+      >
+        {/* Image preview (как attachments в чате) */}
         {imgUrl && (
-          <div className="flex gap-2 pb-2 overflow-x-auto scrollbar-none">
-            <div className="relative shrink-0 w-14 h-14 rounded-[10px]">
+          <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
+            <div
+              className="
+          flex items-center gap-[5px]
+          py-1.5 px-2.5
+          rounded-[var(--radius-xs)]
+          bg-[var(--bg-glass)] border border-[var(--border-glass)]
+          text-[var(--gray-400)] text-[11px]
+          shrink-0
+        "
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imgUrl} alt="" className="w-14 h-14 rounded-[10px] object-cover border border-white/10 block" />
-              <button onClick={() => setImgUrl('')}
-                className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full border-none bg-red-500 text-white flex items-center justify-center cursor-pointer z-[2]"
+              <img
+                src={imgUrl}
+                alt=""
+                className="w-5 h-5 rounded-[3px] object-cover block"
+              />
+              <span className="text-[var(--gray-400)]">Изображение</span>
+              <button
+                className="
+            w-4 h-4 rounded-[4px] border-none
+            bg-white/[0.06] text-[var(--gray-500)]
+            flex items-center justify-center
+            cursor-pointer ml-0.5
+            active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]
+          "
+                onClick={() => { setImgUrl(''); haptic('light') }}
               >
-                <X size={12} />
+                <X size={10} />
               </button>
             </div>
           </div>
         )}
 
+        {/* Input row */}
         <div className="flex items-center gap-2">
           {/* Upload button */}
           {caps.supportsImageInput && (
             <>
-              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) upload(f)
+                  e.target.value = ''
+                }}
+              />
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
                 className={`
-                  w-[38px] h-[38px] rounded-[10px] border-none shrink-0
-                  flex items-center justify-center cursor-pointer transition-all
-                  active:scale-[.92]
-                  ${imgUrl ? 'bg-amber-400/10 text-amber-400' : 'bg-white/[.04] text-neutral-500'}
-                `}
+            w-[38px] h-[38px] rounded-[10px] border-none
+            flex items-center justify-center
+            cursor-pointer transition-all duration-150
+            shrink-0 self-center
+            ${imgUrl
+                    ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                    : 'bg-white/[0.04] text-[var(--gray-500)]'
+                  }
+            active:scale-[0.92]
+            disabled:opacity-50 disabled:cursor-default
+          `}
               >
-                {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                {uploading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Upload size={18} />
+                )}
               </button>
             </>
           )}
 
-          {/* Textarea */}
-          <div className="flex-1 min-w-0">
-            <textarea ref={inputRef}
-              placeholder={isI2V ? 'Загрузите фото и опишите видео...' : 'Опишите видео...'}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={onKey}
-              rows={1}
-              disabled={generating}
-              className="
-                w-full px-3.5 py-2.5 rounded-xl
-                border border-white/[.08] bg-white/[.03]
-                text-white text-[14px] font-[inherit] outline-none
-                resize-none leading-[1.4] max-h-[120px]
-                placeholder:text-neutral-600
-                focus:border-amber-400/20 transition-colors
-              "
-            />
-          </div>
-
-          {/* Send */}
-          <button onClick={doGen} disabled={!input.trim() || generating}
+          <textarea
+            ref={inputRef}
             className="
-              w-[38px] h-[38px] rounded-[10px] border-none shrink-0
-              bg-white/[.04] text-amber-400
-              flex items-center justify-center cursor-pointer
-              transition-all active:scale-[.92]
-              disabled:cursor-default disabled:opacity-50
-            "
+        flex-1 min-w-0 block align-middle
+        py-[9px] px-3.5
+        rounded-[var(--radius-sm)]
+        border border-[var(--border-glass)]
+        bg-white/[0.03]
+        text-white text-[14px] font-[inherit]
+        outline-none resize-none leading-[1.4]
+        max-h-[120px]
+        transition-[border-color] duration-200
+        placeholder:text-[var(--gray-600)]
+        focus:border-[rgba(250,204,21,0.2)]
+      "
+            placeholder={isI2V ? 'Загрузите фото и опишите видео...' : 'Опишите видео...'}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKey}
+            rows={1}
+            disabled={generating}
+          />
+
+          <button
+            onClick={doGen}
+            disabled={!input.trim() || generating}
+            className="
+        w-[38px] h-[38px] rounded-[10px] border-none
+        bg-white/[0.04] text-[var(--accent-yellow)]
+        flex items-center justify-center
+        cursor-pointer transition-all duration-150
+        shrink-0 self-center
+        active:scale-[0.92]
+        disabled:cursor-default disabled:opacity-50
+      "
           >
-            {generating ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            {generating ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Send size={18} className="-ml-0.5" />
+            )}
           </button>
         </div>
       </div>
@@ -445,7 +505,7 @@ export function VideoGenerationPage({ onBack }: Props) {
               {caps.supportsSound && (
                 <Field label="🔊 Звуковые эффекты">
                   <Chips>
-                    <Chip active={snd}  onClick={() => { setSnd(true);  haptic('light') }}>Включить</Chip>
+                    <Chip active={snd} onClick={() => { setSnd(true); haptic('light') }}>Включить</Chip>
                     <Chip active={!snd} onClick={() => { setSnd(false); haptic('light') }}>Выключить</Chip>
                   </Chips>
                 </Field>
@@ -455,7 +515,7 @@ export function VideoGenerationPage({ onBack }: Props) {
               {caps.supportsRemoveWatermark && (
                 <Field label="Водяной знак">
                   <Chips>
-                    <Chip active={noWm}  onClick={() => { setNoWm(true);  haptic('light') }}>Убрать</Chip>
+                    <Chip active={noWm} onClick={() => { setNoWm(true); haptic('light') }}>Убрать</Chip>
                     <Chip active={!noWm} onClick={() => { setNoWm(false); haptic('light') }}>Оставить</Chip>
                   </Chips>
                 </Field>
