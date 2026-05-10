@@ -1,7 +1,6 @@
-// src/components/ImageGenerationPage.tsx
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, Send, Check, X, Image as ImageIcon,
   Settings, Wand2, Maximize2, Layers, Loader2,
@@ -175,7 +174,10 @@ export function ImageGenerationPage({ onBack }: Props) {
   const { generate, generations } = useGeneration()
   const { models: allModels } = useModels()
 
-  const imageModels = allModels.filter((m) => m.category === 'image')
+  const imageModels = useMemo(
+    () => allModels.filter((m: any) => m.category === 'image'),
+    [allModels]
+  )
 
   const [input, setInput] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
@@ -198,6 +200,7 @@ export function ImageGenerationPage({ onBack }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   const currentModel = imageModels.find((m: any) => m.slug === selectedModelSlug)
   const modelCost = currentModel?.cost || 5
@@ -205,14 +208,13 @@ export function ImageGenerationPage({ onBack }: Props) {
 
   // Telegram BackButton
   useEffect(() => {
-    if (webApp?.BackButton) {
-      webApp.BackButton.show()
-      const handler = () => { if (onBack) onBack() }
-      webApp.BackButton.onClick(handler)
-      return () => {
-        webApp.BackButton.offClick(handler)
-        webApp.BackButton.hide()
-      }
+    if (!webApp?.BackButton || !onBack) return
+    webApp.BackButton.show()
+    const handler = () => onBack()
+    webApp.BackButton.onClick(handler)
+    return () => {
+      webApp.BackButton.offClick(handler)
+      webApp.BackButton.hide()
     }
   }, [webApp, onBack])
 
@@ -233,7 +235,7 @@ export function ImageGenerationPage({ onBack }: Props) {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
       inputRef.current.style.height =
-        Math.min(inputRef.current.scrollHeight, 140) + 'px'
+        Math.min(inputRef.current.scrollHeight, 120) + 'px'
     }
   }, [input])
 
@@ -379,278 +381,449 @@ export function ImageGenerationPage({ onBack }: Props) {
     (caps.supportsImg2Img && caps.maxInputImages > 0)
 
   return (
-    <div className="gen-page">
-      {/* ── Header / Model Selector ── */}
-      <div className="gen-page__header fade-in fade-in--1">
-        <div className="gen-page__model-select-container">
+    <div
+      className="
+        fixed inset-0 z-[5] flex flex-col
+        bg-[var(--bg-primary,#08080a)]
+        pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
+      "
+    >
+      {/* ── Model bar ── */}
+      <div
+        className="
+          shrink-0 relative z-40
+          flex flex-col gap-1.5
+          px-4 pt-2.5 pb-1.5
+          bg-[rgba(8,8,10,0.95)]
+          backdrop-blur-[24px] [-webkit-backdrop-filter:blur(24px)]
+          border-b border-white/[0.04]
+        "
+      >
+        <div className="flex items-center gap-2">
           <button
-            className="gen-page__model-select"
+            className="
+              flex-1 min-w-0
+              inline-flex items-center gap-1.5
+              py-[7px] px-3.5
+              rounded-[var(--radius-xs)]
+              border border-[var(--border-glass)]
+              bg-[var(--bg-glass)]
+              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+              text-white text-[13px] font-semibold
+              cursor-pointer transition-all duration-200
+              active:scale-[0.97]
+              font-[inherit]
+            "
             onClick={() => {
               setShowModelPicker(!showModelPicker)
               haptic('light')
             }}
           >
-            <ImageIcon size={16} />
-            <span>{currentModel?.name ?? selectedModelSlug}</span>
-            <span className="gen-page__model-cost">{modelCost} 🔥</span>
+            <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
+            <span className="truncate">{currentModel?.name ?? selectedModelSlug}</span>
+            <span className="text-[11px] text-white/40 ml-auto shrink-0">
+              {modelCost % 1 === 0 ? modelCost : modelCost.toFixed(2)} 🔥
+            </span>
             <ChevronDown
               size={14}
-              className={showModelPicker ? 'rotate-180' : ''}
+              className={`
+                text-[var(--gray-500)] transition-transform duration-200 shrink-0
+                ${showModelPicker ? 'rotate-180' : ''}
+              `}
             />
           </button>
+
           <button
-            className="gen-page__settings-button"
+            className="
+              w-9 h-9 rounded-[9px]
+              border border-[var(--border-glass)]
+              bg-[var(--bg-glass)]
+              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+              flex items-center justify-center
+              cursor-pointer transition-all duration-150
+              shrink-0 [-webkit-tap-highlight-color:transparent]
+              text-[var(--gray-500)]
+              active:scale-[0.9] active:text-[var(--accent-yellow)]
+            "
             onClick={() => {
               setShowSettings(true)
               haptic('light')
             }}
           >
-            <Settings size={18} />
+            <Settings size={16} />
           </button>
         </div>
 
-        {showModelPicker && (
-          <div className="gen-page__model-list fade-in">
-            {imageModels.map((m: any) => (
-              <button
-                key={m.slug}
-                className={`gen-page__model-list-item ${
-                  selectedModelSlug === m.slug ? 'selected' : ''
-                }`}
-                onClick={() => {
-                  setSelectedModelSlug(m.slug)
-                  setShowModelPicker(false)
-                  haptic('light')
-                }}
-              >
-                <div className="gen-page__model-list-info">
-                  <span className="gen-page__model-name">{m.name}</span>
-                  <span className="gen-page__model-provider">
-                    {m.provider}
-                    {m.capabilities?.includes('image_to_image')
-                      ? ' · img2img'
-                      : ''}
-                  </span>
-                </div>
-                <div className="gen-page__model-right">
-                  <span className="gen-page__model-cost-sm">{m.cost} 🔥</span>
-                  {selectedModelSlug === m.slug && <Check size={14} />}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Текущие параметры — быстрый просмотр */}
-        <div className="gen-page__params-row">
-          <span
-            className="gen-page__param-badge"
+        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
+          <button
+            className="
+              shrink-0 py-1 px-2.5
+              rounded-[var(--radius-xs)]
+              border border-[var(--border-glass)]
+              bg-[var(--bg-glass)]
+              text-[var(--gray-400)] text-[11px] font-medium
+              cursor-pointer transition-all duration-150
+              active:scale-[0.95] active:bg-[var(--bg-card-hover)]
+            "
             onClick={() => {
               setShowSettings(true)
               haptic('light')
             }}
           >
             {aspectRatio}
-          </span>
+          </button>
           {caps.resolutions.length > 0 && (
-            <span
-              className="gen-page__param-badge"
+            <button
+              className="
+                shrink-0 py-1 px-2.5
+                rounded-[var(--radius-xs)]
+                border border-[var(--border-glass)]
+                bg-[var(--bg-glass)]
+                text-[var(--gray-400)] text-[11px] font-medium
+                cursor-pointer transition-all duration-150
+                active:scale-[0.95] active:bg-[var(--bg-card-hover)]
+              "
               onClick={() => {
                 setShowSettings(true)
                 haptic('light')
               }}
             >
               {resolution}
-            </span>
+            </button>
           )}
           {caps.qualities && caps.qualities.length > 0 && (
-            <span
-              className="gen-page__param-badge"
+            <button
+              className="
+                shrink-0 py-1 px-2.5
+                rounded-[var(--radius-xs)]
+                border border-[var(--border-glass)]
+                bg-[var(--bg-glass)]
+                text-[var(--gray-400)] text-[11px] font-medium
+                cursor-pointer transition-all duration-150
+                active:scale-[0.95] active:bg-[var(--bg-card-hover)]
+              "
               onClick={() => {
                 setShowSettings(true)
                 haptic('light')
               }}
             >
               {QUALITY_LABELS[quality] || quality}
-            </span>
+            </button>
           )}
           {isImg2ImgModel && (
-            <span
-              className={`gen-page__param-badge ${
-                inputImages.length > 0 ? 'gen-page__param-badge--active' : ''
-              }`}
+            <button
+              className={`
+                shrink-0 py-1 px-2.5
+                rounded-[var(--radius-xs)]
+                border text-[11px] font-medium
+                cursor-pointer transition-all duration-150
+                active:scale-[0.95]
+                ${inputImages.length > 0
+                  ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                  : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                }
+              `}
               onClick={() => {
                 setShowSettings(true)
                 haptic('light')
               }}
             >
-              {inputImages.length > 0
-                ? `${inputImages.length} фото`
-                : 'img2img'}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Results ── */}
-      <div className="gen-page__results">
-        {imageGenerations.length === 0 && (
-          <div className="gen-page__empty fade-in fade-in--2">
-            <div className="gen-page__empty-icon">
-              <ImageIcon size={36} strokeWidth={1.5} />
-            </div>
-            <div className="gen-page__empty-title">Генерация изображений</div>
-            <div className="gen-page__empty-text">
-              Опишите что хотите увидеть. Чем детальнее промпт — тем лучше
-              результат.
-            </div>
-            <button className="gen-page__example-btn" onClick={insertExample}>
-              <Wand2 size={14} />
-              Пример промпта
+              {inputImages.length > 0 ? `${inputImages.length} фото` : 'img2img'}
             </button>
+          )}
+        </div>
+
+        {/* Model dropdown */}
+        {showModelPicker && (
+          <div
+            className="
+              fade-in
+              absolute top-[calc(100%+2px)] left-4 right-4 z-50
+              rounded-[var(--radius-sm)]
+              border border-[var(--border-glass)]
+              bg-[var(--bg-glass-heavy)]
+              backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+              overflow-hidden max-h-[400px] overflow-y-auto
+            "
+          >
+            {imageModels.map((m: any) => (
+              <button
+                key={m.slug}
+                className={`
+                  flex items-center justify-between w-full
+                  py-[11px] px-3.5
+                  border-none bg-transparent
+                  text-[var(--gray-400)] text-[13px]
+                  cursor-pointer transition-[background] duration-150
+                  font-[inherit] text-left
+                  border-b border-[var(--border)]
+                  last:border-b-0
+                  active:bg-white/[0.04]
+                  ${selectedModelSlug === m.slug ? 'text-white' : ''}
+                `}
+                onClick={() => {
+                  setSelectedModelSlug(m.slug)
+                  setShowModelPicker(false)
+                  haptic('light')
+                }}
+              >
+                <div className="flex flex-col gap-[1px]">
+                  <span className="font-semibold">{m.name}</span>
+                  <span className="text-[11px] text-[var(--gray-600)]">
+                    {m.provider}
+                    {m.capabilities?.includes('image_to_image') ? ' · img2img' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-white/40">
+                    {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
+                  </span>
+                  {selectedModelSlug === m.slug && (
+                    <Check size={14} className="text-[var(--accent-yellow)]" />
+                  )}
+                </div>
+              </button>
+            ))}
           </div>
         )}
-
-        {imageGenerations.map((gen: any) => (
-          <div key={gen.id} className="gen-page__result-item fade-in">
-            <div className="gen-page__result-prompt">
-              <span className="gen-page__result-model">{gen.model}</span>
-              {gen.prompt}
-            </div>
-            <MediaResult
-              generation={gen}
-              onRetry={() =>
-                generate({
-                  type: 'image',
-                  model: gen.modelSlug,
-                  prompt: gen.prompt,
-                  settings: gen.settings,
-                })
-              }
-            />
-          </div>
-        ))}
-        <div ref={resultsRef} />
       </div>
 
-      {/* ── Input Area ── */}
-      <div className="gen-page__input-area">
-        {inputImages.length > 0 && (
-          <div className="gen-page__input-images">
-            {inputImages.map((url, idx) => (
-              <div key={idx} className="gen-page__input-image-wrap">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" className="gen-page__input-image" />
-                <button
-                  className="gen-page__input-image-remove"
-                  onClick={() => removeInputImage(idx)}
-                >
-                  <X size={12} />
-                </button>
+            {/* ── Results ── */}
+      <div
+        ref={messagesContainerRef}
+        className="
+          flex-1 min-h-0 overflow-y-auto
+          overscroll-contain [-webkit-overflow-scrolling:touch]
+        "
+      >
+        <div className="flex flex-col gap-3.5 px-4 py-3">
+          {/* Empty state */}
+          {imageGenerations.length === 0 && !isGenerating && (
+            <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-[60px] text-center fade-in fade-in--2">
+              <div className="w-16 h-16 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/15 mb-1">
+                <ImageIcon size={36} strokeWidth={1.5} />
               </div>
-            ))}
-            {inputImages.length < caps.maxInputImages && (
+              <div className="text-[17px] font-semibold text-white/60">
+                Генерация изображений
+              </div>
+              <div className="text-[13px] text-white/30 max-w-[280px] leading-[1.5]">
+                Опишите что вы хотите увидеть. ИИ создаст изображение по вашему описанию.
+              </div>
               <button
-                className="gen-page__input-image-add"
-                onClick={() => fileInputRef.current?.click()}
+                className="
+                  flex items-center gap-1.5
+                  bg-white/[0.06] border border-white/[0.08]
+                  rounded-[10px] py-2.5 px-5
+                  text-white/50 text-[13px]
+                  cursor-pointer mt-2 transition-all duration-150
+                  [-webkit-tap-highlight-color:transparent] font-[inherit]
+                  active:bg-white/10
+                "
+                onClick={insertExample}
               >
-                <Upload size={16} />
+                <Wand2 size={14} /> Пример промпта
               </button>
-            )}
-          </div>
-        )}
-
-                <div className="chat-input__row">
-          {caps.supportsImg2Img && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <button
-                className={`chat-input__attach ${
-                  uploadingImage ? 'chat-input__attach--loading' : ''
-                } ${inputImages.length > 0 ? 'chat-input__attach--active' : ''}`}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingImage || inputImages.length >= caps.maxInputImages}
-                title="Добавить изображение для img2img"
-              >
-                {uploadingImage ? (
-                  <Loader2 size={18} className="spin" />
-                ) : (
-                  <Upload size={18} />
-                )}
-              </button>
-            </>
+            </div>
           )}
 
-          <div className="chat-input__field-wrap">
-            <textarea
-              ref={inputRef}
-              className="chat-input__field"
-              placeholder={
-                isImg2ImgModel && inputImages.length === 0
-                  ? 'Загрузите изображение и опишите изменения...'
-                  : 'Опишите изображение...'
-              }
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              disabled={isGenerating}
-            />
-          </div>
+          {/* Загруженные input изображения для img2img */}
+          {isImg2ImgModel && inputImages.length > 0 && (
+            <div className="flex flex-col gap-2 fade-in">
+              <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                Исходные ({inputImages.length}/{caps.maxInputImages})
+              </div>
+              <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
+                {inputImages.map((url, idx) => (
+                  <div
+                    key={idx}
+                    className="
+                      relative shrink-0
+                      w-20 h-20 rounded-[var(--radius-xs)]
+                      border border-[var(--border-glass)]
+                      bg-[var(--bg-glass)]
+                      overflow-hidden
+                    "
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`Input ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      className="
+                        absolute top-1 right-1
+                        w-5 h-5 rounded-full
+                        bg-black/60 backdrop-blur-sm
+                        text-white
+                        flex items-center justify-center
+                        cursor-pointer
+                        active:scale-90 active:bg-[var(--accent-red)]
+                      "
+                      onClick={() => removeInputImage(idx)}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <button
-            className="chat-input__send"
-            onClick={handleGenerate}
-            disabled={!input.trim() || isGenerating}
-          >
-            {isGenerating ? (
-              <Loader2 size={18} className="spin" />
-            ) : (
-              <Send size={18} />
-            )}
-          </button>
+          {/* Список генераций */}
+          {imageGenerations.map((gen: any) => (
+            <div
+              key={gen.id}
+              className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]"
+              ref={resultsRef}
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="
+                    text-[11px] font-semibold
+                    py-1 px-2
+                    rounded-[6px]
+                    bg-white/[0.04] border border-white/[0.06]
+                    text-[var(--gray-500)]
+                  "
+                >
+                  {gen.model}
+                </span>
+                <span className="text-[12px] text-[var(--gray-300)] flex-1 min-w-0 truncate">
+                  {gen.prompt}
+                </span>
+              </div>
+
+              <MediaResult
+                generation={gen}
+                onRetry={() => {
+                  setInput(gen.prompt)
+                  inputRef.current?.focus()
+                  haptic('light')
+                }}
+              />
+            </div>
+          ))}
+
+          {/* Streaming generation */}
+          {isGenerating && (
+            <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="
+                    text-[11px] font-semibold
+                    py-1 px-2
+                    rounded-[6px]
+                    bg-[rgba(250,204,21,0.08)] border border-[rgba(250,204,21,0.2)]
+                    text-[var(--accent-yellow)]
+                  "
+                >
+                  {currentModel?.name ?? selectedModelSlug}
+                </span>
+                <span className="text-[12px] text-[var(--gray-400)] flex-1 min-w-0 truncate">
+                  {input || 'Генерация...'}
+                </span>
+              </div>
+
+              <div
+                className="
+                  aspect-square w-full max-w-[400px] mx-auto
+                  rounded-[var(--radius-md)]
+                  border border-[var(--border-glass)]
+                  bg-[var(--bg-glass)]
+                  backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+                  flex flex-col items-center justify-center gap-3
+                  relative overflow-hidden
+                "
+              >
+                {/* Анимированный фон */}
+                <div
+                  className="
+                    absolute inset-0 opacity-30
+                    bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)]
+                    animate-pulse
+                  "
+                />
+                <Loader2
+                  size={36}
+                  className="text-[var(--accent-yellow)] animate-spin relative z-10"
+                  strokeWidth={1.5}
+                />
+                <div className="text-[13px] font-medium text-white/70 relative z-10">
+                  Создаём изображение...
+                </div>
+                <div className="text-[11px] text-white/40 relative z-10">
+                  Обычно 10–30 секунд
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Settings Modal ── */}
+      {/* ── Settings sheet ── */}
       {showSettings && (
-        <div className="gen-settings-modal" onClick={() => setShowSettings(false)}>
+        <>
           <div
-            className="gen-settings-modal__content"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm fade-in"
+            onClick={() => setShowSettings(false)}
+          />
+          <div
+            className="
+              fixed left-0 right-0 bottom-0 z-[61]
+              max-h-[85vh] overflow-y-auto overscroll-contain
+              rounded-t-[20px]
+              border-t border-[var(--border-glass)]
+              bg-[var(--bg-glass-heavy)]
+              backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+              [-webkit-overflow-scrolling:touch]
+              animate-[slideUp_0.3s_ease-out]
+              pb-[calc(20px+var(--safe-bottom))]
+            "
           >
-            <div className="gen-settings-modal__header">
-              <h2 className="gen-settings-modal__title">
-                <Settings size={16} />
-                Настройки · {currentModel?.name ?? selectedModelSlug}
-              </h2>
+            {/* Drag handle */}
+            <div className="sticky top-0 pt-2.5 pb-1 flex justify-center bg-[var(--bg-glass-heavy)]">
+              <div className="w-10 h-1 rounded-full bg-white/15" />
+            </div>
+
+            <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.04]">
+              <div className="text-[15px] font-semibold text-white">Настройки</div>
               <button
-                className="gen-settings-modal__close"
+                className="
+                  w-8 h-8 rounded-full
+                  bg-white/[0.04] text-[var(--gray-500)]
+                  flex items-center justify-center
+                  cursor-pointer
+                  active:scale-90 active:bg-white/[0.08]
+                "
                 onClick={() => setShowSettings(false)}
               >
-                <X size={20} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="gen-settings-modal__body">
-              {/* Aspect Ratio */}
-              <div className="gen-field">
-                <label className="gen-field__label">
-                  <Maximize2 size={13} /> Соотношение сторон
-                </label>
-                <div className="gen-field__chips gen-field__chips--wrap">
+            <div className="flex flex-col gap-5 p-5">
+              {/* Соотношение сторон */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                  <Maximize2 size={12} />
+                  Соотношение сторон
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
                   {caps.aspectRatios.map((ar) => (
                     <button
                       key={ar}
-                      className={`gen-chip ${
-                        aspectRatio === ar ? 'gen-chip--active' : ''
-                      }`}
+                      className={`
+                        py-2 px-2.5 rounded-[var(--radius-xs)]
+                        border text-[12px] font-medium
+                        cursor-pointer transition-all duration-150
+                        active:scale-[0.96]
+                        ${aspectRatio === ar
+                          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                        }
+                      `}
                       onClick={() => {
                         setAspectRatio(ar)
                         haptic('light')
@@ -662,19 +835,27 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               </div>
 
-              {/* Resolution */}
+              {/* Разрешение */}
               {caps.resolutions.length > 0 && (
-                <div className="gen-field">
-                  <label className="gen-field__label">
-                    <Zap size={13} /> Разрешение
-                  </label>
-                  <div className="gen-field__chips">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                    <Layers size={12} />
+                    Разрешение
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
                     {caps.resolutions.map((r) => (
                       <button
                         key={r}
-                        className={`gen-chip ${
-                          resolution === r ? 'gen-chip--active' : ''
-                        }`}
+                        className={`
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${resolution === r
+                            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                          }
+                        `}
                         onClick={() => {
                           setResolution(r)
                           haptic('light')
@@ -687,19 +868,27 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Quality */}
+              {/* Качество */}
               {caps.qualities && caps.qualities.length > 0 && (
-                <div className="gen-field">
-                  <label className="gen-field__label">
-                    <Layers size={13} /> Качество
-                  </label>
-                  <div className="gen-field__chips">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                    <Zap size={12} />
+                    Качество
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
                     {caps.qualities.map((q) => (
                       <button
                         key={q}
-                        className={`gen-chip ${
-                          quality === q ? 'gen-chip--active' : ''
-                        }`}
+                        className={`
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${quality === q
+                            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                          }
+                        `}
                         onClick={() => {
                           setQuality(q)
                           haptic('light')
@@ -712,39 +901,57 @@ export function ImageGenerationPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Output Format */}
+              {/* Output format */}
               {caps.supportsOutputFormat && (
-                <div className="gen-field">
-                  <label className="gen-field__label">Формат файла</label>
-                  <div className="gen-field__chips">
-                    {['png', 'jpg'].map((fmt) => (
+                <div className="flex flex-col gap-2">
+                  <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                    Формат
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {['png', 'jpeg'].map((f) => (
                       <button
-                        key={fmt}
-                        className={`gen-chip ${
-                          outputFormat === fmt ? 'gen-chip--active' : ''
-                        }`}
+                        key={f}
+                        className={`
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium uppercase
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${outputFormat === f
+                            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                          }
+                        `}
                         onClick={() => {
-                          setOutputFormat(fmt)
+                          setOutputFormat(f)
                           haptic('light')
                         }}
                       >
-                        {fmt.toUpperCase()}
+                        {f}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Negative Prompt */}
+              {/* Negative prompt */}
               {caps.supportsNegativePrompt && (
-                <div className="gen-field">
-                  <label className="gen-field__label">
-                    Исключить из генерации
-                    <span className="gen-field__hint">Negative prompt</span>
-                  </label>
+                <div className="flex flex-col gap-2">
+                  <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                    Negative prompt
+                  </div>
                   <textarea
-                    className="gen-field__textarea"
-                    placeholder="ugly, blurry, bad anatomy, watermark..."
+                    className="
+                      w-full py-2.5 px-3
+                      rounded-[var(--radius-sm)]
+                      border border-[var(--border-glass)]
+                      bg-white/[0.03]
+                      text-white text-[13px] font-[inherit]
+                      outline-none resize-none leading-[1.4]
+                      transition-[border-color] duration-200
+                      placeholder:text-[var(--gray-600)]
+                      focus:border-[rgba(250,204,21,0.2)]
+                    "
+                    placeholder="Что не должно быть на изображении..."
                     value={negativePrompt}
                     onChange={(e) => setNegativePrompt(e.target.value)}
                     rows={2}
@@ -754,78 +961,249 @@ export function ImageGenerationPage({ onBack }: Props) {
 
               {/* Seed */}
               {caps.supportsSeed && (
-                <div className="gen-field">
-                  <label className="gen-field__label">
+                <div className="flex flex-col gap-2">
+                  <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
                     Seed
-                    <span className="gen-field__hint">Для воспроизводимости</span>
-                  </label>
-                  <div className="gen-field__seed-row">
+                  </div>
+                  <div className="flex gap-2">
                     <input
                       type="number"
-                      className="gen-field__seed-input"
+                      className="
+                        flex-1 min-w-0 py-2.5 px-3
+                        rounded-[var(--radius-sm)]
+                        border border-[var(--border-glass)]
+                        bg-white/[0.03]
+                        text-white text-[13px] font-[inherit]
+                        outline-none
+                        transition-[border-color] duration-200
+                        placeholder:text-[var(--gray-600)]
+                        focus:border-[rgba(250,204,21,0.2)]
+                      "
                       placeholder="Случайный"
                       value={seed ?? ''}
                       onChange={(e) =>
-                        setSeed(e.target.value ? Number(e.target.value) : undefined)
+                        setSeed(e.target.value ? parseInt(e.target.value, 10) : undefined)
                       }
                     />
                     <button
-                      className="gen-field__seed-random"
+                      className="
+                        shrink-0 w-[42px] h-[42px]
+                        rounded-[var(--radius-sm)]
+                        border border-[var(--border-glass)]
+                        bg-[var(--bg-glass)]
+                        text-[var(--gray-400)]
+                        flex items-center justify-center
+                        cursor-pointer transition-all duration-150
+                        active:scale-[0.92] active:text-[var(--accent-yellow)]
+                      "
                       onClick={randomSeed}
                     >
-                      <Shuffle size={14} />
+                      <Shuffle size={16} />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Img2Img */}
-              {caps.supportsImg2Img && (
-                <div className="gen-field">
-                  <label className="gen-field__label">
-                    Входные изображения
-                    <span className="gen-field__hint">
-                      До {caps.maxInputImages} · JPEG, PNG, WebP · макс 10MB
-                    </span>
-                  </label>
-
-                  <div className="gen-field__images-grid">
-                    {inputImages.map((url, idx) => (
-                      <div key={idx} className="gen-field__image-thumb">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt="" />
-                        <button
-                          className="gen-field__image-remove"
-                          onClick={() => removeInputImage(idx)}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))}
-
-                    {inputImages.length < caps.maxInputImages && (
+              {/* Img2Img — управление загруженными */}
+              {isImg2ImgModel && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                      Исходные изображения ({inputImages.length}/{caps.maxInputImages})
+                    </div>
+                    {inputImages.length > 0 && (
                       <button
-                        className="gen-field__image-upload"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingImage}
+                        className="
+                          flex items-center gap-1
+                          text-[11px] text-[var(--accent-red)]
+                          cursor-pointer
+                          active:opacity-60
+                        "
+                        onClick={() => {
+                          setInputImages([])
+                          haptic('light')
+                        }}
                       >
-                        {uploadingImage ? (
-                          <Loader2 size={20} className="spin" />
-                        ) : (
-                          <Upload size={20} />
-                        )}
-                        <span>
-                          {uploadingImage ? 'Загрузка...' : 'Добавить'}
-                        </span>
+                        <Trash2 size={11} /> Очистить
                       </button>
                     )}
                   </div>
+
+                  {inputImages.length > 0 && (
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {inputImages.map((url, idx) => (
+                        <div
+                          key={idx}
+                          className="
+                            relative aspect-square
+                            rounded-[var(--radius-xs)]
+                            border border-[var(--border-glass)]
+                            bg-[var(--bg-glass)]
+                            overflow-hidden
+                          "
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Input ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            className="
+                              absolute top-1 right-1
+                              w-5 h-5 rounded-full
+                              bg-black/60 backdrop-blur-sm
+                              text-white
+                              flex items-center justify-center
+                              cursor-pointer
+                              active:scale-90 active:bg-[var(--accent-red)]
+                            "
+                            onClick={() => removeInputImage(idx)}
+                          >
+                            <X size={11} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {inputImages.length < caps.maxInputImages && (
+                    <button
+                      className="
+                        flex items-center justify-center gap-1.5
+                        py-2.5 px-3
+                        rounded-[var(--radius-sm)]
+                        border border-dashed border-[var(--border-glass)]
+                        bg-[var(--bg-glass)]
+                        text-[var(--gray-400)] text-[12px] font-medium
+                        cursor-pointer transition-all duration-150
+                        active:scale-[0.98] active:bg-[var(--bg-card-hover)]
+                        disabled:opacity-50 disabled:cursor-default
+                      "
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Загрузка...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={14} />
+                          Добавить изображение
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </>
       )}
+
+      {/* Скрытый file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      {/* ── Input area ── */}
+      <div
+        className="
+          shrink-0 flex flex-col gap-2
+          px-2.5 pt-2.5 pb-4
+          mb-[calc(59px+var(--safe-bottom))]
+          border-t border-[var(--border-glass)]
+          bg-[var(--bg-glass-heavy)]
+          backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+        "
+      >
+        <div className="flex items-center gap-2">
+          {/* Upload button (для img2img моделей) */}
+          {isImg2ImgModel ? (
+            <button
+              className={`
+                w-[38px] h-[38px] rounded-[10px] border-none
+                flex items-center justify-center
+                cursor-pointer transition-all duration-150
+                shrink-0 self-center
+                ${inputImages.length > 0
+                  ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                  : 'bg-white/[0.04] text-[var(--gray-500)]'
+                }
+                active:scale-[0.92]
+                disabled:opacity-50 disabled:cursor-default
+              `}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingImage || inputImages.length >= caps.maxInputImages}
+            >
+              {uploadingImage ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Upload size={18} />
+              )}
+            </button>
+          ) : null}
+
+          <textarea
+            ref={inputRef}
+            className="
+              flex-1 min-w-0 block align-middle
+              py-[9px] px-3.5
+              rounded-[var(--radius-sm)]
+              border border-[var(--border-glass)]
+              bg-white/[0.03]
+              text-white text-[14px] font-[inherit]
+              outline-none resize-none leading-[1.4]
+              max-h-[120px]
+              transition-[border-color] duration-200
+              placeholder:text-[var(--gray-600)]
+              focus:border-[rgba(250,204,21,0.2)]
+            "
+            placeholder={
+              isImg2ImgModel
+                ? 'Загрузите изображение и опишите изменения...'
+                : 'Опишите изображение...'
+            }
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            disabled={isGenerating}
+          />
+
+          <button
+            className="
+              w-[38px] h-[38px] rounded-[10px] border-none
+              bg-white/[0.04] text-[var(--accent-yellow)]
+              flex items-center justify-center
+              cursor-pointer transition-all duration-150
+              shrink-0 self-center
+              active:scale-[0.92]
+              disabled:cursor-default disabled:opacity-50
+            "
+            onClick={handleGenerate}
+            disabled={
+              !input.trim() ||
+              isGenerating ||
+              (isImg2ImgModel &&
+                selectedModelSlug.includes('img2img') &&
+                inputImages.length === 0)
+            }
+          >
+            {isGenerating ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Send size={18} className="-ml-0.5" />
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
