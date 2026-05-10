@@ -72,7 +72,6 @@ function getModelName(slug: string): string {
 export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
-  // ✅ берём и toggle и isFavorite
   const { toggle: toggleFavorite, isFavorite } = useFavorites()
 
   const messages = useChatStore((s) => s.messages)
@@ -107,7 +106,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
 
-  // ✅ вычисляем избранное для текущего чата
   const isCurrentChatFavorite = useMemo(() => {
     if (!activeChatId || activeChatId.startsWith('pending-')) return false
     return isFavorite('conversation', activeChatId)
@@ -330,7 +328,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         fixed inset-0 z-[5] flex flex-col
         bg-[var(--bg-primary,#08080a)]
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
-        pb-[calc(59px+var(--safe-bottom))]
       "
     >
       {/* ── Model bar ── */}
@@ -344,7 +341,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           border-b border-white/[0.04]
         "
       >
-        {/* ✅ Селектор растянут на всё свободное место */}
         <button
           className="
             flex-1 min-w-0
@@ -368,7 +364,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         >
           <MessageSquare size={14} className="text-[var(--gray-500)] shrink-0" />
           <span className="truncate">{selectedModelName}</span>
-          {/* ✅ Цена прижимается вправо */}
           <span className="text-[11px] text-white/40 ml-auto shrink-0">
             {modelCost % 1 === 0 ? modelCost : modelCost.toFixed(2)} 🔥
           </span>
@@ -381,7 +376,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           />
         </button>
 
-        {/* ✅ Звезда: меняет цвет и заполнение в зависимости от isCurrentChatFavorite */}
         {activeChatId && !activeChatId.startsWith('pending-') && (
           <button
             className={`
@@ -566,7 +560,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             </div>
           ))}
 
-          {/* Streaming message */}
+                    {/* Streaming message */}
           {isStreaming && (
             <div className="flex flex-col max-w-[85%] self-start items-start animate-[fadeIn_0.3s_ease-out]">
               <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
@@ -601,12 +595,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       {/* ── Input area ── */}
       <div
         className="
-    shrink-0 flex flex-col gap-2
-    px-3 py-2.5
-    border-t border-[var(--border-glass)]
-    bg-[var(--bg-glass-heavy)]
-    backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
-  "
+          shrink-0 flex flex-col gap-2
+          px-2.5 py-2.5
+          mb-[calc(59px+var(--safe-bottom))]
+          border-t border-[var(--border-glass)]
+          bg-[var(--bg-glass-heavy)]
+          backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+        "
       >
         {/* Attachments */}
         {attachments.length > 0 && (
@@ -702,7 +697,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           </div>
         )}
 
-        {/* ✅ Input row — выравнивание по центру по вертикали */}
+        {/* Input row */}
         <div className="flex items-center gap-2">
           <button
             className={`
@@ -724,7 +719,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             <Paperclip size={18} />
           </button>
 
-          {/* ✅ textarea напрямую (без обёртки), block + align-middle убирают baseline-смещение */}
           <textarea
             ref={inputRef}
             className="
@@ -776,7 +770,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               onClick={handleSend}
               disabled={(!input.trim() && attachments.length === 0) || isStreaming}
             >
-              <Send size={18} />
+              <Send size={18} className="-ml-0.5" />
             </button>
           )}
         </div>
