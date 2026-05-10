@@ -839,7 +839,7 @@ export function AudioGenerationPage({ onBack }: Props) {
       </div>
 
       {/* ── Settings Modal ── */}
-      {showSettings && (
+{showSettings && (
   <div
     className="
       fixed inset-0 z-[200]
@@ -852,7 +852,7 @@ export function AudioGenerationPage({ onBack }: Props) {
     <div
       className="
         w-full max-w-[600px]
-        max-h-[90dvh]
+        h-[90dvh] max-h-[90dvh]
         rounded-t-[20px]
         bg-[#141418] border-t border-x border-white/[0.06]
         flex flex-col overflow-hidden
@@ -860,311 +860,290 @@ export function AudioGenerationPage({ onBack }: Props) {
       "
       onClick={(e) => e.stopPropagation()}
     >
-            {/* Modal header */}
-            <div
-              className="
-                shrink-0
-                flex items-center justify-between
-                px-5 pt-[18px] pb-3.5
-                border-b border-white/[0.06]
-                bg-[#141418]
-              "
+      {/* Modal header */}
+      <div
+        className="
+          shrink-0
+          flex items-center justify-between
+          px-5 pt-[18px] pb-3.5
+          border-b border-white/[0.06]
+          bg-[#141418]
+        "
+      >
+        <h2 className="flex items-center gap-2 text-[16px] font-semibold text-white m-0">
+          <Music size={16} /> Настройки · {currentModel?.name}
+        </h2>
+        <button
+          className="
+            bg-white/[0.06] border-none rounded-[10px]
+            p-1.5 text-white/50 cursor-pointer
+            active:scale-[0.92]
+          "
+          onClick={() => setShowSettings(false)}
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* Modal body */}
+      <div
+        className="
+          flex-1 min-h-0 overflow-y-auto
+          px-5 pt-4
+          pb-[calc(32px+var(--safe-bottom,0px))]
+          flex flex-col gap-5
+          [-webkit-overflow-scrolling:touch] overscroll-contain
+        "
+      >
+        {/* ═══ SUNO ═══ */}
+        {caps.type === 'suno' && (
+          <>
+            {caps.supportsCustomMode && (
+              <Field label={<><Zap size={13} /> Режим</>}>
+                <Chips>
+                  <Chip active={!customMode} onClick={() => { setCustomMode(false); haptic('light') }}>Авто</Chip>
+                  <Chip active={customMode} onClick={() => { setCustomMode(true); haptic('light') }}>Custom Mode</Chip>
+                </Chips>
+              </Field>
+            )}
+
+            {caps.supportsInstrumental && (
+              <Field label={<><Volume2 size={13} /> Вокал</>}>
+                <Chips>
+                  <Chip active={!instrumental} onClick={() => { setInstrumental(false); haptic('light') }}>С вокалом</Chip>
+                  <Chip active={instrumental} onClick={() => { setInstrumental(true); haptic('light') }}>Инструментал</Chip>
+                </Chips>
+              </Field>
+            )}
+
+            {caps.supportsStyle && (
+              <Field label="🎨 Стиль" hint="pop, rock, jazz, electronic...">
+                <input
+                  type="text"
+                  className="
+                    w-full py-[10px] px-3.5
+                    rounded-[10px] border border-white/[0.08]
+                    bg-white/[0.03] text-white text-[13px]
+                    outline-none transition-[border-color] duration-200
+                    placeholder:text-white/25
+                    focus:border-amber-400/30
+                    font-[inherit]
+                  "
+                  placeholder="Например: pop, energetic, upbeat"
+                  value={style}
+                  onChange={(e) => setStyle(e.target.value)}
+                />
+              </Field>
+            )}
+
+            {caps.supportsDuration && (
+              <Slider
+                label={<><Clock size={13} /> Длительность</>}
+                value={duration}
+                onChange={setDuration}
+                min={caps.durationRange[0]}
+                max={caps.durationRange[1]}
+                step={caps.durationStep}
+                unit="сек"
+                minLabel={`${caps.durationRange[0]} сек`}
+                maxLabel={`${caps.durationRange[1]} сек`}
+              />
+            )}
+          </>
+        )}
+
+        {/* ═══ TTS ═══ */}
+        {caps.type === 'elevenlabs-tts' && (
+          <>
+            {caps.supportsVoice && (
+              <Field label={<><Mic size={13} /> Голос</>}>
+                <ChipsWrap>
+                  {caps.voices.map((v) => (
+                    <Chip key={v} active={voiceId === v} onClick={() => { setVoiceId(v); haptic('light') }}>{v}</Chip>
+                  ))}
+                </ChipsWrap>
+              </Field>
+            )}
+
+            {caps.supportsLanguage && (
+              <Field label="🌐 Язык">
+                <ChipsWrap>
+                  {LANGUAGES.map((l) => (
+                    <Chip key={l.code} active={language === l.code} onClick={() => { setLanguage(l.code); haptic('light') }}>{l.label}</Chip>
+                  ))}
+                </ChipsWrap>
+              </Field>
+            )}
+
+            {caps.supportsStability && (
+              <Slider
+                label="Стабильность"
+                hint="Низкая = эмоциональнее"
+                value={stability}
+                onChange={setStability}
+                min={0} max={100} step={5} unit="%"
+                minLabel="Эмоции" maxLabel="Стабильность"
+              />
+            )}
+
+            {caps.supportsSimilarity && (
+              <Slider
+                label="Схожесть"
+                hint="Насколько близко к оригиналу"
+                value={similarity}
+                onChange={setSimilarity}
+                min={0} max={100} step={5} unit="%"
+                minLabel="Свободнее" maxLabel="Точнее"
+              />
+            )}
+
+            {caps.supportsSpeed && (
+              <Slider
+                label="Скорость"
+                value={speed}
+                onChange={setSpeed}
+                min={50} max={200} step={5} unit="%"
+                minLabel="0.5x" maxLabel="2x"
+              />
+            )}
+          </>
+        )}
+
+        {/* ═══ DIALOGUE ═══ */}
+        {caps.type === 'elevenlabs-dialogue' && (
+          <>
+            <Field label={<><MessageSquare size={13} /> Формат диалога</>}>
+              <div className="text-[12px] text-white/55 leading-relaxed p-3 bg-white/[0.04] rounded-[10px] font-mono border border-white/[0.06]">
+                Aria: Привет! Как дела?<br />
+                Roger: Отлично, спасибо!<br />
+                Aria: Рада слышать!
+              </div>
+              <div className="text-[11px] text-white/40 mt-1.5">
+                Нажмите на имя голоса под полем ввода — оно вставится автоматически
+              </div>
+            </Field>
+
+            <Field label={<><Mic size={13} /> Доступные голоса</>}>
+              <ChipsWrap>
+                {ELEVENLABS_VOICES.map((v) => (
+                  <Chip key={v} active={false} onClick={() => { insertVoiceName(v); haptic('light') }}>{v}</Chip>
+                ))}
+              </ChipsWrap>
+            </Field>
+
+            {caps.supportsLanguage && (
+              <Field label="🌐 Язык">
+                <ChipsWrap>
+                  {LANGUAGES.map((l) => (
+                    <Chip key={l.code} active={language === l.code} onClick={() => { setLanguage(l.code); haptic('light') }}>{l.label}</Chip>
+                  ))}
+                </ChipsWrap>
+              </Field>
+            )}
+
+            {caps.supportsStability && (
+              <Slider
+                label="Стабильность"
+                hint="Низкая = эмоциональнее"
+                value={stability}
+                onChange={setStability}
+                min={0} max={100} step={5} unit="%"
+                minLabel="Эмоции" maxLabel="Стабильность"
+              />
+            )}
+          </>
+        )}
+
+        {/* ═══ SFX ═══ */}
+        {caps.type === 'elevenlabs-sfx' && (
+          <>
+            {caps.supportsDuration && (
+              <Slider
+                label={<><Clock size={13} /> Длительность</>}
+                value={duration}
+                onChange={setDuration}
+                min={caps.durationRange[0]}
+                max={caps.durationRange[1]}
+                step={caps.durationStep}
+                unit="сек"
+                minLabel={`${caps.durationRange[0]} сек`}
+                maxLabel={`${caps.durationRange[1]} сек`}
+              />
+            )}
+
+            {caps.supportsLoop && (
+              <Field label="🔁 Зацикливание">
+                <Chips>
+                  <Chip active={!loop} onClick={() => { setLoop(false); haptic('light') }}>Выключено</Chip>
+                  <Chip active={loop} onClick={() => { setLoop(true); haptic('light') }}>Включено</Chip>
+                </Chips>
+              </Field>
+            )}
+
+            {caps.supportsPromptInfluence && (
+              <Slider
+                label="Влияние промпта"
+                hint="Насколько точно следовать описанию"
+                value={promptInfluence}
+                onChange={setPromptInfluence}
+                min={0} max={100} step={5} unit="%"
+                minLabel="Свободнее" maxLabel="Точнее"
+              />
+            )}
+          </>
+        )}
+
+        {/* ═══ ISOLATION ═══ */}
+        {caps.type === 'elevenlabs-isolation' && (
+          <Field
+            label={<><Upload size={13} /> Аудиофайл для обработки</>}
+            hint="WAV, MP3, OGG · макс 10MB"
+          >
+            <AudioUploadField
+              audioUrl={audioUrl}
+              uploading={uploadingAudio}
+              onPick={() => fileInputRef.current?.click()}
+              onClear={() => setAudioUrl('')}
+            />
+          </Field>
+        )}
+
+        {/* ═══ STT ═══ */}
+        {caps.type === 'elevenlabs-stt' && (
+          <>
+            <Field
+              label={<><Upload size={13} /> Аудиофайл для распознавания</>}
+              hint="WAV, MP3, OGG · макс 10MB"
             >
-              <h2 className="flex items-center gap-2 text-[16px] font-semibold text-white m-0">
-                <Music size={16} /> Настройки · {currentModel?.name}
-              </h2>
-              <button
-                className="
-                  bg-white/[0.06] border-none rounded-[10px]
-                  p-1.5 text-white/50 cursor-pointer
-                  active:scale-[0.92]
-                "
-                onClick={() => setShowSettings(false)}
-              >
-                <X size={20} />
-              </button>
-            </div>
+              <AudioUploadField
+                audioUrl={audioUrl}
+                uploading={uploadingAudio}
+                onPick={() => fileInputRef.current?.click()}
+                onClear={() => setAudioUrl('')}
+              />
+            </Field>
 
-            {/* Modal body */}
-            <div
-  className="
-    flex-1 overflow-y-auto
-    px-5 pt-4
-    pb-[calc(24px+var(--safe-bottom,0px))]
-    flex flex-col gap-5
-    [-webkit-overflow-scrolling:touch] overscroll-contain
-  "
->
-              {/* ═══ SUNO ═══ */}
-              {caps.type === 'suno' && (
-                <>
-                  {caps.supportsCustomMode && (
-                    <Field label={<><Zap size={13} /> Режим</>}>
-                      <Chips>
-                        <Chip active={!customMode} onClick={() => { setCustomMode(false); haptic('light') }}>Авто</Chip>
-                        <Chip active={customMode} onClick={() => { setCustomMode(true); haptic('light') }}>Custom Mode</Chip>
-                      </Chips>
-                    </Field>
-                  )}
-
-                  {caps.supportsInstrumental && (
-                    <Field label={<><Volume2 size={13} /> Вокал</>}>
-                      <Chips>
-                        <Chip active={!instrumental} onClick={() => { setInstrumental(false); haptic('light') }}>С вокалом</Chip>
-                        <Chip active={instrumental} onClick={() => { setInstrumental(true); haptic('light') }}>Инструментал</Chip>
-                      </Chips>
-                    </Field>
-                  )}
-
-                  {caps.supportsStyle && (
-                    <Field label="🎨 Стиль" hint="pop, rock, jazz, electronic...">
-                      <input
-                        type="text"
-                        className="
-                          w-full py-[10px] px-3.5
-                          rounded-[10px] border border-white/[0.08]
-                          bg-white/[0.03] text-white text-[13px]
-                          outline-none transition-[border-color] duration-200
-                          placeholder:text-white/25
-                          focus:border-amber-400/30
-                          font-[inherit]
-                        "
-                        placeholder="Например: pop, energetic, upbeat"
-                        value={style}
-                        onChange={(e) => setStyle(e.target.value)}
-                      />
-                    </Field>
-                  )}
-
-                  {caps.supportsDuration && (
-                    <Slider
-                      label={<><Clock size={13} /> Длительность</>}
-                      value={duration}
-                      onChange={setDuration}
-                      min={caps.durationRange[0]}
-                      max={caps.durationRange[1]}
-                      step={caps.durationStep}
-                      unit="сек"
-                      minLabel={`${caps.durationRange[0]} сек`}
-                      maxLabel={`${caps.durationRange[1]} сек`}
-                    />
-                  )}
-                </>
-              )}
-
-              {/* ═══ TTS ═══ */}
-              {caps.type === 'elevenlabs-tts' && (
-                <>
-                  {caps.supportsVoice && (
-                    <Field label={<><Mic size={13} /> Голос</>}>
-                      <ChipsWrap>
-                        {caps.voices.map((v) => (
-                          <Chip key={v} active={voiceId === v} onClick={() => { setVoiceId(v); haptic('light') }}>{v}</Chip>
-                        ))}
-                      </ChipsWrap>
-                    </Field>
-                  )}
-
-                  {caps.supportsLanguage && (
-                    <Field label="🌐 Язык">
-                      <ChipsWrap>
-                        {LANGUAGES.map((l) => (
-                          <Chip key={l.code} active={language === l.code} onClick={() => { setLanguage(l.code); haptic('light') }}>{l.label}</Chip>
-                        ))}
-                      </ChipsWrap>
-                    </Field>
-                  )}
-
-                  {caps.supportsStability && (
-                    <Slider
-                      label="Стабильность"
-                      hint="Низкая = эмоциональнее"
-                      value={stability}
-                      onChange={setStability}
-                      min={0}
-                      max={100}
-                      step={5}
-                      unit="%"
-                      minLabel="Эмоции"
-                      maxLabel="Стабильность"
-                    />
-                  )}
-
-                  {caps.supportsSimilarity && (
-                    <Slider
-                      label="Схожесть"
-                      hint="Насколько близко к оригиналу"
-                      value={similarity}
-                      onChange={setSimilarity}
-                      min={0}
-                      max={100}
-                      step={5}
-                      unit="%"
-                      minLabel="Свободнее"
-                      maxLabel="Точнее"
-                    />
-                  )}
-
-                  {caps.supportsSpeed && (
-                    <Slider
-                      label="Скорость"
-                      value={speed}
-                      onChange={setSpeed}
-                      min={50}
-                      max={200}
-                      step={5}
-                      unit="%"
-                      minLabel="0.5x"
-                      maxLabel="2x"
-                    />
-                  )}
-                </>
-              )}
-
-              {/* ═══ DIALOGUE ═══ */}
-              {caps.type === 'elevenlabs-dialogue' && (
-                <>
-                  <Field label={<><MessageSquare size={13} /> Формат диалога</>}>
-                    <div className="text-[12px] text-white/55 leading-relaxed p-3 bg-white/[0.04] rounded-[10px] font-mono border border-white/[0.06]">
-                      Aria: Привет! Как дела?<br />
-                      Roger: Отлично, спасибо!<br />
-                      Aria: Рада слышать!
-                    </div>
-                    <div className="text-[11px] text-white/40 mt-1.5">
-                      Нажмите на имя голоса под полем ввода — оно вставится автоматически
-                    </div>
-                  </Field>
-
-                  <Field label={<><Mic size={13} /> Доступные голоса</>}>
-                    <ChipsWrap>
-                      {ELEVENLABS_VOICES.map((v) => (
-                        <Chip key={v} active={false} onClick={() => { insertVoiceName(v); haptic('light') }}>{v}</Chip>
-                      ))}
-                    </ChipsWrap>
-                  </Field>
-
-                  {caps.supportsLanguage && (
-                    <Field label="🌐 Язык">
-                      <ChipsWrap>
-                        {LANGUAGES.map((l) => (
-                          <Chip key={l.code} active={language === l.code} onClick={() => { setLanguage(l.code); haptic('light') }}>{l.label}</Chip>
-                        ))}
-                      </ChipsWrap>
-                    </Field>
-                  )}
-
-                  {caps.supportsStability && (
-                    <Slider
-                      label="Стабильность"
-                      hint="Низкая = эмоциональнее"
-                      value={stability}
-                      onChange={setStability}
-                      min={0}
-                      max={100}
-                      step={5}
-                      unit="%"
-                      minLabel="Эмоции"
-                      maxLabel="Стабильность"
-                    />
-                  )}
-                </>
-              )}
-
-                            {/* ═══ SFX ═══ */}
-              {caps.type === 'elevenlabs-sfx' && (
-                <>
-                  {caps.supportsDuration && (
-                    <Slider
-                      label={<><Clock size={13} /> Длительность</>}
-                      value={duration}
-                      onChange={setDuration}
-                      min={caps.durationRange[0]}
-                      max={caps.durationRange[1]}
-                      step={caps.durationStep}
-                      unit="сек"
-                      minLabel={`${caps.durationRange[0]} сек`}
-                      maxLabel={`${caps.durationRange[1]} сек`}
-                    />
-                  )}
-
-                  {caps.supportsLoop && (
-                    <Field label="🔁 Зацикливание">
-                      <Chips>
-                        <Chip active={!loop} onClick={() => { setLoop(false); haptic('light') }}>Выключено</Chip>
-                        <Chip active={loop} onClick={() => { setLoop(true); haptic('light') }}>Включено</Chip>
-                      </Chips>
-                    </Field>
-                  )}
-
-                  {caps.supportsPromptInfluence && (
-                    <Slider
-                      label="Влияние промпта"
-                      hint="Насколько точно следовать описанию"
-                      value={promptInfluence}
-                      onChange={setPromptInfluence}
-                      min={0}
-                      max={100}
-                      step={5}
-                      unit="%"
-                      minLabel="Свободнее"
-                      maxLabel="Точнее"
-                    />
-                  )}
-                </>
-              )}
-
-              {/* ═══ ISOLATION ═══ */}
-              {caps.type === 'elevenlabs-isolation' && (
-                <Field
-                  label={<><Upload size={13} /> Аудиофайл для обработки</>}
-                  hint="WAV, MP3, OGG · макс 10MB"
-                >
-                  <AudioUploadField
-                    audioUrl={audioUrl}
-                    uploading={uploadingAudio}
-                    onPick={() => fileInputRef.current?.click()}
-                    onClear={() => setAudioUrl('')}
-                  />
-                </Field>
-              )}
-
-              {/* ═══ STT ═══ */}
-              {caps.type === 'elevenlabs-stt' && (
-                <>
-                  <Field
-                    label={<><Upload size={13} /> Аудиофайл для распознавания</>}
-                    hint="WAV, MP3, OGG · макс 10MB"
-                  >
-                    <AudioUploadField
-                      audioUrl={audioUrl}
-                      uploading={uploadingAudio}
-                      onPick={() => fileInputRef.current?.click()}
-                      onClear={() => setAudioUrl('')}
-                    />
-                  </Field>
-
-                  {caps.supportsLanguage && (
-                    <Field label="🌐 Язык аудио">
-                      <ChipsWrap>
-                        {LANGUAGES.map((l) => (
-                          <Chip
-                            key={l.code}
-                            active={language === l.code}
-                            onClick={() => { setLanguage(l.code); haptic('light') }}
-                          >
-                            {l.label}
-                          </Chip>
-                        ))}
-                      </ChipsWrap>
-                    </Field>
-                  )}
-                </>
-              )}
-
-            </div>
-          </div>
-        </div>
-      )}
+            {caps.supportsLanguage && (
+              <Field label="🌐 Язык аудио">
+                <ChipsWrap>
+                  {LANGUAGES.map((l) => (
+                    <Chip
+                      key={l.code}
+                      active={language === l.code}
+                      onClick={() => { setLanguage(l.code); haptic('light') }}
+                    >
+                      {l.label}
+                    </Chip>
+                  ))}
+                </ChipsWrap>
+              </Field>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   )
 }
