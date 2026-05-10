@@ -218,7 +218,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             })
           }
         },
-        onMessageStart: () => {},
+        onMessageStart: () => { },
         onToken: (token) => store.appendStreamingContent(token),
         onDone: (data) => {
           const finalContent = useChatStore.getState().streamingContent
@@ -284,7 +284,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const copyMessage = useCallback(
     (id: string, content: string) => {
-      navigator.clipboard.writeText(content).catch(() => {})
+      navigator.clipboard.writeText(content).catch(() => { })
       setCopiedId(id)
       haptic('light')
       setTimeout(() => setCopiedId(null), 2000)
@@ -532,7 +532,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   }
                 `}
               >
-                                {msg.role === 'assistant' ? (
+                {msg.role === 'assistant' ? (
                   <MessageContent content={msg.content} />
                 ) : (
                   <div className="whitespace-pre-wrap break-words">{msg.content}</div>
@@ -601,12 +601,12 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       {/* ── Input area ── */}
       <div
         className="
-          shrink-0 flex flex-col gap-2
-          px-4 pt-2 pb-2.5
-          border-t border-[var(--border-glass)]
-          bg-[var(--bg-glass-heavy)]
-          backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
-        "
+    shrink-0 flex flex-col gap-2
+    px-3 py-2.5
+    border-t border-[var(--border-glass)]
+    bg-[var(--bg-glass-heavy)]
+    backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+  "
       >
         {/* Attachments */}
         {attachments.length > 0 && (
