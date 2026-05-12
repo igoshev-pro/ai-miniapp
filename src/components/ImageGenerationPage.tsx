@@ -12,6 +12,7 @@ import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
 interface Props {
+  initialModel?: string
   onBack?: () => void
 }
 
@@ -168,7 +169,7 @@ const examplePrompts = [
   'Дракон летит над горами, эпичный свет заката',
 ]
 
-export function ImageGenerationPage({ onBack }: Props) {
+export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
   const { generate, generations } = useGeneration()
@@ -181,9 +182,19 @@ export function ImageGenerationPage({ onBack }: Props) {
 
   const [input, setInput] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
-  const [selectedModelSlug, setSelectedModelSlug] = useState(
-    imageModels[0]?.slug ?? 'midjourney',
-  )
+  const resolveInitialSlug = useCallback((): string => {
+  if (initialModel) {
+    const byExact = imageModels.find(
+      (m: any) => m.slug === initialModel || m.name === initialModel,
+    )
+    if (byExact) return byExact.slug
+  }
+  return imageModels[0]?.slug ?? 'midjourney'
+}, [initialModel, imageModels])
+
+const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
+  resolveInitialSlug(),
+)
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -205,6 +216,17 @@ export function ImageGenerationPage({ onBack }: Props) {
   const currentModel = imageModels.find((m: any) => m.slug === selectedModelSlug)
   const modelCost = currentModel?.cost || 5
   const caps = MODEL_CAPS[selectedModelSlug] || DEFAULT_CAPS
+
+  useEffect(() => {
+  if (!initialModel || imageModels.length === 0) return
+  const match = imageModels.find(
+    (m: any) => m.slug === initialModel || m.name === initialModel,
+  )
+  if (match && match.slug !== selectedModelSlug) {
+    setSelectedModelSlug(match.slug)
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [initialModel, imageModels.length])
 
   // Telegram BackButton
   useEffect(() => {
