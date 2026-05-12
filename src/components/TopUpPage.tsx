@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Flame, Zap, Gift, Check, Loader2, ChevronRight,
-  Sparkles, Tag, TrendingDown, Crown,
+  Sparkles, Tag, TrendingDown, Crown, CreditCard, Star, Bitcoin,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'
@@ -12,7 +12,9 @@ import { toast } from '@/stores/toast.store'
 interface Props { onBack?: () => void }
 
 type Currency = 'rub' | 'usd'
-const R = 90
+type Provider = 'yookassa' | 'cryptomus' | 'stars' | 'freedompay'
+
+const R = 75
 const BASE = 3
 
 const PKGS = [
@@ -22,6 +24,13 @@ const PKGS = [
   { id: 'pack_1500', tokens: 1500, priceRub: 2690, label: '1 500 спичек' },
   { id: 'pack_5000', tokens: 5000, priceRub: 7490, label: '5 000 спичек', best: true },
 ] as const
+
+const PROVIDERS: { id: Provider; label: string; icon: typeof Star; sub: string }[] = [
+  { id: 'stars',      label: 'Stars',    icon: Star,       sub: 'Telegram'  },
+  { id: 'yookassa',   label: 'Карта',    icon: CreditCard, sub: 'РФ ₽'      },
+  { id: 'freedompay', label: 'Карта',    icon: CreditCard, sub: 'KZ ₸'      },
+  { id: 'cryptomus',  label: 'Crypto',   icon: Bitcoin,    sub: 'USDT/BTC'  },
+]
 
 function disc(t: number, p: number) {
   const b = t * BASE
@@ -48,7 +57,7 @@ export function TopUpPage({ onBack }: Props) {
   const [promo, setPromo] = useState('')
   const [promoL, setPromoL] = useState(false)
   const [promoOk, setPromoOk] = useState(false)
-  const [provider] = useState<'yookassa' | 'cryptomus' | 'stars'>('stars')
+  const [provider, setProvider] = useState<Provider>('stars')
 
   useEffect(() => {
     if (!webApp?.BackButton) return
@@ -63,12 +72,23 @@ export function TopUpPage({ onBack }: Props) {
   const buy = useCallback(async () => {
     if (!sel) { toast.warning('Выберите пакет'); return }
     haptic('medium')
-    const url = await purchaseTokens(sel, provider)
+
+    const currencyForBackend: 'RUB' | 'USD' =
+      provider === 'stars' ? 'RUB' : (cur.toUpperCase() as 'RUB' | 'USD')
+
+    // ⚠️ TEMP: пока useBilling.purchaseTokens принимает 2 аргумента —
+    // пробрасываем 3-й через any. После обновления хука — убрать `as any`
+    const url = await (purchaseTokens as (
+      packageId: string,
+      provider: Provider,
+      currency?: 'RUB' | 'USD',
+    ) => Promise<string | undefined>)(sel, provider, currencyForBackend)
+
     if (url) {
       webApp?.openLink ? webApp.openLink(url) : window.open(url, '_blank')
       hapticNotification('success')
     }
-  }, [sel, provider, purchaseTokens, haptic, hapticNotification, webApp])
+  }, [sel, provider, cur, purchaseTokens, haptic, hapticNotification, webApp])
 
   const doPromo = useCallback(async () => {
     const c = promo.trim()
@@ -80,15 +100,22 @@ export function TopUpPage({ onBack }: Props) {
     else hapticNotification('error')
   }, [promo, applyPromo, haptic, hapticNotification])
 
+  const providerNote = (() => {
+    switch (provider) {
+      case 'stars':      return 'Оплата через Telegram Stars. Зачисление мгновенное.'
+      case 'yookassa':   return 'Российская карта (₽). Зачисление после подтверждения банка.'
+      case 'freedompay': return 'Карта Казахстана (₸) / международная. Зачисление мгновенное.'
+      case 'cryptomus':  return 'Оплата криптовалютой (USDT/BTC/TON). Зачисление после подтверждения сети.'
+    }
+  })()
+
   return (
     <div className="relative z-[1] px-4 pb-[100px]">
 
-      {/* Header */}
       <div className="flex items-center justify-between pt-4 pb-2 gap-3 animate-fade-in">
         <h1 className="text-[20px] font-bold text-white flex-1">Пополнить баланс</h1>
       </div>
 
-      {/* Balance */}
       <div className="text-center p-4 bg-white/[.04] border border-white/[.06] rounded-[14px] mb-4 animate-fade-in">
         <div className="text-[12px] text-white/40 mb-1.5">Текущий баланс</div>
         <div className="flex items-center justify-center gap-1.5 text-[24px] font-bold text-white">
@@ -97,7 +124,6 @@ export function TopUpPage({ onBack }: Props) {
         </div>
       </div>
 
-      {/* Currency toggle */}
       <div className="flex gap-1 p-[3px] mb-3.5 bg-white/[.04] border border-white/[.06] rounded-xl animate-fade-in">
         {(['rub', 'usd'] as Currency[]).map(c => (
           <button key={c}
@@ -111,13 +137,11 @@ export function TopUpPage({ onBack }: Props) {
         ))}
       </div>
 
-      {/* Base price */}
       <div className="flex items-center justify-center gap-1.5 text-[12px] text-white/35 mb-3.5 animate-fade-in">
         <Flame size={12} />
         <span>1 спичка = {cur === 'rub' ? '3 ₽' : `$${(3 / R).toFixed(3)}`}</span>
       </div>
 
-      {/* Packages */}
       <div className="mb-5 animate-fade-in [animation-delay:.1s]">
         <div className="flex items-center gap-1.5 text-[14px] font-semibold text-white/60 mb-2.5">
           <Zap size={14} /> Пакеты спичек
@@ -139,7 +163,6 @@ export function TopUpPage({ onBack }: Props) {
                   ${!isSel && !p.popular && !p.best ? 'border-white/[.06]' : ''}
                 `}
               >
-                {/* Badges */}
                 {p.popular && (
                   <div className="absolute -top-2 right-2.5 flex items-center gap-[3px] bg-amber-400 text-black text-[9px] font-bold px-2 py-[2px] rounded-md">
                     <Sparkles size={10} /> Популярный
@@ -151,38 +174,32 @@ export function TopUpPage({ onBack }: Props) {
                   </div>
                 )}
 
-                {/* Discount */}
                 {d > 0 && (
                   <div className="absolute bottom-2.5 right-2.5 flex items-center gap-[3px] text-[11px] font-bold text-green-400 bg-green-400/10 border border-green-400/15 px-2.5 py-[3px] rounded-lg tracking-wide">
                     <TrendingDown size={10} /> −{d}%
                   </div>
                 )}
 
-                {/* Tokens */}
                 <div className="flex items-center gap-1 text-[18px] font-bold text-white mb-1">
                   <Flame size={14} /> {p.tokens.toLocaleString()}
                 </div>
 
                 <div className="text-[12px] text-white/40 mb-1.5">{p.label}</div>
 
-                {/* Price */}
                 <div className="text-[16px] font-semibold text-white">
                   {cur === 'usd' && '$'}{fmtP(p.priceRub, cur)}{cur === 'rub' && ' ₽'}
                 </div>
 
-                {/* Old price */}
                 {d > 0 && (
                   <div className="text-[11px] text-white/25 line-through -mt-0.5">
                     {cur === 'usd' && '$'}{fmtP(p.tokens * BASE, cur)}{cur === 'rub' && ' ₽'}
                   </div>
                 )}
 
-                {/* Per token */}
                 <div className="text-[10px] text-white/25 mt-0.5">
                   {perTok(p.priceRub, p.tokens, cur)} / спичка
                 </div>
 
-                {/* Check */}
                 {isSel && (
                   <div className="absolute bottom-2.5 right-2.5 text-amber-400">
                     <Check size={14} />
@@ -193,7 +210,36 @@ export function TopUpPage({ onBack }: Props) {
           })}
         </div>
 
-        {/* Buy button */}
+        <div className="mb-3">
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-white/60 mb-2">
+            <CreditCard size={13} /> Способ оплаты
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {PROVIDERS.map(p => {
+              const isOn = provider === p.id
+              const Icon = p.icon
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => { haptic('light'); setProvider(p.id) }}
+                  className={`
+                    flex flex-col items-center justify-center gap-1 py-2.5 px-1
+                    rounded-[10px] border-[1.5px] transition-all active:scale-[.97]
+                    ${isOn
+                      ? 'bg-amber-400/[.08] border-amber-400/40 text-white'
+                      : 'bg-white/[.04] border-white/[.06] text-white/50'
+                    }
+                  `}
+                >
+                  <Icon size={16} className={isOn ? 'text-amber-400' : ''} />
+                  <div className="text-[11px] font-semibold leading-none">{p.label}</div>
+                  <div className="text-[9px] text-white/35 leading-none">{p.sub}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <button onClick={buy} disabled={!sel || isLoading}
           className="
             w-full flex items-center justify-center gap-2
@@ -216,7 +262,6 @@ export function TopUpPage({ onBack }: Props) {
         </button>
       </div>
 
-      {/* Promo */}
       <div className="mb-5 animate-fade-in [animation-delay:.2s]">
         <div className="flex items-center gap-1.5 text-[14px] font-semibold text-white/60 mb-2.5">
           <Tag size={14} /> Промокод
@@ -251,10 +296,9 @@ export function TopUpPage({ onBack }: Props) {
         )}
       </div>
 
-      {/* Info */}
       <div className="text-center px-5 py-4 animate-fade-in [animation-delay:.2s]">
         <div className="text-[12px] text-white/30 mb-1.5">
-          Оплата через Telegram Stars. Спички зачисляются мгновенно.
+          {providerNote}
         </div>
         <div className="text-[10px] text-white/[.15]">
           ИП Аневич А.С. · ИНН 246220127244

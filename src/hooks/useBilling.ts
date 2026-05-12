@@ -9,6 +9,9 @@ import { toast } from '@/stores/toast.store'
 
 // --- Типы фронтенда ---
 
+export type PaymentProvider = 'yookassa' | 'cryptomus' | 'stars' | 'freedompay'
+export type PaymentCurrency = 'RUB' | 'USD'
+
 export interface TokenPackage {
   id: string
   name: string
@@ -48,11 +51,11 @@ interface BackendTransaction {
   _id: string
   userId: string
   type: string
-  amount: number          // в токенах
+  amount: number
   balanceBefore: number
   balanceAfter: number
   description: string
-  paymentStatus?: string  // completed | pending | failed
+  paymentStatus?: string
   generationId?: string
   generationType?: string
   modelSlug?: string
@@ -189,14 +192,21 @@ export function useBilling() {
   const purchaseTokens = useCallback(
     async (
       packageId: string,
-      provider: 'yookassa' | 'cryptomus' | 'stars' = 'stars',
+      provider: PaymentProvider = 'stars',
+      currency: PaymentCurrency = 'RUB',
     ): Promise<string | null> => {
       try {
         setIsLoading(true)
+
+        // DEBUG
+        console.log('[useBilling] purchaseTokens →', { packageId, provider, currency })
+
         const { data } = await apiClient.post<ApiResponse<PaymentData>>(
           ENDPOINTS.BILLING_PAY_TOKENS,
-          { packageId, provider },
+          { packageId, provider, currency },
         )
+
+        console.log('[useBilling] purchaseTokens ←', data)
 
         const paymentUrl = data.data?.paymentUrl
         if (paymentUrl) {
@@ -223,13 +233,14 @@ export function useBilling() {
   const subscribe = useCallback(
     async (
       plan: string,
-      provider: 'yookassa' | 'cryptomus' | 'stars' = 'stars',
+      provider: PaymentProvider = 'stars',
+      currency: PaymentCurrency = 'RUB',
     ): Promise<string | null> => {
       try {
         setIsLoading(true)
         const { data } = await apiClient.post<ApiResponse<PaymentData>>(
           ENDPOINTS.BILLING_PAY_SUBSCRIPTION,
-          { plan, provider },
+          { plan, provider, currency },
         )
 
         const paymentUrl = data.data?.paymentUrl
@@ -267,7 +278,6 @@ export function useBilling() {
         if (promoData?.tokensAdded) {
           toast.success(promoData.message || `+${promoData.tokensAdded} спичек!`)
 
-          // Обновляем профиль пользователя
           try {
             const profile = await apiClient.get<ApiResponse<any>>(ENDPOINTS.USER_ME)
             if (profile.data.data) {
@@ -318,7 +328,6 @@ export function useBilling() {
         return txData
       } catch (err) {
         if (page === 1) {
-          // Не показываем ошибку при первой загрузке если нет транзакций
           setTransactions([])
           setTransactionsTotal(0)
         }
