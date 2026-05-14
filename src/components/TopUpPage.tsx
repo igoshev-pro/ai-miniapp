@@ -12,7 +12,9 @@ import { toast } from '@/stores/toast.store'
 interface Props { onBack?: () => void }
 
 type Currency = 'rub' | 'usd'
-type Provider = 'yookassa' | 'cryptomus' | 'stars' | 'freedompay'
+
+// 👇 Теперь только 4 активных провайдера
+type Provider = 'stars' | 'tochka' | 'freedompay' | 'heleket'
 
 const R = 75
 const BASE = 3
@@ -26,10 +28,10 @@ const PKGS = [
 ] as const
 
 const PROVIDERS: { id: Provider; label: string; icon: typeof Star; sub: string }[] = [
-  { id: 'stars',      label: 'Stars',    icon: Star,       sub: 'Telegram'  },
-  { id: 'yookassa',   label: 'Карта',    icon: CreditCard, sub: 'РФ ₽'      },
-  { id: 'freedompay', label: 'Карта',    icon: CreditCard, sub: 'KZ ₸'      },
-  { id: 'cryptomus',  label: 'Crypto',   icon: Bitcoin,    sub: 'USDT/BTC'  },
+  { id: 'stars',      label: 'Stars',  icon: Star,       sub: 'Telegram' },
+  { id: 'tochka',     label: 'Карта',  icon: CreditCard, sub: 'РФ ₽'     },
+  { id: 'freedompay', label: 'Карта',  icon: CreditCard, sub: 'KZ ₸'     },
+  { id: 'heleket',    label: 'Crypto', icon: Bitcoin,    sub: 'USDT/BTC' },
 ]
 
 function disc(t: number, p: number) {
@@ -73,19 +75,21 @@ export function TopUpPage({ onBack }: Props) {
     if (!sel) { toast.warning('Выберите пакет'); return }
     haptic('medium')
 
+    // Stars всегда в RUB (Telegram сам конвертирует во внутреннюю валюту Stars)
     const currencyForBackend: 'RUB' | 'USD' =
       provider === 'stars' ? 'RUB' : (cur.toUpperCase() as 'RUB' | 'USD')
 
-    // ⚠️ TEMP: пока useBilling.purchaseTokens принимает 2 аргумента —
-    // пробрасываем 3-й через any. После обновления хука — убрать `as any`
-    const url = await (purchaseTokens as (
-      packageId: string,
-      provider: Provider,
-      currency?: 'RUB' | 'USD',
-    ) => Promise<string | undefined>)(sel, provider, currencyForBackend)
+    const url = await purchaseTokens(sel, provider, currencyForBackend)
 
     if (url) {
-      webApp?.openLink ? webApp.openLink(url) : window.open(url, '_blank')
+      // Stars-инвойсы открываются через openInvoice, но бэк stars-провайдера
+      // обычно возвращает stars://... или t.me/$invoice — openLink справится.
+      // Для всех остальных — это обычный https URL платёжной страницы.
+      if (webApp?.openLink) {
+        webApp.openLink(url)
+      } else {
+        window.open(url, '_blank')
+      }
       hapticNotification('success')
     }
   }, [sel, provider, cur, purchaseTokens, haptic, hapticNotification, webApp])
@@ -103,9 +107,9 @@ export function TopUpPage({ onBack }: Props) {
   const providerNote = (() => {
     switch (provider) {
       case 'stars':      return 'Оплата через Telegram Stars. Зачисление мгновенное.'
-      case 'yookassa':   return 'Российская карта (₽). Зачисление после подтверждения банка.'
+      case 'tochka':     return 'Российская карта (₽) через Банк «Точка». Зачисление после подтверждения банка.'
       case 'freedompay': return 'Карта Казахстана (₸) / международная. Зачисление мгновенное.'
-      case 'cryptomus':  return 'Оплата криптовалютой (USDT/BTC/TON). Зачисление после подтверждения сети.'
+      case 'heleket':    return 'Оплата криптовалютой (USDT/BTC/TRX и др.). Зачисление после подтверждения сети.'
     }
   })()
 
@@ -168,7 +172,7 @@ export function TopUpPage({ onBack }: Props) {
                     <Sparkles size={10} /> Популярный
                   </div>
                 )}
-                {p.best && (
+                                {p.best && (
                   <div className="absolute -top-2 right-2.5 flex items-center gap-[3px] bg-green-400 text-black text-[9px] font-bold px-2 py-[2px] rounded-md">
                     <Crown size={10} /> Лучшая цена
                   </div>

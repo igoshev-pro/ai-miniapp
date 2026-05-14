@@ -9,7 +9,14 @@ import { toast } from '@/stores/toast.store'
 
 // --- Типы фронтенда ---
 
-export type PaymentProvider = 'yookassa' | 'cryptomus' | 'stars' | 'freedompay'
+export type PaymentProvider =
+  | 'yookassa'    // оставлен для обратной совместимости (на UI не показываем)
+  | 'cryptomus'   // оставлен для обратной совместимости (на UI не показываем)
+  | 'stars'
+  | 'freedompay'
+  | 'tochka'      // 👈 NEW
+  | 'heleket'     // 👈 NEW
+
 export type PaymentCurrency = 'RUB' | 'USD'
 
 export interface TokenPackage {
@@ -198,7 +205,6 @@ export function useBilling() {
       try {
         setIsLoading(true)
 
-        // DEBUG
         console.log('[useBilling] purchaseTokens →', { packageId, provider, currency })
 
         const { data } = await apiClient.post<ApiResponse<PaymentData>>(
