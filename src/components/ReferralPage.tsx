@@ -1,224 +1,473 @@
-// src/components/ReferralPage.tsx
-'use client'
+'use client';
 
-import { useState, useEffect, useCallback } from 'react'
-import {
-  Gift,
-  Users,
-  Copy,
-  Check,
-  Share2,
-  Flame,
-  Loader2,
-  Link,
-} from 'lucide-react'
-import { useTelegram } from '@/context/TelegramContext'
-import { useBilling, useUser } from '@/hooks'
-import { toast } from '@/stores/toast.store'
+import { useEffect, useState } from 'react';
+import { apiClient } from '@/lib/api'; // ⚠️ замени на свой путь к API client'у
 
-interface Props {
-  onBack?: () => void
+interface ReferralData {
+  referralCode: string;
+  referralLink: string;
+  botUsername: string;
+  referralCount: number;
+  activeReferrals: number;
+  totalEarned: number;
+  cashbackBalance: number;
+  cashbackEarnedTotal: number;
+  minWithdrawal: number;
+  referrals: Array<{
+    id: string;
+    firstName: string;
+    username: string | null;
+    photoUrl: string | null;
+    joinedAt: string;
+    earned: number;
+    hasPurchased: boolean;
+  }>;
 }
 
-export function ReferralPage({ onBack }: Props) {
-  const { haptic, hapticNotification, webApp, user: tgUser } = useTelegram()
-  const { referralCode } = useUser()
-  const { referralInfo, loadReferralInfo } = useBilling()
-  const [copiedCode, setCopiedCode] = useState(false)
-  const [copiedLink, setCopiedLink] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+interface Withdrawal {
+  id: string;
+  amount: number;
+  amountRub: number;
+  method: 'card' | 'sbp' | 'crypto';
+  requisites: string;
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  adminNote: string;
+  createdAt: string;
+  processedAt: string | null;
+}
 
-  const code =
-    referralCode || `SPICHKI-${tgUser?.username?.toUpperCase() || 'USER'}`
-  const botUsername = process.env.NEXT_PUBLIC_BOT_USERNAME || 'SpichkiBot'
-  const referralLink = `https://t.me/${botUsername}?start=ref_${code}`
+const STATUS_LABELS: Record<string, { text: string; color: string }> = {
+  pending: { text: '⏳ В обработке', color: '#f59e0b' },
+  approved: { text: '✅ Одобрено', color: '#3b82f6' },
+  paid: { text: '💸 Выплачено', color: '#10b981' },
+  rejected: { text: '❌ Отклонено', color: '#ef4444' },
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  card: '💳 Карта',
+  sbp: '📱 СБП',
+  crypto: '🪙 USDT TRC20',
+};
+
+export default function ReferralPage() {
+  const [data, setData] = useState<ReferralData | null>(null);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Форма вывода
+  const [wdAmount, setWdAmount] = useState('');
+  const [wdMethod, setWdMethod] = useState<'card' | 'sbp' | 'crypto'>('card');
+  const [wdRequisites, setWdRequisites] = useState('');
+  const [wdSubmitting, setWdSubmitting] = useState(false);
+  const [wdError, setWdError] = useState('');
+  const [wdSuccess, setWdSuccess] = useState('');
 
   useEffect(() => {
-    if (webApp?.BackButton) {
-      webApp.BackButton.show()
-      const handler = () => {
-        if (onBack) onBack()
-      }
-      webApp.BackButton.onClick(handler)
-      return () => {
-        webApp.BackButton.offClick(handler)
-        webApp.BackButton.hide()
-      }
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      setLoading(true);
+      const [infoRes, wdRes] = await Promise.all([
+        apiClient.get('/referral/info'),
+        apiClient.get('/referral/withdrawals'),
+      ]);
+      setData(infoRes.data.data);
+      setWithdrawals(wdRes.data.data);
+    } catch (e) {
+      console.error('Failed to load referral data', e);
+    } finally {
+      setLoading(false);
     }
-  }, [webApp, onBack])
+  }
 
-  useEffect(() => {
-    loadReferralInfo().then(() => setIsLoading(false))
-  }, [loadReferralInfo])
+  function copyLink() {
+    if (!data) return;
+    navigator.clipboard.writeText(data.referralLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
-  const copyCode = useCallback(() => {
-    navigator.clipboard.writeText(code).catch(() => {})
-    setCopiedCode(true)
-    hapticNotification('success')
-    toast.success('Код скопирован')
-    setTimeout(() => setCopiedCode(false), 2000)
-  }, [code, hapticNotification])
+  function shareInTelegram() {
+    if (!data) return;
+    const text = encodeURIComponent(
+      `🔥 Присоединяйся к Spichki AI! Получи 9 спичек на старте и доступ к нейросетям.`,
+    );
+    const url = encodeURIComponent(data.referralLink);
+    const tg = (window as any).Telegram?.WebApp;
+    const shareUrl = `https://t.me/share/url?url=${url}&text=${text}`;
 
-  const copyLink = useCallback(() => {
-    navigator.clipboard.writeText(referralLink).catch(() => {})
-    setCopiedLink(true)
-    hapticNotification('success')
-    toast.success('Ссылка скопирована')
-    setTimeout(() => setCopiedLink(false), 2000)
-  }, [referralLink, hapticNotification])
-
-  const shareLink = useCallback(() => {
-    haptic('medium')
-    const text = `🔥 SPICHKI AI — все нейросети в одном месте! Регистрируйся и получи бонусные спички: ${referralLink}`
-
-    if (webApp?.openTelegramLink) {
-      webApp.openTelegramLink(
-        `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(
-          '🔥 SPICHKI AI — все нейросети в одном месте! Получи бонус при регистрации',
-        )}`,
-      )
-    } else if (navigator.share) {
-      navigator.share({ text, url: referralLink }).catch(() => {})
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(shareUrl);
     } else {
-      copyLink()
+      window.open(shareUrl, '_blank');
     }
-  }, [haptic, webApp, referralLink, copyLink])
+  }
 
-  function formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+  async function submitWithdrawal() {
+    setWdError('');
+    setWdSuccess('');
+
+    const amount = parseInt(wdAmount, 10);
+    if (!amount || amount < (data?.minWithdrawal || 100)) {
+      setWdError(`Минимум ${data?.minWithdrawal || 100} спичек`);
+      return;
+    }
+    if (amount > (data?.cashbackBalance || 0)) {
+      setWdError('Недостаточно кэшбека на балансе');
+      return;
+    }
+    if (wdRequisites.trim().length < 4) {
+      setWdError('Укажите реквизиты');
+      return;
+    }
+
+    try {
+      setWdSubmitting(true);
+      await apiClient.post('/referral/withdraw', {
+        amount,
+        method: wdMethod,
+        requisites: wdRequisites.trim(),
+      });
+      setWdSuccess('✅ Заявка создана! Обработаем в течение 24 часов.');
+      setWdAmount('');
+      setWdRequisites('');
+
+      // Перезагружаем данные
+      setTimeout(() => {
+        loadData();
+        setShowWithdrawModal(false);
+        setWdSuccess('');
+      }, 1500);
+    } catch (e: any) {
+      setWdError(e?.response?.data?.message || 'Ошибка при создании заявки');
+    } finally {
+      setWdSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="ref-page">
+        <div className="ref-loading">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="ref-page">
+        <div className="ref-loading">Не удалось загрузить данные</div>
+      </div>
+    );
   }
 
   return (
-    <div className="referral-page">
-      <div className="referral-page__header fade-in fade-in--1">
-        <Gift size={28} className="referral-page__icon" />
-        <div className="referral-page__title">Реферальная программа</div>
-        <div className="referral-page__subtitle">
-          Приглашайте друзей и зарабатывайте спички
-        </div>
+    <div className="ref-page">
+      {/* Заголовок */}
+      <div className="ref-header">
+        <h1 className="ref-title">🤝 Приглашай друзей</h1>
+        <p className="ref-subtitle">
+          Получай <b>10 🔥</b> за каждого друга + <b>10%</b> кэшбек с его покупок
+        </p>
       </div>
 
-      <div className="referral-rewards fade-in fade-in--2">
-        <div className="referral-reward">
-          <div className="referral-reward__value">+100 🔥</div>
-          <div className="referral-reward__label">Вашему другу</div>
-          <div className="referral-reward__desc">при регистрации</div>
+      {/* Реферальная ссылка */}
+      <div className="ref-link-card">
+        <div className="ref-link-label">Твоя ссылка</div>
+        <div className="ref-link-value" onClick={copyLink}>
+          {data.referralLink}
         </div>
-        <div className="referral-reward__divider" />
-        <div className="referral-reward">
-          <div className="referral-reward__value">+50 🔥</div>
-          <div className="referral-reward__label">Вам</div>
-          <div className="referral-reward__desc">за приглашение</div>
-        </div>
-        <div className="referral-reward__divider" />
-        <div className="referral-reward">
-          <div className="referral-reward__value">+10%</div>
-          <div className="referral-reward__label">Кэшбэк</div>
-          <div className="referral-reward__desc">от покупок друга</div>
-        </div>
-      </div>
-
-      <div className="referral-share fade-in fade-in--2">
-        <div className="referral-share__title">Ваш реферальный код</div>
-
-        <div className="referral-share__code-block">
-          <div className="referral-share__code">{code}</div>
-          <button className="referral-share__copy" onClick={copyCode}>
-            {copiedCode ? <Check size={16} /> : <Copy size={16} />}
+        <div className="ref-link-actions">
+          <button className="ref-btn ref-btn-primary" onClick={shareInTelegram}>
+            📤 Поделиться
+          </button>
+          <button className="ref-btn ref-btn-secondary" onClick={copyLink}>
+            {copied ? '✓ Скопировано' : '📋 Копировать'}
           </button>
         </div>
-
-        <div className="referral-share__link-block">
-          <div className="referral-share__link-label">
-            <Link size={12} />
-            Ссылка для приглашения
-          </div>
-          <div className="referral-share__link-row">
-            <div className="referral-share__link">{referralLink}</div>
-            <button className="referral-share__copy" onClick={copyLink}>
-              {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-          </div>
-        </div>
-
-        <button className="referral-share__btn" onClick={shareLink}>
-          <Share2 size={16} />
-          Поделиться с друзьями
-        </button>
       </div>
 
-      <div className="referral-stats fade-in fade-in--3">
-        <div className="referral-stats__title">Статистика</div>
+      {/* Инструкция */}
+      <div className="ref-instruction">
+        <h3 className="ref-instruction-title">Как это работает</h3>
+        <ol className="ref-instruction-list">
+          <li>
+            <span className="ref-step-num">1</span>
+            <span>Скопируй или поделись своей ссылкой</span>
+          </li>
+          <li>
+            <span className="ref-step-num">2</span>
+            <span>Друг переходит и запускает бота</span>
+          </li>
+          <li>
+            <span className="ref-step-num">3</span>
+            <span>
+              Он получает <b>9 🔥</b> на старте, ты — <b>10 🔥</b> мгновенно
+            </span>
+          </li>
+          <li>
+            <span className="ref-step-num">4</span>
+            <span>
+              С каждой его покупки тебе <b>10%</b> кэшбек на вывод или генерации
+            </span>
+          </li>
+          <li>
+            <span className="ref-step-num">5</span>
+            <span>
+              Выводи кэшбек на карту/СБП/крипту от {data.minWithdrawal} ₽
+            </span>
+          </li>
+        </ol>
+        <p className="ref-instruction-note">
+          * 1 спичка кэшбека = 1 ₽ при выводе
+        </p>
+      </div>
 
-        {isLoading ? (
-          <div className="chats-history__loading">
-            <Loader2 size={18} className="spin" />
-          </div>
-        ) : (
-          <>
-            <div className="referral-stats__grid">
-              <div className="referral-stat">
-                <Users size={18} className="referral-stat__icon" />
-                <div className="referral-stat__value">
-                  {referralInfo?.referralCount ?? 0}
-                </div>
-                <div className="referral-stat__label">Друзей</div>
-              </div>
-              <div className="referral-stat">
-                <Flame size={18} className="referral-stat__icon" />
-                <div className="referral-stat__value">
-                  +{(referralInfo?.totalEarned ?? 0).toLocaleString()}
-                </div>
-                <div className="referral-stat__label">Заработано спичек</div>
-              </div>
-            </div>
-
-            {referralInfo?.referrals && referralInfo.referrals.length > 0 && (
-              <div className="referral-list">
-                <div className="referral-list__title">Приглашённые друзья</div>
-                {referralInfo.referrals.map((ref) => (
-                  <div key={ref.id} className="referral-list__item">
-                    <div className="referral-list__avatar">
-                      <Users size={14} />
-                    </div>
-                    <div className="referral-list__info">
-                      <div className="referral-list__name">
-                        {ref.firstName}
-                        {ref.username && (
-                          <span className="referral-list__username">
-                            @{ref.username}
-                          </span>
-                        )}
-                      </div>
-                      <div className="referral-list__date">
-                        {formatDate(ref.joinedAt)}
-                      </div>
-                    </div>
-                    <div className="referral-list__earned">
-                      +{ref.earned} 🔥
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {(!referralInfo?.referrals ||
-              referralInfo.referrals.length === 0) && (
-              <div className="referral-empty">
-                <Users size={24} />
-                <div>Пока никого нет</div>
-                <div className="referral-empty__hint">
-                  Поделитесь ссылкой с друзьями, чтобы начать зарабатывать
-                </div>
-              </div>
-            )}
-          </>
+      {/* Кэшбек и кнопка вывода */}
+      <div className="ref-cashback-card">
+        <div className="ref-cashback-header">
+          <span className="ref-cashback-label">💰 Доступно к выводу</span>
+          <span className="ref-cashback-total">
+            Всего заработано: {data.cashbackEarnedTotal} 🔥
+          </span>
+        </div>
+        <div className="ref-cashback-value">
+          {data.cashbackBalance} <span className="ref-cashback-unit">🔥</span>
+        </div>
+        <div className="ref-cashback-actions">
+          <button
+            className="ref-btn ref-btn-primary"
+            disabled={data.cashbackBalance < data.minWithdrawal}
+            onClick={() => setShowWithdrawModal(true)}
+          >
+            💸 Вывести
+          </button>
+          <button
+            className="ref-btn ref-btn-secondary"
+            onClick={() => setShowHistoryModal(true)}
+          >
+            📜 История выводов
+          </button>
+        </div>
+        {data.cashbackBalance < data.minWithdrawal && (
+          <p className="ref-cashback-hint">
+            Минимум для вывода: {data.minWithdrawal} 🔥
+          </p>
         )}
       </div>
+
+      {/* Статистика — 3 плитки */}
+      <h3 className="ref-section-title">📊 Статистика</h3>
+      <div className="ref-stats-grid">
+        <div className="ref-stat-tile">
+          <div className="ref-stat-icon">👥</div>
+          <div className="ref-stat-value">{data.referralCount}</div>
+          <div className="ref-stat-label">Друзей</div>
+        </div>
+        <div className="ref-stat-tile">
+          <div className="ref-stat-icon">💎</div>
+          <div className="ref-stat-value">{data.activeReferrals}</div>
+          <div className="ref-stat-label">С покупками</div>
+        </div>
+        <div className="ref-stat-tile">
+          <div className="ref-stat-icon">🔥</div>
+          <div className="ref-stat-value">{data.cashbackBalance}</div>
+          <div className="ref-stat-label">Кэшбек</div>
+        </div>
+      </div>
+
+      {/* Список рефералов */}
+      {data.referrals.length > 0 && (
+        <>
+          <h3 className="ref-section-title">👥 Приглашённые</h3>
+          <div className="ref-list">
+            {data.referrals.map((r) => (
+              <div key={r.id} className="ref-list-item">
+                <div className="ref-list-avatar">
+                  {r.photoUrl ? (
+                    <img src={r.photoUrl} alt={r.firstName} />
+                  ) : (
+                    <span>{r.firstName?.[0] || '?'}</span>
+                  )}
+                </div>
+                <div className="ref-list-info">
+                  <div className="ref-list-name">{r.firstName}</div>
+                  <div className="ref-list-meta">
+                    {r.hasPurchased ? '💎 Активен' : '⏳ Без покупок'} ·{' '}
+                    {new Date(r.joinedAt).toLocaleDateString('ru-RU')}
+                  </div>
+                </div>
+                <div className="ref-list-earned">
+                  +{r.earned} <span>🔥</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {data.referrals.length === 0 && (
+        <div className="ref-empty">
+          <p>Пока никого нет 🤷</p>
+          <p className="ref-empty-hint">Поделись ссылкой — и тут появятся друзья</p>
+        </div>
+      )}
+
+      {/* Модалка вывода */}
+      {showWithdrawModal && (
+        <div className="ref-modal-overlay" onClick={() => setShowWithdrawModal(false)}>
+          <div className="ref-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ref-modal-header">
+              <h3>💸 Вывод средств</h3>
+              <button
+                className="ref-modal-close"
+                onClick={() => setShowWithdrawModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="ref-modal-body">
+              <div className="ref-form-row">
+                <label>Сумма (🔥 = ₽)</label>
+                <input
+                  type="number"
+                  value={wdAmount}
+                  onChange={(e) => setWdAmount(e.target.value)}
+                  placeholder={`От ${data.minWithdrawal}`}
+                  min={data.minWithdrawal}
+                  max={data.cashbackBalance}
+                />
+                <div className="ref-form-hint">
+                  Доступно: {data.cashbackBalance} 🔥
+                </div>
+              </div>
+
+              <div className="ref-form-row">
+                <label>Способ получения</label>
+                <div className="ref-method-tabs">
+                  <button
+                    className={wdMethod === 'card' ? 'active' : ''}
+                    onClick={() => setWdMethod('card')}
+                  >
+                    💳 Карта
+                  </button>
+                  <button
+                    className={wdMethod === 'sbp' ? 'active' : ''}
+                    onClick={() => setWdMethod('sbp')}
+                  >
+                    📱 СБП
+                  </button>
+                  <button
+                    className={wdMethod === 'crypto' ? 'active' : ''}
+                    onClick={() => setWdMethod('crypto')}
+                  >
+                    🪙 USDT
+                  </button>
+                </div>
+              </div>
+
+              <div className="ref-form-row">
+                <label>
+                  {wdMethod === 'card' && 'Номер карты'}
+                  {wdMethod === 'sbp' && 'Номер телефона'}
+                  {wdMethod === 'crypto' && 'Адрес TRC20 кошелька'}
+                </label>
+                <input
+                  type="text"
+                  value={wdRequisites}
+                  onChange={(e) => setWdRequisites(e.target.value)}
+                  placeholder={
+                    wdMethod === 'card'
+                      ? '0000 0000 0000 0000'
+                      : wdMethod === 'sbp'
+                      ? '+7 900 000 00 00'
+                      : 'T...'
+                  }
+                />
+              </div>
+
+              {wdError && <div className="ref-form-error">{wdError}</div>}
+              {wdSuccess && <div className="ref-form-success">{wdSuccess}</div>}
+            </div>
+
+            <div className="ref-modal-footer">
+              <button
+                className="ref-btn ref-btn-secondary"
+                onClick={() => setShowWithdrawModal(false)}
+                disabled={wdSubmitting}
+              >
+                Отмена
+              </button>
+              <button
+                className="ref-btn ref-btn-primary"
+                onClick={submitWithdrawal}
+                disabled={wdSubmitting}
+              >
+                {wdSubmitting ? 'Отправка...' : 'Создать заявку'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка истории */}
+      {showHistoryModal && (
+        <div className="ref-modal-overlay" onClick={() => setShowHistoryModal(false)}>
+          <div className="ref-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ref-modal-header">
+              <h3>📜 История выводов</h3>
+              <button
+                className="ref-modal-close"
+                onClick={() => setShowHistoryModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="ref-modal-body">
+              {withdrawals.length === 0 ? (
+                <div className="ref-empty">
+                  <p>Заявок пока нет</p>
+                </div>
+              ) : (
+                <div className="ref-wd-list">
+                  {withdrawals.map((w) => {
+                    const st = STATUS_LABELS[w.status];
+                    return (
+                      <div key={w.id} className="ref-wd-item">
+                        <div className="ref-wd-row">
+                          <span className="ref-wd-amount">{w.amount} 🔥</span>
+                          <span
+                            className="ref-wd-status"
+                            style={{ color: st.color }}
+                          >
+                            {st.text}
+                          </span>
+                        </div>
+                        <div className="ref-wd-meta">
+                          {METHOD_LABELS[w.method]} · {w.requisites}
+                        </div>
+                        <div className="ref-wd-date">
+                          {new Date(w.createdAt).toLocaleString('ru-RU')}
+                        </div>
+                        {w.adminNote && (
+                          <div className="ref-wd-note">💬 {w.adminNote}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
