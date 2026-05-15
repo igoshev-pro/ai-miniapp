@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api'; // ⚠️ замени на свой путь к API client'у
+import { apiClient } from '@/lib/api';
+import { useTelegram } from '@/context/TelegramContext';
 
 interface ReferralData {
   referralCode: string;
@@ -49,7 +50,13 @@ const METHOD_LABELS: Record<string, string> = {
   crypto: '🪙 USDT TRC20',
 };
 
-export default function ReferralPage() {
+interface Props {
+  onBack?: () => void;
+}
+
+export default function ReferralPage({ onBack }: Props) {
+  const { webApp, haptic } = useTelegram();
+
   const [data, setData] = useState<ReferralData | null>(null);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +72,31 @@ export default function ReferralPage() {
   const [wdError, setWdError] = useState('');
   const [wdSuccess, setWdSuccess] = useState('');
 
+  // ─── Telegram BackButton ─────────────────────────────────
+  useEffect(() => {
+    if (!webApp?.BackButton) return;
+
+    // Если открыта модалка — back закрывает модалку, иначе — выход на главную
+    const handler = () => {
+      if (showWithdrawModal) {
+        setShowWithdrawModal(false);
+      } else if (showHistoryModal) {
+        setShowHistoryModal(false);
+      } else {
+        onBack?.();
+      }
+    };
+
+    webApp.BackButton.show();
+    webApp.BackButton.onClick(handler);
+
+    return () => {
+      webApp.BackButton.offClick(handler);
+      webApp.BackButton.hide();
+    };
+  }, [webApp, onBack, showWithdrawModal, showHistoryModal]);
+
+  // ─── Load data ───────────────────────────────────────────
   useEffect(() => {
     loadData();
   }, []);
@@ -89,20 +121,21 @@ export default function ReferralPage() {
     if (!data) return;
     navigator.clipboard.writeText(data.referralLink);
     setCopied(true);
+    haptic?.('light');
     setTimeout(() => setCopied(false), 2000);
   }
 
   function shareInTelegram() {
     if (!data) return;
+    haptic?.('medium');
     const text = encodeURIComponent(
       `🔥 Присоединяйся к Spichki AI! Получи 9 спичек на старте и доступ к нейросетям.`,
     );
     const url = encodeURIComponent(data.referralLink);
-    const tg = (window as any).Telegram?.WebApp;
     const shareUrl = `https://t.me/share/url?url=${url}&text=${text}`;
 
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(shareUrl);
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(shareUrl);
     } else {
       window.open(shareUrl, '_blank');
     }
@@ -137,7 +170,6 @@ export default function ReferralPage() {
       setWdAmount('');
       setWdRequisites('');
 
-      // Перезагружаем данные
       setTimeout(() => {
         loadData();
         setShowWithdrawModal(false);
@@ -228,7 +260,7 @@ export default function ReferralPage() {
         </p>
       </div>
 
-      {/* Кэшбек и кнопка вывода */}
+      {/* Кэшбек */}
       <div className="ref-cashback-card">
         <div className="ref-cashback-header">
           <span className="ref-cashback-label">💰 Доступно к выводу</span>
@@ -243,13 +275,19 @@ export default function ReferralPage() {
           <button
             className="ref-btn ref-btn-primary"
             disabled={data.cashbackBalance < data.minWithdrawal}
-            onClick={() => setShowWithdrawModal(true)}
+            onClick={() => {
+              haptic?.('medium');
+              setShowWithdrawModal(true);
+            }}
           >
             💸 Вывести
           </button>
           <button
             className="ref-btn ref-btn-secondary"
-            onClick={() => setShowHistoryModal(true)}
+            onClick={() => {
+              haptic?.('light');
+              setShowHistoryModal(true);
+            }}
           >
             📜 История выводов
           </button>
@@ -261,7 +299,7 @@ export default function ReferralPage() {
         )}
       </div>
 
-      {/* Статистика — 3 плитки */}
+      {/* Статистика */}
       <h3 className="ref-section-title">📊 Статистика</h3>
       <div className="ref-stats-grid">
         <div className="ref-stat-tile">
