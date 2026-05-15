@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useAuth, useModels, useUser } from '@/hooks'
+import { useAuthStore } from '@/stores'
 import { StickyHeader } from './StickyHeader'
 import { Background } from './Background'
 import { ActionCards } from './ActionCards'
@@ -20,10 +21,11 @@ import { ProfilePage } from './ProfilePage'
 import { TopUpPage } from './TopUpPage'
 import { TransactionsPage } from './TransactionsPage'
 import { SubscriptionPage } from './SubscriptionPage'
-import ReferralPage  from './ReferralPage'
+import ReferralPage from './ReferralPage'
 import { FavoritesPage } from './FavoritesPage'
 import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
+import { TelegramLoginButton } from './auth/TelegramLoginButton'
 
 type Page =
   | 'home'
@@ -42,8 +44,9 @@ type Page =
   | 'support'
 
 export function SpichkiApp() {
-  const { isReady } = useTelegram()
-  const { isReady: authReady } = useAuth()
+  const { isReady, isTelegram } = useTelegram()
+  const { isReady: authReady, loginWithWidget } = useAuth()
+  const token = useAuthStore((s) => s.token)
   const { refetch: refetchUser } = useUser()
   const { loadModels } = useModels()
 
@@ -171,9 +174,10 @@ export function SpichkiApp() {
   }, [refetchUser])
 
   useEffect(() => {
-    if (authReady) loadModels()
-  }, [authReady, loadModels])
+    if (authReady && token) loadModels()
+  }, [authReady, token, loadModels])
 
+  // 1) Ждём пока проинициализируется Telegram WebApp и попытка авто-логина
   if (!isReady || !authReady) {
     return (
       <div className="app-loading">
@@ -186,6 +190,12 @@ export function SpichkiApp() {
     )
   }
 
+  // 2) Не в Telegram + нет JWT → показываем экран логина через Telegram Login Widget
+  if (!isTelegram && !token) {
+    return <TelegramLoginButton onAuth={loginWithWidget} />
+  }
+
+  // 3) Авторизован — основное приложение
   return (
     <div className="app-layout">
       <Background />
