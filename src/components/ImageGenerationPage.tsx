@@ -8,8 +8,8 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
-import { useModelUIConfig } from '@/hooks/useModelUIConfig'           // 🆕
-import { usePriceCalculator } from '@/hooks/usePriceCalculator'       // 🆕
+import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
+import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
@@ -18,167 +18,33 @@ interface Props {
   onBack?: () => void
 }
 
-interface ModelCaps {
-  aspectRatios: string[]
-  resolutions: string[]
-  qualities?: string[]
-  modes?: string[]                  // 🆕
-  supportsNegativePrompt: boolean
-  supportsImg2Img: boolean
-  maxInputImages: number
-  supportsOutputFormat: boolean
-  supportsSeed: boolean
-}
+// ─────────────────────────────────────────────────────────────
+// UI labels (только для отображения)
+// ─────────────────────────────────────────────────────────────
 
-// 🆕 Лейблы для mode (для fallback когда нет данных с бэка)
 const MODE_LABELS: Record<string, string> = {
-  relax: 'Relax',
-  fast: 'Быстрый',
-  turbo: 'Турбо',
-  std: 'Standard',
-  pro: 'Pro',
-  standard: 'Standard',
-  hd: 'HD',
-}
-
-const MODEL_CAPS: Record<string, ModelCaps> = {
-  'midjourney': {
-    aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'],
-    resolutions: [],
-    modes: ['relax', 'fast', 'turbo'],  // 🆕
-    supportsNegativePrompt: false,
-    supportsImg2Img: false,
-    maxInputImages: 0,
-    supportsOutputFormat: false,
-    supportsSeed: false,
-  },
-  'midjourney-img2img': {
-    aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'],
-    resolutions: [],
-    modes: ['relax', 'fast', 'turbo'],  // 🆕
-    supportsNegativePrompt: false,
-    supportsImg2Img: true,
-    maxInputImages: 8,
-    supportsOutputFormat: false,
-    supportsSeed: false,
-  },
-  'seedream-5-lite': {
-    aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '2:3', '3:2', '21:9'],
-    resolutions: [],
-    qualities: ['basic', 'high'],
-    supportsNegativePrompt: false,
-    supportsImg2Img: false,
-    maxInputImages: 0,
-    supportsOutputFormat: false,
-    supportsSeed: false,
-  },
-  'imagen-4': {
-    aspectRatios: ['1:1', '16:9', '9:16', '3:4', '4:3'],
-    resolutions: [],
-    supportsNegativePrompt: true,
-    supportsImg2Img: false,
-    maxInputImages: 0,
-    supportsOutputFormat: false,
-    supportsSeed: true,
-  },
-  'flux-2': {
-    aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'],
-    resolutions: ['1K', '2K'],
-    modes: ['flex', 'pro'],             // 🆕 версии Flux влияют на цену
-    supportsNegativePrompt: false,
-    supportsImg2Img: false,
-    maxInputImages: 0,
-    supportsOutputFormat: false,
-    supportsSeed: false,
-  },
-  'flux-2-img2img': {
-    aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', 'auto'],
-    resolutions: ['1K', '2K'],
-    modes: ['flex', 'pro'],             // 🆕
-    supportsNegativePrompt: false,
-    supportsImg2Img: true,
-    maxInputImages: 8,
-    supportsOutputFormat: false,
-    supportsSeed: false,
-  },
-  'nano-banana-2': {
-    aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9', 'auto'],
-    resolutions: ['1K', '2K', '4K'],
-    supportsNegativePrompt: false,
-    supportsImg2Img: true,
-    maxInputImages: 14,
-    supportsOutputFormat: true,
-    supportsSeed: false,
-  },
-  'nano-banana-pro': {
-    aspectRatios: ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9', 'auto'],
-    resolutions: ['1K', '2K', '4K'],
-    supportsNegativePrompt: false,
-    supportsImg2Img: true,
-    maxInputImages: 8,
-    supportsOutputFormat: true,
-    supportsSeed: false,
-  },
-  'gpt-5-image': {
-    aspectRatios: ['1:1', '3:2', '2:3'],
-    resolutions: [],
-    qualities: ['standard', 'hd'],      // 🆕 quality влияет на цену
-    supportsNegativePrompt: false,
-    supportsImg2Img: false,
-    maxInputImages: 0,
-    supportsOutputFormat: false,
-    supportsSeed: false,
-  },
-  'gpt-image-1.5-lite': {
-    aspectRatios: ['1:1', '2:3', '3:2'],
-    resolutions: [],
-    qualities: ['auto', 'low', 'medium', 'high'],
-    supportsNegativePrompt: false,
-    supportsImg2Img: true,
-    maxInputImages: 16,
-    supportsOutputFormat: false,
-    supportsSeed: false,
-  },
-}
-
-const DEFAULT_CAPS: ModelCaps = {
-  aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16'],
-  resolutions: ['1K', '2K'],
-  supportsNegativePrompt: false,
-  supportsImg2Img: false,
-  maxInputImages: 0,
-  supportsOutputFormat: false,
-  supportsSeed: false,
+  relax: 'Relax', fast: 'Быстрый', turbo: 'Турбо',
+  flex: 'Flex', pro: 'Pro',
+  std: 'Standard', standard: 'Standard', hd: 'HD',
+  auto: 'Авто', low: 'Low', medium: 'Medium', high: 'High',
+  basic: 'Basic',
 }
 
 const ASPECT_RATIO_LABELS: Record<string, string> = {
-  '1:1': '1:1 Квадрат',
-  '4:3': '4:3',
-  '3:4': '3:4',
-  '16:9': '16:9 Пейзаж',
-  '9:16': '9:16 Портрет',
-  '3:2': '3:2',
-  '2:3': '2:3',
-  '4:5': '4:5',
-  '5:4': '5:4',
-  '21:9': '21:9 Широкий',
-  'auto': 'Авто',
+  '1:1': '1:1 Квадрат', '4:3': '4:3', '3:4': '3:4',
+  '16:9': '16:9 Пейзаж', '9:16': '9:16 Портрет',
+  '3:2': '3:2', '2:3': '2:3', '4:5': '4:5', '5:4': '5:4',
+  '21:9': '21:9 Широкий', 'auto': 'Авто',
 }
 
 const RESOLUTION_LABELS: Record<string, string> = {
-  '1K': '1K ~1024px',
-  '2K': '2K ~2048px',
-  '4K': '4K ~4096px',
+  '1K': '1K ~1024px', '2K': '2K ~2048px', '4K': '4K ~4096px',
 }
 
 const QUALITY_LABELS: Record<string, string> = {
-  'basic': 'Basic (2K)',
-  'high': 'High (4K)',
-  'auto': 'Авто',
-  'low': 'Low',
-  'medium': 'Medium',
-  'standard': 'Standard',
-  'hd': 'HD',
+  'basic': 'Basic (2K)', 'high': 'High (4K)', 'auto': 'Авто',
+  'low': 'Low', 'medium': 'Medium',
+  'standard': 'Standard', 'hd': 'HD',
 }
 
 const examplePrompts = [
@@ -189,6 +55,31 @@ const examplePrompts = [
   'Уютная кофейня, вид из окна на осенний парк',
   'Дракон летит над горами, эпичный свет заката',
 ]
+
+// ─────────────────────────────────────────────────────────────
+// Helpers (читаем uiConfig)
+// ─────────────────────────────────────────────────────────────
+
+function getParamOptions(config: ModelUIConfig | null, key: string): string[] {
+  if (!config?.uiParameters) return []
+  const p = config.uiParameters.find((x) => x.key === key)
+  return p?.options?.map((o) => String(o.value)) ?? []
+}
+
+function hasParam(config: ModelUIConfig | null, key: string): boolean {
+  if (!config?.uiParameters) return false
+  return config.uiParameters.some((p) => p.key === key)
+}
+
+function getDefaultValue(config: ModelUIConfig | null, key: string): string | undefined {
+  if (!config?.uiParameters) return undefined
+  const p = config.uiParameters.find((x) => x.key === key)
+  return p?.defaultValue !== undefined ? String(p.defaultValue) : undefined
+}
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
 
 export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
@@ -222,9 +113,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const [aspectRatio, setAspectRatio] = useState('1:1')
-  const [resolution, setResolution] = useState('1K')
-  const [quality, setQuality] = useState('basic')
-  const [mode, setMode] = useState<string | undefined>(undefined)   // 🆕
+  const [resolution, setResolution] = useState('')
+  const [quality, setQuality] = useState('')
+  const [mode, setMode] = useState<string | undefined>(undefined)
   const [outputFormat, setOutputFormat] = useState('png')
   const [seed, setSeed] = useState<number | undefined>(undefined)
 
@@ -238,67 +129,60 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
   const currentModel = imageModels.find((m: any) => m.slug === selectedModelSlug)
   const modelMinCost = currentModel?.cost || 5
-  const localCaps = MODEL_CAPS[selectedModelSlug] || DEFAULT_CAPS
 
-  // 🆕 Загружаем UI-конфиг с бэка
-  const { config: uiConfig } = useModelUIConfig(selectedModelSlug)
+  // 🆕 UI-конфиг с бэка
+  const { config: uiConfig, isLoading: isLoadingConfig } = useModelUIConfig(selectedModelSlug)
 
-  // 🆕 Мержим caps: бэкенд > локальные > defaults
-  const caps: ModelCaps = useMemo(() => {
-    if (!uiConfig || !uiConfig.uiParameters?.length) return localCaps
-
-    const params = uiConfig.uiParameters
-    const getOpts = (key: string): string[] | undefined => {
-      const p = params.find((x) => x.key === key)
-      if (!p?.options) return undefined
-      return p.options.map((o) => o.value)
-    }
-
-    const inputCap = uiConfig.inputCapabilities || {}
+  // 🎯 caps полностью derived из бэка
+  const caps = useMemo(() => {
+    const aspectRatios = getParamOptions(uiConfig, 'aspectRatio')
+    const resolutions = getParamOptions(uiConfig, 'resolution')
+    const qualities = getParamOptions(uiConfig, 'quality')
+    const modes = getParamOptions(uiConfig, 'mode')
+    const inputCap = uiConfig?.inputCapabilities || {}
 
     return {
-      aspectRatios: getOpts('aspectRatio') || localCaps.aspectRatios,
-      resolutions: getOpts('resolution') || localCaps.resolutions,
-      qualities: getOpts('quality') || localCaps.qualities,
-      modes: getOpts('mode') || localCaps.modes,
-      supportsNegativePrompt:
-        !!params.find((p) => p.key === 'negativePrompt') ||
-        localCaps.supportsNegativePrompt,
-      supportsImg2Img:
-        inputCap.acceptsImages === true || localCaps.supportsImg2Img,
-      maxInputImages:
-        inputCap.maxInputImages ?? localCaps.maxInputImages,
-      supportsOutputFormat:
-        !!params.find((p) => p.key === 'outputFormat') ||
-        localCaps.supportsOutputFormat,
-      supportsSeed:
-        !!params.find((p) => p.key === 'seed') || localCaps.supportsSeed,
+      aspectRatios: aspectRatios.length > 0 ? aspectRatios : ['1:1', '16:9', '9:16'],
+      resolutions,
+      qualities,
+      modes,
+      supportsNegativePrompt: hasParam(uiConfig, 'negativePrompt'),
+      supportsImg2Img: inputCap.acceptsImages === true,
+      maxInputImages: inputCap.maxInputImages ?? 0,
+      supportsOutputFormat: hasParam(uiConfig, 'outputFormat'),
+      supportsSeed: hasParam(uiConfig, 'seed'),
     }
-  }, [uiConfig, localCaps])
+  }, [uiConfig])
 
-  // 🆕 Собираем params для расчёта цены
+  const isImg2ImgModel = caps.supportsImg2Img && caps.maxInputImages > 0
+  const requiresInputImage = selectedModelSlug.includes('img2img')
+
+  // 🎯 priceParams синхронны с caps
   const priceParams = useMemo(() => {
     const p: Record<string, any> = {}
-    if (mode) p.mode = mode
-    if (caps.resolutions.length > 0) p.resolution = resolution
-    if (caps.qualities && caps.qualities.length > 0) p.quality = quality
+    if (caps.modes.length > 0 && mode) p.mode = mode
+    if (caps.resolutions.length > 0 && resolution) p.resolution = resolution
+    if (caps.qualities.length > 0 && quality) p.quality = quality
     if (caps.aspectRatios.includes(aspectRatio)) p.aspectRatio = aspectRatio
-    if (inputImages.length > 0) p.hasInputImage = true
+    if (inputImages.length > 0) {
+      p.hasInputImage = true
+      p.numImages = inputImages.length
+    }
     return p
   }, [mode, resolution, quality, aspectRatio, caps, inputImages.length])
 
-    // 🆕 Real-time расчёт цены
+  // 🆕 Real-time расчёт цены
   const { price, isCalculating } = usePriceCalculator(
     selectedModelSlug,
     priceParams,
-    { enabled: true, debounceMs: 300 },
+    { enabled: !!uiConfig, debounceMs: 300 },
   )
 
-  // 🆕 Текущая отображаемая цена: priority — расчёт с бэка > min cost модели
   const displayedCost = price?.costInTokens ?? modelMinCost
   const matchedLabel = price?.matchedRule?.label
   const isFallbackPrice = price?.fallback ?? true
 
+  // Sync initialModel при загрузке моделей
   useEffect(() => {
     if (!initialModel || imageModels.length === 0) return
     const match = imageModels.find(
@@ -310,46 +194,51 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialModel, imageModels.length])
 
-  // Telegram BackButton
+  // Telegram BackButton — закрывает sheet/picker, потом страницу
   useEffect(() => {
-    if (!webApp?.BackButton || !onBack) return
+    if (!webApp?.BackButton) return
     webApp.BackButton.show()
-    const handler = () => onBack()
+    const handler = () => {
+      if (showSettings) { setShowSettings(false); return }
+      if (showModelPicker) { setShowModelPicker(false); return }
+      onBack?.()
+    }
     webApp.BackButton.onClick(handler)
     return () => {
       webApp.BackButton.offClick(handler)
       webApp.BackButton.hide()
     }
-  }, [webApp, onBack])
+  }, [webApp, onBack, showSettings, showModelPicker])
 
-  // 🆕 Сброс настроек при смене модели — учитываем defaultValue из бэка
+  // 🎯 ОДИН батч-сброс настроек когда пришёл uiConfig
   useEffect(() => {
-    setAspectRatio(caps.aspectRatios[0] || '1:1')
-    setResolution(caps.resolutions[0] || '1K')
-    setQuality(caps.qualities?.[0] || 'basic')
-    setMode(caps.modes?.[0])           // 🆕
-    setOutputFormat('png')
+    if (!uiConfig) return
+
+    const defAspect =
+      getDefaultValue(uiConfig, 'aspectRatio') ?? caps.aspectRatios[0] ?? '1:1'
+    const defResolution =
+      getDefaultValue(uiConfig, 'resolution') ?? caps.resolutions[0] ?? ''
+    const defQuality =
+      getDefaultValue(uiConfig, 'quality') ?? caps.qualities[0] ?? ''
+    const defMode =
+      getDefaultValue(uiConfig, 'mode') ?? caps.modes[0]
+    const defOutput =
+      getDefaultValue(uiConfig, 'outputFormat') ?? 'png'
+
+    setAspectRatio(defAspect)
+    setResolution(defResolution)
+    setQuality(defQuality)
+    setMode(defMode)
+    setOutputFormat(defOutput)
     setSeed(undefined)
     setNegativePrompt('')
     setInputImages([])
-
-    // Если бэк отдал defaultValue — применяем
-    if (uiConfig?.uiParameters) {
-      uiConfig.uiParameters.forEach((p) => {
-        if (p.defaultValue === undefined) return
-        switch (p.key) {
-          case 'aspectRatio': setAspectRatio(String(p.defaultValue)); break
-          case 'resolution': setResolution(String(p.defaultValue)); break
-          case 'quality': setQuality(String(p.defaultValue)); break
-          case 'mode': setMode(String(p.defaultValue)); break
-          case 'outputFormat': setOutputFormat(String(p.defaultValue)); break
-        }
-      })
-    }
-  }, [selectedModelSlug, uiConfig]) // eslint-disable-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uiConfig])
 
   const imageGenerations = generations.filter((g: any) => g.type === 'image')
 
+  // Авто-высота textarea
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
@@ -358,6 +247,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [input])
 
+  // ─── Upload image ─────────────────────────────────────────
   const handleImageUpload = useCallback(async (file: File) => {
     if (!file) return
     if (!file.type.match(/image\/(jpeg|png|webp)/)) {
@@ -420,20 +310,16 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     haptic('light')
   }
 
+  // ─── Generate ─────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
     const prompt = input.trim()
     if (!prompt) return
 
-    if (
-      caps.supportsImg2Img &&
-      selectedModelSlug.includes('img2img') &&
-      inputImages.length === 0
-    ) {
+    if (requiresInputImage && inputImages.length === 0) {
       toast.warning('Загрузите хотя бы одно изображение для трансформации')
       return
     }
 
-    // 🆕 Проверяем баланс по актуальной цене с бэка
     if (balance < displayedCost) {
       toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
@@ -445,9 +331,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
     const settings: Record<string, unknown> = { aspectRatio }
 
-    if (caps.resolutions.length > 0) settings.resolution = resolution
-    if (caps.qualities && caps.qualities.length > 0) settings.quality = quality
-    if (caps.modes && caps.modes.length > 0 && mode) settings.mode = mode  // 🆕
+    if (caps.resolutions.length > 0 && resolution) settings.resolution = resolution
+    if (caps.qualities.length > 0 && quality) settings.quality = quality
+    if (caps.modes.length > 0 && mode) settings.mode = mode
     if (caps.supportsNegativePrompt && negativePrompt.trim()) {
       settings.negativePrompt = negativePrompt.trim()
     }
@@ -477,7 +363,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   }, [
     input, negativePrompt, balance, displayedCost, selectedModelSlug,
     aspectRatio, resolution, quality, mode, outputFormat, seed,
-    inputImages, caps, haptic, hapticNotification, generate,
+    inputImages, caps, requiresInputImage, haptic, hapticNotification, generate,
   ])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -497,12 +383,13 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     haptic('light')
   }
 
-  const isImg2ImgModel =
-    selectedModelSlug.includes('img2img') ||
-    (caps.supportsImg2Img && caps.maxInputImages > 0)
-
-  // 🆕 Форматирование цены
   const formatCost = (n: number) => (n % 1 === 0 ? n : n.toFixed(2))
+
+  const showPriceLoader = isCalculating || isLoadingConfig || !uiConfig
+
+  // ─────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────
 
   return (
     <div
@@ -546,12 +433,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
             <span className="truncate">{currentModel?.name ?? selectedModelSlug}</span>
 
-            {/* 🆕 Динамическая цена в шапке */}
+            {/* Динамическая цена в шапке */}
             <span
               className={`
                 text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
                 transition-colors duration-200
-                ${isCalculating
+                ${showPriceLoader
                   ? 'text-white/30'
                   : !isFallbackPrice
                     ? 'text-[var(--accent-yellow)]'
@@ -559,7 +446,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 }
               `}
             >
-              {isCalculating && (
+              {showPriceLoader && (
                 <Loader2 size={10} className="animate-spin" />
               )}
               {formatCost(displayedCost)} 🔥
@@ -595,10 +482,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           </button>
         </div>
 
-        {/* Текущие параметры — быстрый просмотр */}
+        {/* Чипы быстрого просмотра */}
         <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
-          {/* 🆕 Чип режима (mode) */}
-          {caps.modes && caps.modes.length > 0 && mode && (
+          {caps.modes.length > 0 && mode && (
             <button
               className="
                 shrink-0 py-1 px-2.5
@@ -637,7 +523,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           >
             {aspectRatio}
           </button>
-          {caps.resolutions.length > 0 && (
+
+          {caps.resolutions.length > 0 && resolution && (
             <button
               className="
                 shrink-0 py-1 px-2.5
@@ -656,7 +543,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               {resolution}
             </button>
           )}
-          {caps.qualities && caps.qualities.length > 0 && (
+
+          {caps.qualities.length > 0 && quality && (
             <button
               className="
                 shrink-0 py-1 px-2.5
@@ -675,6 +563,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               {QUALITY_LABELS[quality] || quality}
             </button>
           )}
+
           {isImg2ImgModel && (
             <button
               className={`
@@ -697,7 +586,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </button>
           )}
 
-          {/* 🆕 Бейдж с лейблом сработавшего правила цены */}
+          {/* Бейдж с лейблом сработавшего правила цены */}
           {matchedLabel && !isFallbackPrice && (
             <span
               className="
@@ -949,16 +838,19 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           />
           <div
             className="
-              fixed left-0 right-0 bottom-0 z-[61]
-              max-h-[85vh] overflow-y-auto overscroll-contain
+              fixed left-0 right-0 z-[61]
+              max-h-[80vh] overflow-y-auto overscroll-contain
               rounded-t-[20px]
               border-t border-[var(--border-glass)]
               bg-[var(--bg-glass-heavy)]
               backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
               [-webkit-overflow-scrolling:touch]
               animate-[slideUp_0.3s_ease-out]
-              pb-[calc(20px+var(--safe-bottom))]
             "
+            style={{
+              bottom: 'calc(59px + var(--safe-bottom, 0px))',
+              paddingBottom: '20px',
+            }}
           >
             {/* Drag handle */}
             <div className="sticky top-0 pt-2.5 pb-1 flex justify-center bg-[var(--bg-glass-heavy)]">
@@ -968,7 +860,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.04]">
               <div className="flex flex-col gap-0.5">
                 <div className="text-[15px] font-semibold text-white">Настройки</div>
-                {/* 🆕 Live-цена в шапке шита */}
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
                   <span
@@ -980,7 +871,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                       }
                     `}
                   >
-                    {isCalculating && <Loader2 size={10} className="animate-spin" />}
+                    {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
                     {formatCost(displayedCost)} 🔥
                   </span>
                   {matchedLabel && !isFallbackPrice && (
@@ -1003,8 +894,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </div>
 
             <div className="flex flex-col gap-5 p-5">
-              {/* 🆕 Режим (mode) — для Midjourney/Flux/Kling и т.д. */}
-              {caps.modes && caps.modes.length > 0 && (
+              {/* Режим (mode) */}
+              {caps.modes.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
                     <Sparkles size={12} />
@@ -1014,13 +905,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                     </span>
                   </div>
                   <div
-                    className={`grid gap-1.5 ${
-                      caps.modes.length === 2
+                    className={`grid gap-1.5 ${caps.modes.length === 2
                         ? 'grid-cols-2'
                         : caps.modes.length === 3
                           ? 'grid-cols-3'
                           : 'grid-cols-2'
-                    }`}
+                      }`}
                   >
                     {caps.modes.map((m) => (
                       <button
@@ -1084,7 +974,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
                     <Layers size={12} />
                     Разрешение
-                    {/* 🆕 Маркер «влияет на цену» */}
                     <span className="text-[10px] text-[var(--accent-yellow)]/70 normal-case font-medium ml-1">
                       влияет на цену
                     </span>
@@ -1094,15 +983,15 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                       <button
                         key={r}
                         className={`
-                          py-2 px-2.5 rounded-[var(--radius-xs)]
-                          border text-[12px] font-medium
-                          cursor-pointer transition-all duration-150
-                          active:scale-[0.96]
-                          ${resolution === r
+            py-2 px-2.5 rounded-[var(--radius-xs)]
+            border text-[12px] font-medium
+            cursor-pointer transition-all duration-150
+            active:scale-[0.96]
+            ${resolution === r
                             ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
                             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                           }
-                        `}
+          `}
                         onClick={() => {
                           setResolution(r)
                           haptic('light')
@@ -1116,7 +1005,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Качество */}
-              {caps.qualities && caps.qualities.length > 0 && (
+              {caps.qualities.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
                     <Zap size={12} />
@@ -1130,15 +1019,15 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                       <button
                         key={q}
                         className={`
-                          py-2 px-2.5 rounded-[var(--radius-xs)]
-                          border text-[12px] font-medium
-                          cursor-pointer transition-all duration-150
-                          active:scale-[0.96]
-                          ${quality === q
+            py-2 px-2.5 rounded-[var(--radius-xs)]
+            border text-[12px] font-medium
+            cursor-pointer transition-all duration-150
+            active:scale-[0.96]
+            ${quality === q
                             ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
                             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                           }
-                        `}
+          `}
                         onClick={() => {
                           setQuality(q)
                           haptic('light')
@@ -1441,9 +1330,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             disabled={
               !input.trim() ||
               isGenerating ||
-              (isImg2ImgModel &&
-                selectedModelSlug.includes('img2img') &&
-                inputImages.length === 0)
+              (requiresInputImage && inputImages.length === 0)
             }
           >
             {isGenerating ? (
