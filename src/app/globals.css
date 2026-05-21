@@ -5645,6 +5645,20 @@ body.tg-app .sticky-header {
     right: 0;
     max-width: none;
   }
+
+    .fs-page {
+    left: 72px !important;
+    right: 0 !important;
+    max-width: none;
+  }
+
+  .fs-page__bar,
+  .fs-page__scroll,
+  .fs-page__input {
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+  }
 }
 
 /* ═══════════════ DESKTOP (1024px+) ═══════════════ */
@@ -6524,6 +6538,37 @@ body.tg-app .sticky-header {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
   }
+
+    /* ═══════════ FIXED FULLSCREEN PAGES (Chat / Image / Video / Audio) ═══════════ */
+
+  /* Внешний контейнер страницы (fixed inset-0) */
+  .fs-page {
+    left: 240px !important;
+    right: 0 !important;
+    margin: 0 auto;
+    max-width: none;
+  }
+
+  /* Шапка с моделью внутри fs-page (по умолчанию relative — но из-за inset:0 родителя
+     уезжает на 0). Тут гарантируем что страница начинается после сайдбара. */
+  .fs-page__bar {
+    /* для центрирования контента шапки */
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .fs-page__scroll {
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .fs-page__input {
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+  }
 }
 
 /* ═══════════════ LARGE DESKTOP (1400px+) ═══════════════ */
@@ -6688,6 +6733,18 @@ body.tg-app .support-page,
 body.tg-app .video-gen-page {
   max-width: none !important;
   margin: 0 !important;
+}
+
+body.tg-app .fs-page {
+  left: 0 !important;
+  right: 0 !important;
+  max-width: none !important;
+}
+
+body.tg-app .fs-page__bar,
+body.tg-app .fs-page__scroll,
+body.tg-app .fs-page__input {
+  max-width: none !important;
 }
 
 /* ════════════════════════════════════════════════════════════════

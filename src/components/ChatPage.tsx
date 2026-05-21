@@ -565,6 +565,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   return (
     <div
       className="
+      fs-page
         fixed inset-0 z-[5] flex flex-col
         bg-[var(--bg-primary,#08080a)]
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
@@ -587,6 +588,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       {/* ── Model bar ── */}
       <div
         className="
+        fs-page__bar
           shrink-0 relative z-40
           flex items-center gap-2
           px-4 pt-2.5 pb-1.5
@@ -721,12 +723,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
       {/* ── Messages ── */}
       <div
-        ref={messagesContainerRef}
-        className="
-          flex-1 min-h-0 overflow-y-auto
-          overscroll-contain [-webkit-overflow-scrolling:touch]
-        "
-      >
+  ref={messagesContainerRef}
+  className="
+    fs-page__scroll
+    flex-1 min-h-0 overflow-y-auto
+    overscroll-contain [-webkit-overflow-scrolling:touch]
+  "
+>
         <div className="flex flex-col gap-3.5 px-4 py-3">
           {/* Empty state */}
           {!hasMessages && !isStreaming && !isLoadingMessages && (
@@ -898,6 +901,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       {/* ── Input area ── */}
       <div
         className="
+        fs-page__input
           shrink-0 flex flex-col gap-2
           px-2.5 pt-2.5 pb-4
           mb-[calc(59px+var(--safe-bottom))]
