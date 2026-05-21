@@ -24,6 +24,10 @@ export const ENDPOINTS = {
   GENERATION_HISTORY: '/generation/history',
   GENERATION_FAVORITE: (id: string) => `/generation/${id}/favorite`,
 
+  // 🆕 Pricing & UI config
+  GENERATION_CALCULATE_PRICE: '/generation/calculate-price',
+  GENERATION_UI_CONFIG: (slug: string) => `/generation/models/${slug}/ui-config`,
+
   // Billing
   BILLING_PACKAGES: '/billing/packages',
   BILLING_PLANS: '/billing/plans',

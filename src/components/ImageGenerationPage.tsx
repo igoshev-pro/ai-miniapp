@@ -4,10 +4,12 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, Send, Check, X, Image as ImageIcon,
   Settings, Wand2, Maximize2, Layers, Loader2,
-  Shuffle, Upload, Trash2, Zap,
+  Shuffle, Upload, Trash2, Zap, Sparkles,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
+import { useModelUIConfig } from '@/hooks/useModelUIConfig'           // 🆕
+import { usePriceCalculator } from '@/hooks/usePriceCalculator'       // 🆕
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
@@ -20,6 +22,7 @@ interface ModelCaps {
   aspectRatios: string[]
   resolutions: string[]
   qualities?: string[]
+  modes?: string[]                  // 🆕
   supportsNegativePrompt: boolean
   supportsImg2Img: boolean
   maxInputImages: number
@@ -27,10 +30,22 @@ interface ModelCaps {
   supportsSeed: boolean
 }
 
+// 🆕 Лейблы для mode (для fallback когда нет данных с бэка)
+const MODE_LABELS: Record<string, string> = {
+  relax: 'Relax',
+  fast: 'Быстрый',
+  turbo: 'Турбо',
+  std: 'Standard',
+  pro: 'Pro',
+  standard: 'Standard',
+  hd: 'HD',
+}
+
 const MODEL_CAPS: Record<string, ModelCaps> = {
   'midjourney': {
     aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'],
-    resolutions: ['1K', '2K'],
+    resolutions: [],
+    modes: ['relax', 'fast', 'turbo'],  // 🆕
     supportsNegativePrompt: false,
     supportsImg2Img: false,
     maxInputImages: 0,
@@ -39,7 +54,8 @@ const MODEL_CAPS: Record<string, ModelCaps> = {
   },
   'midjourney-img2img': {
     aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'],
-    resolutions: ['1K', '2K'],
+    resolutions: [],
+    modes: ['relax', 'fast', 'turbo'],  // 🆕
     supportsNegativePrompt: false,
     supportsImg2Img: true,
     maxInputImages: 8,
@@ -68,6 +84,7 @@ const MODEL_CAPS: Record<string, ModelCaps> = {
   'flux-2': {
     aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'],
     resolutions: ['1K', '2K'],
+    modes: ['flex', 'pro'],             // 🆕 версии Flux влияют на цену
     supportsNegativePrompt: false,
     supportsImg2Img: false,
     maxInputImages: 0,
@@ -77,6 +94,7 @@ const MODEL_CAPS: Record<string, ModelCaps> = {
   'flux-2-img2img': {
     aspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3', 'auto'],
     resolutions: ['1K', '2K'],
+    modes: ['flex', 'pro'],             // 🆕
     supportsNegativePrompt: false,
     supportsImg2Img: true,
     maxInputImages: 8,
@@ -104,6 +122,7 @@ const MODEL_CAPS: Record<string, ModelCaps> = {
   'gpt-5-image': {
     aspectRatios: ['1:1', '3:2', '2:3'],
     resolutions: [],
+    qualities: ['standard', 'hd'],      // 🆕 quality влияет на цену
     supportsNegativePrompt: false,
     supportsImg2Img: false,
     maxInputImages: 0,
@@ -158,6 +177,8 @@ const QUALITY_LABELS: Record<string, string> = {
   'auto': 'Авто',
   'low': 'Low',
   'medium': 'Medium',
+  'standard': 'Standard',
+  'hd': 'HD',
 }
 
 const examplePrompts = [
@@ -182,19 +203,20 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
   const [input, setInput] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
-  const resolveInitialSlug = useCallback((): string => {
-  if (initialModel) {
-    const byExact = imageModels.find(
-      (m: any) => m.slug === initialModel || m.name === initialModel,
-    )
-    if (byExact) return byExact.slug
-  }
-  return imageModels[0]?.slug ?? 'midjourney'
-}, [initialModel, imageModels])
 
-const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
-  resolveInitialSlug(),
-)
+  const resolveInitialSlug = useCallback((): string => {
+    if (initialModel) {
+      const byExact = imageModels.find(
+        (m: any) => m.slug === initialModel || m.name === initialModel,
+      )
+      if (byExact) return byExact.slug
+    }
+    return imageModels[0]?.slug ?? 'midjourney'
+  }, [initialModel, imageModels])
+
+  const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
+    resolveInitialSlug(),
+  )
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -202,6 +224,7 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
   const [aspectRatio, setAspectRatio] = useState('1:1')
   const [resolution, setResolution] = useState('1K')
   const [quality, setQuality] = useState('basic')
+  const [mode, setMode] = useState<string | undefined>(undefined)   // 🆕
   const [outputFormat, setOutputFormat] = useState('png')
   const [seed, setSeed] = useState<number | undefined>(undefined)
 
@@ -214,19 +237,78 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   const currentModel = imageModels.find((m: any) => m.slug === selectedModelSlug)
-  const modelCost = currentModel?.cost || 5
-  const caps = MODEL_CAPS[selectedModelSlug] || DEFAULT_CAPS
+  const modelMinCost = currentModel?.cost || 5
+  const localCaps = MODEL_CAPS[selectedModelSlug] || DEFAULT_CAPS
+
+  // 🆕 Загружаем UI-конфиг с бэка
+  const { config: uiConfig } = useModelUIConfig(selectedModelSlug)
+
+  // 🆕 Мержим caps: бэкенд > локальные > defaults
+  const caps: ModelCaps = useMemo(() => {
+    if (!uiConfig || !uiConfig.uiParameters?.length) return localCaps
+
+    const params = uiConfig.uiParameters
+    const getOpts = (key: string): string[] | undefined => {
+      const p = params.find((x) => x.key === key)
+      if (!p?.options) return undefined
+      return p.options.map((o) => o.value)
+    }
+
+    const inputCap = uiConfig.inputCapabilities || {}
+
+    return {
+      aspectRatios: getOpts('aspectRatio') || localCaps.aspectRatios,
+      resolutions: getOpts('resolution') || localCaps.resolutions,
+      qualities: getOpts('quality') || localCaps.qualities,
+      modes: getOpts('mode') || localCaps.modes,
+      supportsNegativePrompt:
+        !!params.find((p) => p.key === 'negativePrompt') ||
+        localCaps.supportsNegativePrompt,
+      supportsImg2Img:
+        inputCap.acceptsImages === true || localCaps.supportsImg2Img,
+      maxInputImages:
+        inputCap.maxInputImages ?? localCaps.maxInputImages,
+      supportsOutputFormat:
+        !!params.find((p) => p.key === 'outputFormat') ||
+        localCaps.supportsOutputFormat,
+      supportsSeed:
+        !!params.find((p) => p.key === 'seed') || localCaps.supportsSeed,
+    }
+  }, [uiConfig, localCaps])
+
+  // 🆕 Собираем params для расчёта цены
+  const priceParams = useMemo(() => {
+    const p: Record<string, any> = {}
+    if (mode) p.mode = mode
+    if (caps.resolutions.length > 0) p.resolution = resolution
+    if (caps.qualities && caps.qualities.length > 0) p.quality = quality
+    if (caps.aspectRatios.includes(aspectRatio)) p.aspectRatio = aspectRatio
+    if (inputImages.length > 0) p.hasInputImage = true
+    return p
+  }, [mode, resolution, quality, aspectRatio, caps, inputImages.length])
+
+    // 🆕 Real-time расчёт цены
+  const { price, isCalculating } = usePriceCalculator(
+    selectedModelSlug,
+    priceParams,
+    { enabled: true, debounceMs: 300 },
+  )
+
+  // 🆕 Текущая отображаемая цена: priority — расчёт с бэка > min cost модели
+  const displayedCost = price?.costInTokens ?? modelMinCost
+  const matchedLabel = price?.matchedRule?.label
+  const isFallbackPrice = price?.fallback ?? true
 
   useEffect(() => {
-  if (!initialModel || imageModels.length === 0) return
-  const match = imageModels.find(
-    (m: any) => m.slug === initialModel || m.name === initialModel,
-  )
-  if (match && match.slug !== selectedModelSlug) {
-    setSelectedModelSlug(match.slug)
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [initialModel, imageModels.length])
+    if (!initialModel || imageModels.length === 0) return
+    const match = imageModels.find(
+      (m: any) => m.slug === initialModel || m.name === initialModel,
+    )
+    if (match && match.slug !== selectedModelSlug) {
+      setSelectedModelSlug(match.slug)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialModel, imageModels.length])
 
   // Telegram BackButton
   useEffect(() => {
@@ -240,16 +322,31 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
     }
   }, [webApp, onBack])
 
-  // Сброс настроек при смене модели
+  // 🆕 Сброс настроек при смене модели — учитываем defaultValue из бэка
   useEffect(() => {
     setAspectRatio(caps.aspectRatios[0] || '1:1')
     setResolution(caps.resolutions[0] || '1K')
     setQuality(caps.qualities?.[0] || 'basic')
+    setMode(caps.modes?.[0])           // 🆕
     setOutputFormat('png')
     setSeed(undefined)
     setNegativePrompt('')
     setInputImages([])
-  }, [selectedModelSlug]) // eslint-disable-line
+
+    // Если бэк отдал defaultValue — применяем
+    if (uiConfig?.uiParameters) {
+      uiConfig.uiParameters.forEach((p) => {
+        if (p.defaultValue === undefined) return
+        switch (p.key) {
+          case 'aspectRatio': setAspectRatio(String(p.defaultValue)); break
+          case 'resolution': setResolution(String(p.defaultValue)); break
+          case 'quality': setQuality(String(p.defaultValue)); break
+          case 'mode': setMode(String(p.defaultValue)); break
+          case 'outputFormat': setOutputFormat(String(p.defaultValue)); break
+        }
+      })
+    }
+  }, [selectedModelSlug, uiConfig]) // eslint-disable-line
 
   const imageGenerations = generations.filter((g: any) => g.type === 'image')
 
@@ -336,8 +433,9 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
       return
     }
 
-    if (balance < modelCost) {
-      toast.warning(`Недостаточно спичек. Нужно ${modelCost}, у вас ${balance}`)
+    // 🆕 Проверяем баланс по актуальной цене с бэка
+    if (balance < displayedCost) {
+      toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
       return
     }
@@ -349,6 +447,7 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
 
     if (caps.resolutions.length > 0) settings.resolution = resolution
     if (caps.qualities && caps.qualities.length > 0) settings.quality = quality
+    if (caps.modes && caps.modes.length > 0 && mode) settings.mode = mode  // 🆕
     if (caps.supportsNegativePrompt && negativePrompt.trim()) {
       settings.negativePrompt = negativePrompt.trim()
     }
@@ -376,8 +475,8 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
       )
     }
   }, [
-    input, negativePrompt, balance, modelCost, selectedModelSlug,
-    aspectRatio, resolution, quality, outputFormat, seed,
+    input, negativePrompt, balance, displayedCost, selectedModelSlug,
+    aspectRatio, resolution, quality, mode, outputFormat, seed,
     inputImages, caps, haptic, hapticNotification, generate,
   ])
 
@@ -401,6 +500,9 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
   const isImg2ImgModel =
     selectedModelSlug.includes('img2img') ||
     (caps.supportsImg2Img && caps.maxInputImages > 0)
+
+  // 🆕 Форматирование цены
+  const formatCost = (n: number) => (n % 1 === 0 ? n : n.toFixed(2))
 
   return (
     <div
@@ -443,9 +545,26 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
           >
             <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
             <span className="truncate">{currentModel?.name ?? selectedModelSlug}</span>
-            <span className="text-[11px] text-white/40 ml-auto shrink-0">
-              {modelCost % 1 === 0 ? modelCost : modelCost.toFixed(2)} 🔥
+
+            {/* 🆕 Динамическая цена в шапке */}
+            <span
+              className={`
+                text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
+                transition-colors duration-200
+                ${isCalculating
+                  ? 'text-white/30'
+                  : !isFallbackPrice
+                    ? 'text-[var(--accent-yellow)]'
+                    : 'text-white/40'
+                }
+              `}
+            >
+              {isCalculating && (
+                <Loader2 size={10} className="animate-spin" />
+              )}
+              {formatCost(displayedCost)} 🔥
             </span>
+
             <ChevronDown
               size={14}
               className={`
@@ -478,6 +597,29 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
 
         {/* Текущие параметры — быстрый просмотр */}
         <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
+          {/* 🆕 Чип режима (mode) */}
+          {caps.modes && caps.modes.length > 0 && mode && (
+            <button
+              className="
+                shrink-0 py-1 px-2.5
+                rounded-[var(--radius-xs)]
+                border border-[rgba(250,204,21,0.25)]
+                bg-[rgba(250,204,21,0.08)]
+                text-[var(--accent-yellow)] text-[11px] font-medium
+                cursor-pointer transition-all duration-150
+                active:scale-[0.95]
+                inline-flex items-center gap-1
+              "
+              onClick={() => {
+                setShowSettings(true)
+                haptic('light')
+              }}
+            >
+              <Sparkles size={10} />
+              {MODE_LABELS[mode] || mode}
+            </button>
+          )}
+
           <button
             className="
               shrink-0 py-1 px-2.5
@@ -554,6 +696,21 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
               {inputImages.length > 0 ? `${inputImages.length} фото` : 'img2img'}
             </button>
           )}
+
+          {/* 🆕 Бейдж с лейблом сработавшего правила цены */}
+          {matchedLabel && !isFallbackPrice && (
+            <span
+              className="
+                shrink-0 py-1 px-2.5
+                rounded-[var(--radius-xs)]
+                bg-[rgba(250,204,21,0.06)]
+                text-[var(--accent-yellow)]/70 text-[10px] font-medium
+                ml-auto
+              "
+            >
+              {matchedLabel}
+            </span>
+          )}
         </div>
 
         {/* Model dropdown */}
@@ -599,7 +756,7 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] text-white/40">
-                    {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
+                    от {formatCost(m.cost)} 🔥
                   </span>
                   {selectedModelSlug === m.slug && (
                     <Check size={14} className="text-[var(--accent-yellow)]" />
@@ -611,7 +768,7 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
         )}
       </div>
 
-            {/* ── Results ── */}
+      {/* ── Results ── */}
       <div
         ref={messagesContainerRef}
         className="
@@ -759,7 +916,6 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
                   relative overflow-hidden
                 "
               >
-                {/* Анимированный фон */}
                 <div
                   className="
                     absolute inset-0 opacity-30
@@ -810,7 +966,28 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
             </div>
 
             <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.04]">
-              <div className="text-[15px] font-semibold text-white">Настройки</div>
+              <div className="flex flex-col gap-0.5">
+                <div className="text-[15px] font-semibold text-white">Настройки</div>
+                {/* 🆕 Live-цена в шапке шита */}
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="text-[var(--gray-500)]">Цена:</span>
+                  <span
+                    className={`
+                      font-semibold inline-flex items-center gap-1
+                      ${!isFallbackPrice
+                        ? 'text-[var(--accent-yellow)]'
+                        : 'text-white/50'
+                      }
+                    `}
+                  >
+                    {isCalculating && <Loader2 size={10} className="animate-spin" />}
+                    {formatCost(displayedCost)} 🔥
+                  </span>
+                  {matchedLabel && !isFallbackPrice && (
+                    <span className="text-white/40">· {matchedLabel}</span>
+                  )}
+                </div>
+              </div>
               <button
                 className="
                   w-8 h-8 rounded-full
@@ -826,6 +1003,50 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
             </div>
 
             <div className="flex flex-col gap-5 p-5">
+              {/* 🆕 Режим (mode) — для Midjourney/Flux/Kling и т.д. */}
+              {caps.modes && caps.modes.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                    <Sparkles size={12} />
+                    Режим
+                    <span className="text-[10px] text-[var(--accent-yellow)]/70 normal-case font-medium ml-1">
+                      влияет на цену
+                    </span>
+                  </div>
+                  <div
+                    className={`grid gap-1.5 ${
+                      caps.modes.length === 2
+                        ? 'grid-cols-2'
+                        : caps.modes.length === 3
+                          ? 'grid-cols-3'
+                          : 'grid-cols-2'
+                    }`}
+                  >
+                    {caps.modes.map((m) => (
+                      <button
+                        key={m}
+                        className={`
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${mode === m
+                            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                          }
+                        `}
+                        onClick={() => {
+                          setMode(m)
+                          haptic('light')
+                        }}
+                      >
+                        {MODE_LABELS[m] || m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Соотношение сторон */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
@@ -863,6 +1084,10 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
                     <Layers size={12} />
                     Разрешение
+                    {/* 🆕 Маркер «влияет на цену» */}
+                    <span className="text-[10px] text-[var(--accent-yellow)]/70 normal-case font-medium ml-1">
+                      влияет на цену
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">
                     {caps.resolutions.map((r) => (
@@ -896,6 +1121,9 @@ const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
                     <Zap size={12} />
                     Качество
+                    <span className="text-[10px] text-[var(--accent-yellow)]/70 normal-case font-medium ml-1">
+                      влияет на цену
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     {caps.qualities.map((q) => (
