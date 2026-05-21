@@ -13,10 +13,12 @@ import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 
+
 interface Props {
   initialModel?: string
   onBack?: () => void
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // UI labels (только для отображения)
@@ -56,8 +58,9 @@ const examplePrompts = [
   'Дракон летит над горами, эпичный свет заката',
 ]
 
+
 // ─────────────────────────────────────────────────────────────
-// Helpers (читаем uiConfig)
+// Helpers
 // ─────────────────────────────────────────────────────────────
 
 function getParamOptions(config: ModelUIConfig | null, key: string): string[] {
@@ -76,6 +79,7 @@ function getDefaultValue(config: ModelUIConfig | null, key: string): string | un
   const p = config.uiParameters.find((x) => x.key === key)
   return p?.defaultValue !== undefined ? String(p.defaultValue) : undefined
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // Component
@@ -97,8 +101,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
   const resolveInitialSlug = useCallback((): string => {
     if (initialModel) {
+      const norm = initialModel.toLowerCase().trim()
       const byExact = imageModels.find(
-        (m: any) => m.slug === initialModel || m.name === initialModel,
+        (m: any) =>
+          m.slug?.toLowerCase() === norm ||
+          m.name?.toLowerCase() === norm,
       )
       if (byExact) return byExact.slug
     }
@@ -122,18 +129,24 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const [inputImages, setInputImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
 
+  // 🆕 slug, для которого настройки уже синхронизированы с uiConfig
+  const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
+
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
+  // 🆕 флаг что initialModel уже применён (защита от повторного триггера)
+  const initialAppliedRef = useRef(false)
+
   const currentModel = imageModels.find((m: any) => m.slug === selectedModelSlug)
   const modelMinCost = currentModel?.cost || 5
 
-  // 🆕 UI-конфиг с бэка
+  // UI-конфиг с бэка
   const { config: uiConfig, isLoading: isLoadingConfig } = useModelUIConfig(selectedModelSlug)
 
-  // 🎯 caps полностью derived из бэка
+  // caps derived из бэка
   const caps = useMemo(() => {
     const aspectRatios = getParamOptions(uiConfig, 'aspectRatio')
     const resolutions = getParamOptions(uiConfig, 'resolution')
@@ -157,7 +170,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const isImg2ImgModel = caps.supportsImg2Img && caps.maxInputImages > 0
   const requiresInputImage = selectedModelSlug.includes('img2img')
 
-  // 🎯 priceParams синхронны с caps
+  // priceParams синхронны с caps
   const priceParams = useMemo(() => {
     const p: Record<string, any> = {}
     if (caps.modes.length > 0 && mode) p.mode = mode
@@ -171,30 +184,55 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     return p
   }, [mode, resolution, quality, aspectRatio, caps, inputImages.length])
 
-  // 🆕 Real-time расчёт цены
+  // Real-time расчёт цены — стартуем ТОЛЬКО когда настройки синхронизированы
   const { price, isCalculating } = usePriceCalculator(
     selectedModelSlug,
     priceParams,
-    { enabled: !!uiConfig, debounceMs: 300 },
+    {
+      enabled: !!uiConfig && syncedSlug === selectedModelSlug,
+      debounceMs: 300,
+    },
   )
 
-  const displayedCost = price?.costInTokens ?? modelMinCost
-  const matchedLabel = price?.matchedRule?.label
-  const isFallbackPrice = price?.fallback ?? true
+  // ✅ Цена "готова к показу" только когда:
+  // - конфиг загружен для текущей модели
+  // - настройки синхронизированы с этим конфигом
+  // - расчёт цены не в полёте
+  const isPriceReady =
+    !!uiConfig &&
+    !isLoadingConfig &&
+    syncedSlug === selectedModelSlug &&
+    !isCalculating
 
-  // Sync initialModel при загрузке моделей
+  const displayedCost = isPriceReady
+    ? (price?.costInTokens ?? modelMinCost)
+    : modelMinCost
+
+  const matchedLabel = isPriceReady ? price?.matchedRule?.label : undefined
+  const isFallbackPrice = isPriceReady ? (price?.fallback ?? true) : true
+  const showPriceLoader = !isPriceReady
+
+  // 🔄 Sync initialModel когда модели подгрузились (только один раз)
   useEffect(() => {
+    if (initialAppliedRef.current) return
     if (!initialModel || imageModels.length === 0) return
-    const match = imageModels.find(
-      (m: any) => m.slug === initialModel || m.name === initialModel,
-    )
-    if (match && match.slug !== selectedModelSlug) {
-      setSelectedModelSlug(match.slug)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialModel, imageModels.length])
 
-  // Telegram BackButton — закрывает sheet/picker, потом страницу
+    const norm = initialModel.toLowerCase().trim()
+    const match = imageModels.find((m: any) =>
+      m.slug?.toLowerCase() === norm ||
+      m.name?.toLowerCase() === norm,
+    )
+
+    if (match) {
+      if (match.slug !== selectedModelSlug) {
+        setSyncedSlug(null) // 🔒 заморозить цену
+        setSelectedModelSlug(match.slug)
+      }
+      initialAppliedRef.current = true
+    }
+  }, [initialModel, imageModels, selectedModelSlug])
+
+  // Telegram BackButton
   useEffect(() => {
     if (!webApp?.BackButton) return
     webApp.BackButton.show()
@@ -210,7 +248,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [webApp, onBack, showSettings, showModelPicker])
 
-  // 🎯 ОДИН батч-сброс настроек когда пришёл uiConfig
+  // 🎯 Батч-сброс настроек когда пришёл uiConfig для актуальной модели
   useEffect(() => {
     if (!uiConfig) return
 
@@ -233,6 +271,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     setSeed(undefined)
     setNegativePrompt('')
     setInputImages([])
+
+    // ✅ помечаем что для этого slug настройки актуальны → можно считать цену
+    setSyncedSlug(selectedModelSlug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig])
 
@@ -385,7 +426,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
   const formatCost = (n: number) => (n % 1 === 0 ? n : n.toFixed(2))
 
-  const showPriceLoader = isCalculating || isLoadingConfig || !uiConfig
+  // 🆕 helper для безопасной смены модели
+  const switchModel = (newSlug: string) => {
+    if (newSlug === selectedModelSlug) return
+    setSyncedSlug(null) // 🔒 заморозить цену до прихода нового конфига
+    setSelectedModelSlug(newSlug)
+  }
 
   // ─────────────────────────────────────────────────────────
   // Render
@@ -433,7 +479,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
             <span className="truncate">{currentModel?.name ?? selectedModelSlug}</span>
 
-            {/* Динамическая цена в шапке */}
             <span
               className={`
                 text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
@@ -482,7 +527,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           </button>
         </div>
 
-        {/* Чипы быстрого просмотра */}
+        {/* Чипы */}
         <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
           {caps.modes.length > 0 && mode && (
             <button
@@ -524,7 +569,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             {aspectRatio}
           </button>
 
-          {caps.resolutions.length > 0 && resolution && (
+                    {caps.resolutions.length > 0 && resolution && (
             <button
               className="
                 shrink-0 py-1 px-2.5
@@ -586,7 +631,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </button>
           )}
 
-          {/* Бейдж с лейблом сработавшего правила цены */}
           {matchedLabel && !isFallbackPrice && (
             <span
               className="
@@ -631,7 +675,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                   ${selectedModelSlug === m.slug ? 'text-white' : ''}
                 `}
                 onClick={() => {
-                  setSelectedModelSlug(m.slug)
+                  switchModel(m.slug)
                   setShowModelPicker(false)
                   haptic('light')
                 }}
@@ -666,7 +710,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         "
       >
         <div className="flex flex-col gap-3.5 px-4 py-3">
-          {/* Empty state */}
           {imageGenerations.length === 0 && !isGenerating && (
             <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-[60px] text-center fade-in fade-in--2">
               <div className="w-16 h-16 rounded-[20px] bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/15 mb-1">
@@ -695,7 +738,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </div>
           )}
 
-          {/* Загруженные input изображения для img2img */}
           {isImg2ImgModel && inputImages.length > 0 && (
             <div className="flex flex-col gap-2 fade-in">
               <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
@@ -739,7 +781,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </div>
           )}
 
-          {/* Список генераций */}
           {imageGenerations.map((gen: any) => (
             <div
               key={gen.id}
@@ -774,7 +815,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </div>
           ))}
 
-          {/* Streaming generation */}
           {isGenerating && (
             <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
               <div className="flex items-center gap-2 flex-wrap">
@@ -852,7 +892,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               paddingBottom: '20px',
             }}
           >
-            {/* Drag handle */}
             <div className="sticky top-0 pt-2.5 pb-1 flex justify-center bg-[var(--bg-glass-heavy)]">
               <div className="w-10 h-1 rounded-full bg-white/15" />
             </div>
@@ -894,7 +933,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </div>
 
             <div className="flex flex-col gap-5 p-5">
-              {/* Режим (mode) */}
+              {/* Режим */}
               {caps.modes.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
@@ -905,12 +944,13 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                     </span>
                   </div>
                   <div
-                    className={`grid gap-1.5 ${caps.modes.length === 2
+                    className={`grid gap-1.5 ${
+                      caps.modes.length === 2
                         ? 'grid-cols-2'
                         : caps.modes.length === 3
                           ? 'grid-cols-3'
                           : 'grid-cols-2'
-                      }`}
+                    }`}
                   >
                     {caps.modes.map((m) => (
                       <button
@@ -983,15 +1023,15 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                       <button
                         key={r}
                         className={`
-            py-2 px-2.5 rounded-[var(--radius-xs)]
-            border text-[12px] font-medium
-            cursor-pointer transition-all duration-150
-            active:scale-[0.96]
-            ${resolution === r
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${resolution === r
                             ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
                             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                           }
-          `}
+                        `}
                         onClick={() => {
                           setResolution(r)
                           haptic('light')
@@ -1019,15 +1059,15 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                       <button
                         key={q}
                         className={`
-            py-2 px-2.5 rounded-[var(--radius-xs)]
-            border text-[12px] font-medium
-            cursor-pointer transition-all duration-150
-            active:scale-[0.96]
-            ${quality === q
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${quality === q
                             ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
                             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                           }
-          `}
+                        `}
                         onClick={() => {
                           setQuality(q)
                           haptic('light')
@@ -1135,7 +1175,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                         cursor-pointer transition-all duration-150
                         active:scale-[0.92] active:text-[var(--accent-yellow)]
                       "
-                      onClick={randomSeed}
+                                            onClick={randomSeed}
                     >
                       <Shuffle size={16} />
                     </button>
@@ -1263,7 +1303,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         "
       >
         <div className="flex items-center gap-2">
-          {/* Upload button (для img2img моделей) */}
           {isImg2ImgModel ? (
             <button
               className={`
@@ -1344,3 +1383,4 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     </div>
   )
 }
+                    

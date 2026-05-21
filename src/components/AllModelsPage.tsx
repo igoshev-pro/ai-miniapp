@@ -15,6 +15,7 @@ import { useFavorites } from '@/hooks'
 import { useModels } from '@/hooks'
 import type { ModelItem } from '@/lib/data'
 
+
 const categoryIcons: Record<string, React.ReactNode> = {
   text: <MessageSquare size={13} />,
   image: <Image size={13} />,
@@ -39,7 +40,11 @@ const categoryLabels: Record<string, string> = {
 interface Props {
   onBack: () => void
   initialCategory?: string | null
-  onModelTap?: (modelName: string, category: string) => void
+  /**
+   * ⚠️ Передаёт SLUG модели (не name).
+   * Родитель должен прокинуть его в `initialModel` страницы генерации.
+   */
+  onModelTap?: (modelSlug: string, category: string) => void
 }
 
 export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
@@ -69,7 +74,6 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
 
   return (
     <div className="models-page">
-      {/* Sticky header — оставляем CSS-класс для fixed позиционирования и адаптива */}
       <div className="models-page__sticky">
         {/* Header row */}
         <div className="flex items-center gap-2.5 pb-2.5 fade-in fade-in--1">
@@ -164,7 +168,7 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
         </div>
       </div>
 
-      {/* List — оставляем CSS-класс для padding-top (148px) и адаптива */}
+      {/* List */}
       <div className="models-page__list fade-in fade-in--3">
         {grouped.map((group) => (
           <div key={group.category} className="mb-1">
@@ -177,7 +181,8 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
                 model={model}
                 onTap={() => {
                   haptic('light')
-                  onModelTap?.(model.name, model.category)
+                  // ✅ передаём SLUG, а не name — это надёжный идентификатор
+                  onModelTap?.(model.slug, model.category)
                 }}
                 onFavorite={() => {
                   haptic('light')
@@ -198,6 +203,7 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
     </div>
   )
 }
+
 
 function ModelCard({
   model,
