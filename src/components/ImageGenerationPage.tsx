@@ -874,27 +874,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
       {/* ── Settings sheet ── */}
       {showSettings && (
-        <>
-          <div
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm fade-in"
-            onClick={() => setShowSettings(false)}
-          />
-          <div
-            className="
-              fixed left-0 right-0 z-[61]
-              max-h-[80vh] overflow-y-auto overscroll-contain
-              rounded-t-[20px]
-              border-t border-[var(--border-glass)]
-              bg-[var(--bg-glass-heavy)]
-              backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
-              [-webkit-overflow-scrolling:touch]
-              animate-[slideUp_0.3s_ease-out]
-            "
-            style={{
-              bottom: 'calc(59px + var(--safe-bottom, 0px))',
-              paddingBottom: '20px',
-            }}
-          >
+  <>
+    <div
+      className="gen-settings-overlay"
+      onClick={() => setShowSettings(false)}
+    />
+    <div className="gen-settings-sheet">
             <div className="sticky top-0 pt-2.5 pb-1 flex justify-center bg-[var(--bg-glass-heavy)]">
               <div className="w-10 h-1 rounded-full bg-white/15" />
             </div>

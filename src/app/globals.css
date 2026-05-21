@@ -5208,6 +5208,43 @@ body.tg-app .sticky-header {
   position: relative;
 }
 
+/* ═══════════════ GEN SETTINGS SHEET (universal) ═══════════════ */
+
+.gen-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.gen-settings-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(59px + var(--safe-bottom, 0px));
+  z-index: 61;
+  max-height: 80vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border-top: 1px solid var(--border-glass);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  background: var(--bg-glass-heavy);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  padding-bottom: 20px;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
 /* ═══════════════ TABLET (768–1023px) ═══════════════ */
 
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -5658,6 +5695,23 @@ body.tg-app .sticky-header {
     max-width: 900px;
     margin: 0 auto;
     width: 100%;
+  }
+
+    .gen-settings-overlay {
+    left: 72px !important;
+  }
+
+  .gen-settings-sheet {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 500px;
+    max-height: 85vh;
+    border-radius: 20px;
+    border: 1px solid var(--border-glass);
+    margin-left: 36px;
   }
 }
 
@@ -6570,6 +6624,32 @@ body.tg-app .sticky-header {
     margin: 0 auto;
     width: 100%;
   }
+
+  /* Settings sheet — центрируем на десктопе */
+  .gen-settings-overlay {
+    left: 240px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .gen-settings-sheet {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
+    border-radius: 20px;
+    border: 1px solid var(--border-glass);
+    animation: fadeIn 0.2s ease-out;
+    /* выровнено по контенту main, без сдвига к сайдбару */
+    margin-left: 120px; /* половина ширины сайдбара чтобы центр был в main */
+  }
 }
 
 /* ═══════════════ LARGE DESKTOP (1400px+) ═══════════════ */
@@ -6746,6 +6826,21 @@ body.tg-app .fs-page__bar,
 body.tg-app .fs-page__scroll,
 body.tg-app .fs-page__input {
   max-width: none !important;
+}
+
+body.tg-app .gen-settings-overlay {
+  left: 0 !important;
+}
+
+body.tg-app .gen-settings-sheet {
+  left: 0 !important;
+  right: 0 !important;
+  bottom: calc(59px + var(--safe-bottom, 0px)) !important;
+  top: auto !important;
+  transform: none !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  border-radius: 20px 20px 0 0 !important;
 }
 
 /* ════════════════════════════════════════════════════════════════
