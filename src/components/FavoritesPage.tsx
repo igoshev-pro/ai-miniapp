@@ -291,7 +291,7 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
       </div>
 
       {/* List */}
-      <div className="favorites-page__list flex flex-col gap-1.5 fade-in fade-in--2">
+      <div className="favorites-page__list fade-in fade-in--2">
         {isLoading ? (
           /* Loading */
           <div className="flex flex-col items-center gap-2 py-10 text-white/30 text-[13px]">
