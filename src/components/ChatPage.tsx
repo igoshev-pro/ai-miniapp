@@ -130,7 +130,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
   // 🆕 Поддержка vision у текущей модели
-  const supportsVision = (currentModel as any)?.supportsVision ?? false
+  const supportsVision = currentModel?.supportsVision ?? false
 
   const isCurrentChatFavorite = useMemo(() => {
     if (!activeChatId || activeChatId.startsWith('pending-')) return false
@@ -669,7 +669,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             "
           >
             {textModels.map((m) => {
-              const mVision = (m as any).supportsVision
+              const mVision = m.supportsVision
               return (
                 <button
                   key={m.id}

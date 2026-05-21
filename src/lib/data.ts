@@ -7,6 +7,7 @@ export interface ModelItem {
   description: string
   cost: number          // минимальная стоимость в спичках (от)
   hasVariants?: boolean // true = показывать "от X 🔥"
+  supportsVision?: boolean 
 }
 
 export const allModels: ModelItem[] = [
@@ -15,21 +16,21 @@ export const allModels: ModelItem[] = [
   // ═══════════════════════════════════════
 
   // --- Evolink ---
-  { id: 't1', name: 'GPT-5.4',           slug: 'gpt-5.4',           provider: 'OpenAI',     category: 'text', description: 'Новейшая флагманская модель OpenAI',     cost: 0.20, hasVariants: true },
-  { id: 't2', name: 'Claude Sonnet 4.6', slug: 'claude-sonnet-4.6', provider: 'Anthropic',  category: 'text', description: 'Балансированная модель Anthropic',       cost: 0.20, hasVariants: true },
-  { id: 't3', name: 'Claude Opus 4.6',   slug: 'claude-opus-4.6',   provider: 'Anthropic',  category: 'text', description: 'Самая мощная модель Anthropic',          cost: 0.20, hasVariants: true },
+{ id: 't1', name: 'GPT-5.4',           slug: 'gpt-5.4',           provider: 'OpenAI',     category: 'text', description: 'Новейшая флагманская модель OpenAI',     cost: 0.20, hasVariants: true, supportsVision: true },
+{ id: 't2', name: 'Claude Sonnet 4.6', slug: 'claude-sonnet-4.6', provider: 'Anthropic',  category: 'text', description: 'Балансированная модель Anthropic',       cost: 0.20, hasVariants: true, supportsVision: true },
+{ id: 't3', name: 'Claude Opus 4.6',   slug: 'claude-opus-4.6',   provider: 'Anthropic',  category: 'text', description: 'Самая мощная модель Anthropic',          cost: 0.20, hasVariants: true, supportsVision: true },
 
-  // --- OpenRouter ---
-  { id: 't4',  name: 'GPT-OSS 120B',      slug: 'gpt-oss-120b',      provider: 'OpenRouter',  category: 'text', description: 'Open-source 117B MoE, бесплатная',     cost: 0.10, hasVariants: true },
-  { id: 't5',  name: 'Claude Haiku 4.5',   slug: 'claude-haiku-4.5',  provider: 'Anthropic',   category: 'text', description: 'Быстрая модель с расширенным мышлением', cost: 0.20, hasVariants: true },
-  { id: 't6',  name: 'DeepSeek V3.2',      slug: 'deepseek-v3.2',     provider: 'DeepSeek',    category: 'text', description: 'Улучшенная версия с DSA и reasoning',    cost: 0.10, hasVariants: true },
-  { id: 't7',  name: 'Grok 4.1 Fast',      slug: 'grok-4.1-fast',     provider: 'xAI',         category: 'text', description: 'Быстрая версия Grok от xAI',            cost: 0.10, hasVariants: true },
-  { id: 't8',  name: 'Grok 4',             slug: 'grok-4',            provider: 'xAI',         category: 'text', description: 'Флагманская reasoning модель',           cost: 0.40, hasVariants: true },
-  { id: 't9',  name: 'Perplexity Sonar',   slug: 'perplexity-sonar',  provider: 'Perplexity',  category: 'text', description: 'Поисковая модель с актуальными данными', cost: 0.10, hasVariants: true },
+// --- OpenRouter ---
+{ id: 't4',  name: 'GPT-OSS 120B',      slug: 'gpt-oss-120b',      provider: 'OpenRouter',  category: 'text', description: 'Open-source 117B MoE, бесплатная',     cost: 0.10, hasVariants: true },
+{ id: 't5',  name: 'Claude Haiku 4.5',  slug: 'claude-haiku-4.5',  provider: 'Anthropic',   category: 'text', description: 'Быстрая модель с расширенным мышлением', cost: 0.20, hasVariants: true, supportsVision: true },
+{ id: 't6',  name: 'DeepSeek V3.2',     slug: 'deepseek-v3.2',     provider: 'DeepSeek',    category: 'text', description: 'Улучшенная версия с DSA и reasoning',    cost: 0.10, hasVariants: true },
+{ id: 't7',  name: 'Grok 4.1 Fast',     slug: 'grok-4.1-fast',     provider: 'xAI',         category: 'text', description: 'Быстрая версия Grok от xAI',            cost: 0.10, hasVariants: true, supportsVision: true },
+{ id: 't8',  name: 'Grok 4',            slug: 'grok-4',            provider: 'xAI',         category: 'text', description: 'Флагманская reasoning модель',           cost: 0.40, hasVariants: true, supportsVision: true },
+{ id: 't9',  name: 'Perplexity Sonar',  slug: 'perplexity-sonar',  provider: 'Perplexity',  category: 'text', description: 'Поисковая модель с актуальными данными', cost: 0.10, hasVariants: true },
 
-  // --- KIE ---
-  { id: 't10', name: 'Gemini 3.1 Pro',     slug: 'gemini-3.1-pro',    provider: 'Google',      category: 'text', description: 'Продвинутая модель Google',              cost: 0.10, hasVariants: true },
-  { id: 't11', name: 'Gemini 3 Flash',     slug: 'gemini-3-flash',    provider: 'Google',      category: 'text', description: 'Быстрая модель Google',                 cost: 0.30 },
+// --- KIE ---
+{ id: 't10', name: 'Gemini 3.1 Pro',     slug: 'gemini-3.1-pro',    provider: 'Google',      category: 'text', description: 'Продвинутая модель Google',              cost: 0.10, hasVariants: true, supportsVision: true },
+{ id: 't11', name: 'Gemini 3 Flash',     slug: 'gemini-3-flash',    provider: 'Google',      category: 'text', description: 'Быстрая модель Google',                 cost: 0.30, supportsVision: true },
 
   // ═══════════════════════════════════════
   // ИЗОБРАЖЕНИЯ (10 моделей)

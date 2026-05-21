@@ -23,7 +23,8 @@ interface BackendModel {
   hasVariants?: boolean
   isActive?: boolean
   isPremium?: boolean
-  capabilities?: string[]
+  capabilities?: string[]      // ← может приходить ['vision', ...]
+  supportsVision?: boolean     // 🆕 если бэк отдаёт явно
   limits?: any
   defaultParams?: any
 }
@@ -34,6 +35,14 @@ interface ModelsResponse {
 }
 
 function mapBackendModel(m: BackendModel, index: number): ModelItem {
+  // 🆕 Vision определяем 2 способами:
+  // 1) явное поле supportsVision
+  // 2) capabilities содержит 'vision'
+  const supportsVision =
+    m.supportsVision === true ||
+    (Array.isArray(m.capabilities) &&
+      m.capabilities.some((c) => c?.toLowerCase().includes('vision')))
+
   return {
     id: `${m.type[0]}${index + 1}`,
     name: m.displayName || m.name,
@@ -43,6 +52,7 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
     description: m.description || '',
     cost: m.minCost || m.cost || guessCost(m.type),
     hasVariants: m.hasVariants ?? false,
+    supportsVision,            // 🆕
   }
 }
 
