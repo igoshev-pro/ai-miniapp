@@ -6,8 +6,7 @@ import {
   Paperclip,
   Send,
   Square,
-  Image,
-  FileText,
+  Image as ImageIcon,
   Mic,
   X,
   Check,
@@ -15,23 +14,38 @@ import {
   Wand2,
   MessageSquare,
   Star,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useUser, useModels, useFavorites } from '@/hooks'
+import { useUser, useFavorites } from '@/hooks'
 import { useChatStore, type ChatMessage } from '@/stores/chat.store'
 import { useModelsStore } from '@/stores/models.store'
-import { apiClient, ENDPOINTS, streamChat, isApiError } from '@/lib/api'
+import {
+  apiClient,
+  ENDPOINTS,
+  streamChat,
+  uploadImage,
+  validateImageFile,
+} from '@/lib/api'
 import { useUserStore } from '@/stores/user.store'
 import { MessageContent } from '@/components/ui/MessageContent'
 import { allModels as fallbackModels } from '@/lib/data'
 import { toast } from '@/stores/toast.store'
 
-interface Attachment {
+// ─── Типы для прикреплённых изображений ───
+interface ImageAttachment {
   id: string
-  name: string
-  type: 'image' | 'file'
-  size: string
+  file: File
+  previewUrl: string         // blob: URL для локального превью
+  status: 'pending' | 'uploading' | 'done' | 'error'
+  progress: number           // 0..100
+  remoteUrl?: string         // URL после загрузки на S3
+  errorMessage?: string
+  abortController?: AbortController
 }
+
+const MAX_IMAGES = 10
 
 const examplePrompts = [
   'Объясни квантовые вычисления простыми словами',
@@ -81,30 +95,42 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const storeModels = useModelsStore((s) => s.models)
   const allModels = storeModels.length > 0 ? storeModels : fallbackModels
-  const textModels = useMemo(() => allModels.filter((m) => m.category === 'text'), [allModels])
+  const textModels = useMemo(
+    () => allModels.filter((m) => m.category === 'text'),
+    [allModels],
+  )
 
-  const initialResolved = useMemo(() => resolveModelStatic(initialModel), [initialModel])
+  const initialResolved = useMemo(
+    () => resolveModelStatic(initialModel),
+    [initialModel],
+  )
 
   const [input, setInput] = useState('')
-  const [selectedModelName, setSelectedModelName] = useState(initialResolved?.name || 'ChatGPT 4o')
+  const [selectedModelName, setSelectedModelName] = useState(
+    initialResolved?.name || 'ChatGPT 4o',
+  )
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
-  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [images, setImages] = useState<ImageAttachment[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const didLoadRef = useRef(false)
 
   const currentModel = useMemo(
-    () => allModels.find((m) => m.name === selectedModelName) || initialResolved,
+    () =>
+      allModels.find((m) => m.name === selectedModelName) || initialResolved,
     [allModels, selectedModelName, initialResolved],
   )
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
+  // 🆕 Поддержка vision у текущей модели
+  const supportsVision = (currentModel as any)?.supportsVision ?? false
 
   const isCurrentChatFavorite = useMemo(() => {
     if (!activeChatId || activeChatId.startsWith('pending-')) return false
@@ -119,19 +145,24 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     const store = useChatStore.getState()
     store.switchChat(existingChatId)
     apiClient
-      .get(ENDPOINTS.CHAT_MESSAGES(existingChatId), { params: { page: 1, limit: 50 } })
+      .get(ENDPOINTS.CHAT_MESSAGES(existingChatId), {
+        params: { page: 1, limit: 50 },
+      })
       .then(({ data }: any) => {
         const msgs = (data.data?.messages || [])
           .filter((m: any) => !m.isStreaming && !m.isError)
-          .map((msg: any): ChatMessage => ({
-            id: msg._id,
-            chatId: msg.conversationId,
-            role: msg.role === 'system' ? 'assistant' : msg.role,
-            content: msg.content,
-            model: msg.modelSlug ? getModelName(msg.modelSlug) : undefined,
-            tokensUsed: msg.tokensCost || msg.usage?.totalTokens,
-            createdAt: msg.createdAt,
-          }))
+          .map(
+            (msg: any): ChatMessage => ({
+              id: msg._id,
+              chatId: msg.conversationId,
+              role: msg.role === 'system' ? 'assistant' : msg.role,
+              content: msg.content,
+              imageUrls: Array.isArray(msg.imageUrls) ? msg.imageUrls : undefined,
+              model: msg.modelSlug ? getModelName(msg.modelSlug) : undefined,
+              tokensUsed: msg.tokensCost || msg.usage?.totalTokens,
+              createdAt: msg.createdAt,
+            }),
+          )
         store.setMessages(msgs)
       })
       .catch(() => toast.error('Не удалось загрузить сообщения'))
@@ -161,48 +192,253 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto'
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px'
+      inputRef.current.style.height =
+        Math.min(inputRef.current.scrollHeight, 120) + 'px'
     }
   }, [input])
+
+  // 🆕 Очистка blob URL при размонтировании
+  useEffect(() => {
+    return () => {
+      images.forEach((img) => {
+        if (img.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(img.previewUrl)
+        }
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function formatTime(dateStr?: string) {
     const d = dateStr ? new Date(dateStr) : new Date()
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
   }
 
+  // ─── Работа с картинками ───────────────────────────────────
+
+  const startUpload = useCallback((attachment: ImageAttachment) => {
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === attachment.id
+          ? { ...img, status: 'uploading', progress: 0 }
+          : img,
+      ),
+    )
+
+    const ctrl = new AbortController()
+
+    uploadImage(attachment.file, {
+      signal: ctrl.signal,
+      onProgress: (p) => {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === attachment.id ? { ...img, progress: p.percent } : img,
+          ),
+        )
+      },
+    })
+      .then((result) => {
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === attachment.id
+              ? {
+                  ...img,
+                  status: 'done',
+                  progress: 100,
+                  remoteUrl: result.url,
+                }
+              : img,
+          ),
+        )
+      })
+      .catch((err: Error) => {
+        if (err.message === 'Загрузка отменена') return
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === attachment.id
+              ? { ...img, status: 'error', errorMessage: err.message }
+              : img,
+          ),
+        )
+        toast.error(err.message || 'Ошибка загрузки изображения')
+        hapticNotification('error')
+      })
+
+    // сохраняем abort controller
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === attachment.id ? { ...img, abortController: ctrl } : img,
+      ),
+    )
+  }, [hapticNotification])
+
+  const handleFilesSelected = useCallback(
+    (fileList: FileList | null) => {
+      if (!fileList || fileList.length === 0) return
+
+      const files = Array.from(fileList)
+      const currentCount = images.length
+      const available = MAX_IMAGES - currentCount
+
+      if (available <= 0) {
+        toast.warning(`Максимум ${MAX_IMAGES} изображений`)
+        hapticNotification('error')
+        return
+      }
+
+      const toProcess = files.slice(0, available)
+      if (files.length > available) {
+        toast.warning(`Добавлено ${available} из ${files.length}. Лимит ${MAX_IMAGES}.`)
+      }
+
+      const newAttachments: ImageAttachment[] = []
+      for (const file of toProcess) {
+        const validationError = validateImageFile(file)
+        if (validationError) {
+          toast.error(`${file.name}: ${validationError}`)
+          continue
+        }
+        newAttachments.push({
+          id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          previewUrl: URL.createObjectURL(file),
+          status: 'pending',
+          progress: 0,
+        })
+      }
+
+      if (newAttachments.length === 0) return
+
+      setImages((prev) => [...prev, ...newAttachments])
+      haptic('light')
+
+      // Запускаем загрузку каждого
+      newAttachments.forEach((att) => startUpload(att))
+    },
+    [images.length, haptic, hapticNotification, startUpload],
+  )
+
+  const removeImage = useCallback((id: string) => {
+    haptic('light')
+    setImages((prev) => {
+      const target = prev.find((img) => img.id === id)
+      if (target) {
+        // отменяем загрузку если идёт
+        target.abortController?.abort()
+        if (target.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(target.previewUrl)
+        }
+      }
+      return prev.filter((img) => img.id !== id)
+    })
+  }, [haptic])
+
+  const retryImage = useCallback(
+    (id: string) => {
+      const target = images.find((img) => img.id === id)
+      if (!target) return
+      haptic('light')
+      startUpload(target)
+    },
+    [images, haptic, startUpload],
+  )
+
+  const openFilePicker = useCallback(() => {
+    haptic('light')
+    setShowAttachMenu(false)
+    fileInputRef.current?.click()
+  }, [haptic])
+
+  // ─── Отправка сообщения ────────────────────────────────────
+
   const handleSend = useCallback(async () => {
     const text = input.trim()
-    if (!text && attachments.length === 0) return
+    const hasImages = images.length > 0
+
+    if (!text && !hasImages) return
     if (isStreaming) return
+
+    // 🆕 Проверка vision-совместимости
+    if (hasImages && !supportsVision) {
+      toast.warning(
+        `Модель "${selectedModelName}" не поддерживает изображения. Выберите GPT-4o, Claude, Gemini или Grok.`,
+      )
+      hapticNotification('error')
+      return
+    }
+
+    // 🆕 Дождаться завершения загрузки всех картинок
+    const stillUploading = images.some((img) => img.status === 'uploading' || img.status === 'pending')
+    if (stillUploading) {
+      toast.warning('Дождитесь загрузки всех изображений')
+      return
+    }
+
+    // 🆕 Если есть ошибки загрузки — не отправляем
+    const hasErrors = images.some((img) => img.status === 'error')
+    if (hasErrors) {
+      toast.error('Удалите или повторите загрузку проблемных изображений')
+      hapticNotification('error')
+      return
+    }
+
     if (balance < modelCost) {
       toast.warning(`Недостаточно спичек. Нужно ${modelCost}, у вас ${balance}`)
       hapticNotification('error')
       return
     }
+
     haptic('medium')
-    const fullText = text + (attachments.length > 0 ? `\n\n📎 ${attachments.map((a) => a.name).join(', ')}` : '')
+
+        // 🆕 Собираем URL загруженных картинок
+    const imageUrls = images
+      .filter((img) => img.status === 'done' && img.remoteUrl)
+      .map((img) => img.remoteUrl!) as string[]
+
+    // Очищаем blob URLs и стейт картинок
+    images.forEach((img) => {
+      if (img.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(img.previewUrl)
+      }
+    })
+
     setInput('')
-    setAttachments([])
+    setImages([])
     setShowAttachMenu(false)
+
     const store = useChatStore.getState()
     const currentActiveChatId = store.activeChatId
-    const chatIdToSend = currentActiveChatId && !currentActiveChatId.startsWith('pending-') ? currentActiveChatId : null
+    const chatIdToSend =
+      currentActiveChatId && !currentActiveChatId.startsWith('pending-')
+        ? currentActiveChatId
+        : null
+
+    // Сообщение пользователя (с картинками если есть)
     const userMessage: ChatMessage = {
       id: 'temp-' + Date.now(),
       chatId: chatIdToSend || 'pending',
       role: 'user',
-      content: fullText,
+      content: text,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
       createdAt: new Date().toISOString(),
     }
     store.addMessage(userMessage)
     store.setStreaming(true)
     store.setStreamingContent('')
+
     abortRef.current = streamChat(
-      { conversationId: chatIdToSend || undefined, modelSlug, content: fullText },
+      {
+        conversationId: chatIdToSend || undefined,
+        modelSlug,
+        content: text,
+        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      },
       {
         onConversation: (data) => {
           store.setActiveChatId(data.id)
-          const exists = useChatStore.getState().chats.find((c) => c.id === data.id)
+          const exists = useChatStore
+            .getState()
+            .chats.find((c) => c.id === data.id)
           if (!exists) {
             store.addChat({
               id: data.id,
@@ -216,7 +452,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             })
           }
         },
-        onMessageStart: () => { },
+        onMessageStart: () => {},
         onToken: (token) => store.appendStreamingContent(token),
         onDone: (data) => {
           const finalContent = useChatStore.getState().streamingContent
@@ -235,10 +471,16 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           if (data.tokensUsed) {
             const userState = useUserStore.getState()
             if (userState.user) {
-              const newBonus = Math.max(0, userState.user.bonusTokens - data.tokensUsed)
+              const newBonus = Math.max(
+                0,
+                userState.user.bonusTokens - data.tokensUsed,
+              )
               const usedFromBonus = userState.user.bonusTokens - newBonus
               const usedFromMain = data.tokensUsed - usedFromBonus
-              const newMain = Math.max(0, userState.user.tokenBalance - usedFromMain)
+              const newMain = Math.max(
+                0,
+                userState.user.tokenBalance - usedFromMain,
+              )
               userState.updateBalance(newMain, newBonus)
             }
           }
@@ -254,7 +496,18 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         },
       },
     )
-  }, [input, attachments, isStreaming, balance, modelCost, modelSlug, haptic, hapticNotification])
+  }, [
+    input,
+    images,
+    isStreaming,
+    balance,
+    modelCost,
+    modelSlug,
+    supportsVision,
+    selectedModelName,
+    haptic,
+    hapticNotification,
+  ])
 
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort()
@@ -282,35 +535,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const copyMessage = useCallback(
     (id: string, content: string) => {
-      navigator.clipboard.writeText(content).catch(() => { })
+      navigator.clipboard.writeText(content).catch(() => {})
       setCopiedId(id)
       haptic('light')
       setTimeout(() => setCopiedId(null), 2000)
-    },
-    [haptic],
-  )
-
-  const addAttachment = useCallback(
-    (type: 'image' | 'file') => {
-      haptic('light')
-      setAttachments((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          name: type === 'image' ? `photo_${Math.floor(Math.random() * 1000)}.jpg` : `doc_${Math.floor(Math.random() * 1000)}.pdf`,
-          type,
-          size: type === 'image' ? '2.4 MB' : '156 KB',
-        },
-      ])
-      setShowAttachMenu(false)
-    },
-    [haptic],
-  )
-
-  const removeAttachment = useCallback(
-    (id: string) => {
-      haptic('light')
-      setAttachments((prev) => prev.filter((a) => a.id !== id))
     },
     [haptic],
   )
@@ -322,6 +550,18 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const hasMessages = messages.length > 0
 
+  // 🆕 Состояние кнопки Send
+  const canSend = useMemo(() => {
+    if (isStreaming) return false
+    if (!input.trim() && images.length === 0) return false
+    // Если есть картинки — все должны быть загружены
+    if (images.length > 0) {
+      const allDone = images.every((img) => img.status === 'done')
+      if (!allDone) return false
+    }
+    return true
+  }, [isStreaming, input, images])
+
   return (
     <div
       className="
@@ -330,6 +570,20 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
       "
     >
+      {/* Скрытый file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          handleFilesSelected(e.target.files)
+          // сбрасываем input чтобы можно было выбрать тот же файл снова
+          e.target.value = ''
+        }}
+      />
+
       {/* ── Model bar ── */}
       <div
         className="
@@ -386,9 +640,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               cursor-pointer transition-all duration-150
               shrink-0 [-webkit-tap-highlight-color:transparent]
               active:scale-[0.9]
-              ${isCurrentChatFavorite
-                ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-                : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
+              ${
+                isCurrentChatFavorite
+                  ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                  : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
               }
             `}
             onClick={() => {
@@ -396,10 +651,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               toggleFavorite('conversation', activeChatId, selectedModelName)
             }}
           >
-            <Star
-              size={16}
-              fill={isCurrentChatFavorite ? 'currentColor' : 'none'}
-            />
+            <Star size={16} fill={isCurrentChatFavorite ? 'currentColor' : 'none'} />
           </button>
         )}
 
@@ -416,41 +668,53 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               overflow-hidden max-h-[400px] overflow-y-auto
             "
           >
-            {textModels.map((m) => (
-              <button
-                key={m.id}
-                className={`
-                  flex items-center justify-between w-full
-                  py-[11px] px-3.5
-                  border-none bg-transparent
-                  text-[var(--gray-400)] text-[13px]
-                  cursor-pointer transition-[background] duration-150
-                  font-[inherit] text-left
-                  border-b border-[var(--border)]
-                  last:border-b-0
-                  active:bg-white/[0.04]
-                  ${selectedModelName === m.name ? 'text-white' : ''}
-                `}
-                onClick={() => {
-                  setSelectedModelName(m.name)
-                  setShowModelPicker(false)
-                  haptic('light')
-                }}
-              >
-                <div className="flex flex-col gap-[1px]">
-                  <span className="font-semibold">{m.name}</span>
-                  <span className="text-[11px] text-[var(--gray-600)]">{m.provider}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-white/40">
-                    {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
-                  </span>
-                  {selectedModelName === m.name && (
-                    <Check size={14} className="text-[var(--accent-yellow)]" />
-                  )}
-                </div>
-              </button>
-            ))}
+            {textModels.map((m) => {
+              const mVision = (m as any).supportsVision
+              return (
+                <button
+                  key={m.id}
+                  className={`
+                    flex items-center justify-between w-full
+                    py-[11px] px-3.5
+                    border-none bg-transparent
+                    text-[var(--gray-400)] text-[13px]
+                    cursor-pointer transition-[background] duration-150
+                    font-[inherit] text-left
+                    border-b border-[var(--border)]
+                    last:border-b-0
+                    active:bg-white/[0.04]
+                    ${selectedModelName === m.name ? 'text-white' : ''}
+                  `}
+                  onClick={() => {
+                    setSelectedModelName(m.name)
+                    setShowModelPicker(false)
+                    haptic('light')
+                  }}
+                >
+                  <div className="flex flex-col gap-[1px]">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      {m.name}
+                      {mVision && (
+                        <span className="text-[9px] px-1 py-px rounded bg-[rgba(250,204,21,0.12)] text-[var(--accent-yellow)] font-bold">
+                          👁
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[11px] text-[var(--gray-600)]">
+                      {m.provider}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-white/40">
+                      {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
+                    </span>
+                    {selectedModelName === m.name && (
+                      <Check size={14} className="text-[var(--accent-yellow)]" />
+                    )}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
@@ -517,27 +781,64 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 </div>
               )}
 
-              <div
-                className={`
-                  py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
-                  ${msg.role === 'user'
-                    ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
-                    : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
-                  }
-                `}
-              >
-                {msg.role === 'assistant' ? (
-                  <MessageContent content={msg.content} />
-                ) : (
-                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
-                )}
-              </div>
+              {/* 🆕 Превью картинок в user-сообщении СВЕРХУ */}
+              {msg.role === 'user' && msg.imageUrls && msg.imageUrls.length > 0 && (
+                <div
+                  className={`
+                    grid gap-1 mb-1
+                    ${msg.imageUrls.length === 1 ? 'grid-cols-1' : ''}
+                    ${msg.imageUrls.length === 2 ? 'grid-cols-2' : ''}
+                    ${msg.imageUrls.length >= 3 ? 'grid-cols-3' : ''}
+                    ${msg.content ? 'rounded-[var(--radius-sm)] rounded-br-[4px] overflow-hidden' : ''}
+                  `}
+                  style={{
+                    maxWidth: msg.imageUrls.length === 1 ? 240 : 280,
+                  }}
+                >
+                  {msg.imageUrls.map((url, i) => (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block relative aspect-square overflow-hidden bg-black/30 rounded-[8px]"
+                    >
+                      <img
+                        src={url}
+                        alt={`attachment-${i}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {/* Текстовый «пузырь» (показываем только если есть текст) */}
+              {msg.content && (
+                <div
+                  className={`
+                    py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
+                    ${
+                      msg.role === 'user'
+                        ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
+                        : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
+                    }
+                  `}
+                >
+                  {msg.role === 'assistant' ? (
+                    <MessageContent content={msg.content} />
+                  ) : (
+                    <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center gap-2 mt-1 px-0.5">
                 <span className="text-[10px] text-[var(--gray-600)]">
                   {formatTime(msg.createdAt)}
                 </span>
-                {msg.role === 'assistant' && (
+                {msg.role === 'assistant' && msg.content && (
                   <div className="flex gap-1">
                     <button
                       className="
@@ -552,7 +853,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                       {copiedId === msg.id ? <Check size={12} /> : <Copy size={12} />}
                     </button>
                     {msg.tokensUsed && (
-                      <span className="text-[10px] text-white/30 ml-1">{msg.tokensUsed} 🔥</span>
+                      <span className="text-[10px] text-white/30 ml-1">
+                        {msg.tokensUsed} 🔥
+                      </span>
                     )}
                   </div>
                 )}
@@ -560,7 +863,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             </div>
           ))}
 
-                    {/* Streaming message */}
+          {/* Streaming message */}
           {isStreaming && (
             <div className="flex flex-col max-w-[85%] self-start items-start animate-[fadeIn_0.3s_ease-out]">
               <div className="text-[10px] font-semibold text-[var(--gray-600)] mb-1 pl-0.5">
@@ -593,50 +896,110 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       </div>
 
       {/* ── Input area ── */}
-<div
-  className="
-    shrink-0 flex flex-col gap-2
-    px-2.5 pt-2.5 pb-4
-    mb-[calc(59px+var(--safe-bottom))]
-    border-t border-[var(--border-glass)]
-    bg-[var(--bg-glass-heavy)]
-    backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
-  "
->
-        {/* Attachments */}
-        {attachments.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
-            {attachments.map((att) => (
+      <div
+        className="
+          shrink-0 flex flex-col gap-2
+          px-2.5 pt-2.5 pb-4
+          mb-[calc(59px+var(--safe-bottom))]
+          border-t border-[var(--border-glass)]
+          bg-[var(--bg-glass-heavy)]
+          backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
+        "
+      >
+        {/* 🆕 Превью загружаемых картинок (Вариант A) */}
+        {images.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch] pb-0.5">
+            {images.map((img) => (
               <div
-                key={att.id}
+                key={img.id}
                 className="
-                  flex items-center gap-[5px]
-                  py-1.5 px-2.5
-                  rounded-[var(--radius-xs)]
-                  bg-[var(--bg-glass)] border border-[var(--border-glass)]
-                  text-[var(--gray-400)] text-[11px]
-                  shrink-0
+                  relative shrink-0
+                  w-[60px] h-[60px] rounded-[10px]
+                  overflow-hidden
+                  bg-black/30
+                  border border-[var(--border-glass)]
                 "
               >
-                {att.type === 'image' ? <Image size={12} /> : <FileText size={12} />}
-                <span className="max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap">
-                  {att.name}
-                </span>
-                <span className="text-[var(--gray-600)] text-[10px]">{att.size}</span>
+                <img
+                  src={img.previewUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Overlay: загрузка */}
+                {img.status === 'uploading' && (
+                  <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Loader2 size={16} className="text-white animate-spin" />
+                      <span className="text-[9px] text-white font-semibold">
+                        {img.progress}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Overlay: pending (ожидание старта) */}
+                {img.status === 'pending' && (
+                  <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                    <Loader2 size={16} className="text-white/80 animate-spin" />
+                  </div>
+                )}
+
+                {/* Overlay: ошибка */}
+                {img.status === 'error' && (
+                  <button
+                    onClick={() => retryImage(img.id)}
+                    className="absolute inset-0 bg-[rgba(239,68,68,0.7)] flex items-center justify-center cursor-pointer"
+                    title={img.errorMessage || 'Ошибка'}
+                  >
+                    <AlertCircle size={20} className="text-white" />
+                  </button>
+                )}
+
+                {/* Success checkmark (быстро мигает) */}
+                {img.status === 'done' && (
+                  <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-[var(--accent-yellow)] flex items-center justify-center">
+                    <Check size={10} className="text-[#0a0a0a]" strokeWidth={3} />
+                  </div>
+                )}
+
+                {/* Кнопка удалить (всегда поверх) */}
                 <button
+                  onClick={() => removeImage(img.id)}
                   className="
-                    w-4 h-4 rounded-[4px] border-none
-                    bg-white/[0.06] text-[var(--gray-500)]
+                    absolute top-0.5 right-0.5
+                    w-[18px] h-[18px] rounded-full
+                    bg-black/70 hover:bg-black/90
                     flex items-center justify-center
-                    cursor-pointer ml-0.5
-                    active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]
+                    cursor-pointer
+                    [-webkit-tap-highlight-color:transparent]
+                    active:scale-[0.85]
                   "
-                  onClick={() => removeAttachment(att.id)}
                 >
-                  <X size={10} />
+                  <X size={11} className="text-white" strokeWidth={2.5} />
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+                {/* 🆕 Подсказка для не-vision модели когда есть картинки */}
+        {images.length > 0 && !supportsVision && (
+          <div
+            className="
+              flex items-center gap-1.5
+              py-1.5 px-2.5
+              rounded-[var(--radius-xs)]
+              bg-[rgba(239,68,68,0.08)]
+              border border-[rgba(239,68,68,0.2)]
+              text-[var(--accent-red)] text-[11px]
+            "
+          >
+            <AlertCircle size={12} className="shrink-0" />
+            <span className="leading-tight">
+              Модель «{selectedModelName}» не поддерживает изображения. Выберите модель со
+              значком 👁
+            </span>
           </div>
         )}
 
@@ -644,7 +1007,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         {showAttachMenu && (
           <div className="flex gap-1.5 fade-in">
             <button
-              className="
+              className={`
                 flex items-center gap-1.5
                 py-2 px-3.5
                 rounded-[var(--radius-xs)]
@@ -654,10 +1017,17 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 cursor-pointer transition-all duration-150
                 font-[inherit]
                 active:scale-[0.96] active:bg-[var(--bg-card-hover)]
-              "
-              onClick={() => addAttachment('image')}
+                disabled:opacity-40 disabled:cursor-not-allowed
+              `}
+              onClick={openFilePicker}
+              disabled={images.length >= MAX_IMAGES}
             >
-              <Image size={16} /> Фото
+              <ImageIcon size={16} /> Фото
+              {images.length > 0 && (
+                <span className="text-[10px] text-[var(--gray-600)] ml-0.5">
+                  {images.length}/{MAX_IMAGES}
+                </span>
+              )}
             </button>
             <button
               className="
@@ -666,31 +1036,12 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 rounded-[var(--radius-xs)]
                 border border-[var(--border-glass)]
                 bg-[var(--bg-glass)]
-                text-[var(--gray-400)] text-[12px] font-medium
-                cursor-pointer transition-all duration-150
+                text-[var(--gray-500)] text-[12px] font-medium
+                cursor-not-allowed opacity-50
                 font-[inherit]
-                active:scale-[0.96] active:bg-[var(--bg-card-hover)]
               "
-              onClick={() => addAttachment('file')}
-            >
-              <FileText size={16} /> Файл
-            </button>
-            <button
-              className="
-                flex items-center gap-1.5
-                py-2 px-3.5
-                rounded-[var(--radius-xs)]
-                border border-[var(--border-glass)]
-                bg-[var(--bg-glass)]
-                text-[var(--gray-400)] text-[12px] font-medium
-                cursor-pointer transition-all duration-150
-                font-[inherit]
-                active:scale-[0.96] active:bg-[var(--bg-card-hover)]
-              "
-              onClick={() => {
-                setShowAttachMenu(false)
-                haptic('light')
-              }}
+              disabled
+              title="Скоро"
             >
               <Mic size={16} /> Голос
             </button>
@@ -705,9 +1056,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               flex items-center justify-center
               cursor-pointer transition-all duration-150
               shrink-0 self-center
-              ${showAttachMenu
-                ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
-                : 'bg-white/[0.04] text-[var(--gray-500)]'
+              ${
+                showAttachMenu
+                  ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                  : 'bg-white/[0.04] text-[var(--gray-500)]'
               }
               active:scale-[0.92]
             `}
@@ -734,7 +1086,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               placeholder:text-[var(--gray-600)]
               focus:border-[rgba(250,204,21,0.2)]
             "
-            placeholder="Написать сообщение..."
+            placeholder={
+              images.length > 0
+                ? 'Опишите что нужно сделать с изображением...'
+                : 'Написать сообщение...'
+            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -768,7 +1124,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 disabled:cursor-default disabled:opacity-50
               "
               onClick={handleSend}
-              disabled={(!input.trim() && attachments.length === 0) || isStreaming}
+              disabled={!canSend}
             >
               <Send size={18} className="-ml-0.5" />
             </button>
