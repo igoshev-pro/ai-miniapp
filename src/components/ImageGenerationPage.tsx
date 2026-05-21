@@ -194,23 +194,61 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     },
   )
 
-  // ✅ Цена "готова к показу" только когда:
-  // - конфиг загружен для текущей модели
-  // - настройки синхронизированы с этим конфигом
-  // - расчёт цены не в полёте
-  const isPriceReady =
-    !!uiConfig &&
-    !isLoadingConfig &&
-    syncedSlug === selectedModelSlug &&
-    !isCalculating
+  // 🆕 Запоминаем последнюю успешно посчитанную цену
+const lastPriceRef = useRef<{ cost: number; label?: string; fallback: boolean } | null>(null)
 
-  const displayedCost = isPriceReady
-    ? (price?.costInTokens ?? modelMinCost)
-    : modelMinCost
+// "Базовая" готовность: конфиг загружен и засинкан с текущей моделью
+const isConfigReady =
+  !!uiConfig &&
+  !isLoadingConfig &&
+  syncedSlug === selectedModelSlug
 
-  const matchedLabel = isPriceReady ? price?.matchedRule?.label : undefined
-  const isFallbackPrice = isPriceReady ? (price?.fallback ?? true) : true
-  const showPriceLoader = !isPriceReady
+// Когда пришла свежая цена — кэшируем её
+useEffect(() => {
+  if (isConfigReady && !isCalculating && price) {
+    lastPriceRef.current = {
+      cost: price.costInTokens ?? modelMinCost,
+      label: price.matchedRule?.label,
+      fallback: price.fallback ?? true,
+    }
+  }
+}, [isConfigReady, isCalculating, price, modelMinCost])
+
+// 🔄 При смене модели — сбрасываем кэш
+useEffect(() => {
+  lastPriceRef.current = null
+}, [selectedModelSlug])
+
+// Что показывать:
+// 1. Если конфиг не готов → minCost модели
+// 2. Если идёт пересчёт, но есть кэш → кэш (НЕ сбрасываем на minCost)
+// 3. Если есть свежий price → его
+// 4. Иначе → minCost
+const displayedCost = (() => {
+  if (!isConfigReady) return modelMinCost
+  if (price && !isCalculating) return price.costInTokens ?? modelMinCost
+  if (lastPriceRef.current) return lastPriceRef.current.cost
+  return modelMinCost
+})()
+
+const matchedLabel = (() => {
+  if (!isConfigReady) return undefined
+  if (price && !isCalculating) return price.matchedRule?.label
+  if (lastPriceRef.current) return lastPriceRef.current.label
+  return undefined
+})()
+
+const isFallbackPrice = (() => {
+  if (!isConfigReady) return true
+  if (price && !isCalculating) return price.fallback ?? true
+  if (lastPriceRef.current) return lastPriceRef.current.fallback
+  return true
+})()
+
+// Спиннер показываем ТОЛЬКО когда:
+// - первый раз грузим (конфиг ещё не готов)
+// - ИЛИ нет вообще никакой цены к показу
+const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
 
   // 🔄 Sync initialModel когда модели подгрузились (только один раз)
   useEffect(() => {
@@ -482,22 +520,16 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             <span className="truncate">{currentModel?.name ?? selectedModelSlug}</span>
 
             <span
-              className={`
-                text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
-                transition-colors duration-200
-                ${showPriceLoader
-                  ? 'text-white/30'
-                  : !isFallbackPrice
-                    ? 'text-[var(--accent-yellow)]'
-                    : 'text-white/40'
-                }
-              `}
-            >
-              {showPriceLoader && (
-                <Loader2 size={10} className="animate-spin" />
-              )}
-              {formatCost(displayedCost)} 🔥
-            </span>
+  className={`
+    text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
+    transition-opacity duration-200
+    ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
+    ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
+  `}
+>
+  {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+  {formatCost(displayedCost)} 🔥
+</span>
 
             <ChevronDown
               size={14}
