@@ -85,7 +85,13 @@ export default function ModelEditorPage() {
 
       <div className="bg-zinc-900/50 rounded-xl p-5 border border-zinc-800">
         {tab === 'ui'      && <UiParamsEditor      value={(draft as any).uiParameters ?? []}      onChange={(v) => patch({ uiParameters: v } as any)} />}
-        {tab === 'pricing' && <PricingMatrixEditor value={(draft as any).pricingMatrix ?? []}     onChange={(v) => patch({ pricingMatrix: v } as any)} />}
+        {tab === 'pricing' && (
+  <PricingMatrixEditor
+    value={(draft as any).pricingMatrix ?? []}
+    onChange={(v) => patch({ pricingMatrix: v } as any)}
+    uiParameters={(draft as any).uiParameters ?? []}
+  />
+)}
         {tab === 'caps'    && <CapabilitiesEditor  value={(draft as any).inputCapabilities ?? {}} onChange={(v) => patch({ inputCapabilities: v } as any)} />}
         {tab === 'json'    && <RawJsonEditor       value={draft}                                   onChange={setDraft} />}
       </div>
