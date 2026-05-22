@@ -1,23 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, RefreshCw } from 'lucide-react'
 import type { AdminModel } from '@/types/admin-model'
 import { ModelsFiltersBar } from '../_components/models/ModelsFiltersBar'
 import { useAdminModels, useModelActions } from '@/hooks/useAdminModels'
 import { ModelsTable } from '../_components/models/ModelsTable'
-import { EditModelModal } from '../_components/models/EditModelModal'
 import { CreateModelModal } from '../_components/models/CreateModelModal'
 
 export default function AdminModelsPage() {
+  const router = useRouter()
   const {
     items, total, loading, filters, setFilters,
     refetch, patchLocal, removeLocal, addLocal,
   } = useAdminModels()
 
   const actions = useModelActions()
-
-  const [editing, setEditing] = useState<AdminModel | null>(null)
   const [creating, setCreating] = useState(false)
 
   return (
@@ -47,15 +46,14 @@ export default function AdminModelsPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <ModelsFiltersBar filters={filters} onChange={setFilters} />
 
-      {/* Table */}
       <ModelsTable
         items={items}
         loading={loading}
         busy={actions.busy}
-        onEdit={setEditing}
+        // 🆕 теперь редактирование = переход на полную страницу
+        onEdit={(m: AdminModel) => router.push(`/admin/models/${m.slug}`)}
         onToggle={async (slug: any) => {
           const cur = items.find((m: any) => m.slug === slug)
           if (!cur) return
@@ -78,22 +76,6 @@ export default function AdminModelsPage() {
         }}
       />
 
-      {/* Modals */}
-      {editing && (
-        <EditModelModal
-          model={editing}
-          busy={actions.busy}
-          onClose={() => setEditing(null)}
-          onSave={async (payload: any) => {
-            const res = await actions.update(editing.slug, payload)
-            if (res) {
-              patchLocal(editing.slug, res)
-              setEditing(null)
-            }
-          }}
-        />
-      )}
-
       {creating && (
         <CreateModelModal
           busy={actions.busy}
@@ -102,7 +84,7 @@ export default function AdminModelsPage() {
             const res = await actions.create(payload)
             if (res) {
               addLocal(res)
-              setCreating(false)
+              router.push(`/admin/models/${res.slug}`)   // 🆕 сразу в редактор
             }
           }}
         />
