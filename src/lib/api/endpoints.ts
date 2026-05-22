@@ -52,4 +52,40 @@ export const ENDPOINTS = {
   // Upload
   UPLOAD_AUDIO: '/upload/audio',
   UPLOAD_IMAGE: '/upload/image',
+
+  // ============ ADMIN ============
+  ADMIN_CHECK: '/admin/check',
+  ADMIN_DASHBOARD: '/admin/dashboard',
+
+  // Admin Users
+  ADMIN_USERS: '/admin/users',
+  ADMIN_USER_ROLE: (id: string) => `/admin/users/${id}/role`,
+  ADMIN_USER_BAN: (id: string) => `/admin/users/${id}/ban`,
+  ADMIN_USER_BALANCE: (id: string) => `/admin/users/${id}/adjust-balance`,
+
+  // Admin Models
+  ADMIN_MODELS: '/admin/models',
+  ADMIN_MODEL: (slug: string) => `/admin/models/${slug}`,
+
+  // Admin Providers
+  ADMIN_PROVIDERS: '/admin/providers',
+  ADMIN_PROVIDER: (slug: string) => `/admin/providers/${slug}`,
+
+  // Admin Promo codes
+  ADMIN_PROMO_CODES: '/admin/promo-codes',
+  ADMIN_PROMO_CODE: (code: string) => `/admin/promo-codes/${code}`,
+
+  // Admin Plans & packages (будут в Части 3)
+  ADMIN_PLANS: '/admin/plans',
+  ADMIN_PLAN: (id: string) => `/admin/plans/${id}`,
+  ADMIN_PACKAGES: '/admin/token-packages',
+  ADMIN_PACKAGE: (id: string) => `/admin/token-packages/${id}`,
+
+  // Admin Settings (Часть 4)
+  ADMIN_SETTINGS: '/admin/settings',
+
+  // Admin Analytics
+  ADMIN_ANALYTICS_REVENUE: '/admin/analytics/revenue',
+  ADMIN_ANALYTICS_GENERATIONS: '/admin/analytics/generations',
+  ADMIN_ANALYTICS_MODELS: '/admin/analytics/models',
 } as const
