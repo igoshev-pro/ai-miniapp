@@ -62,6 +62,7 @@ export const ENDPOINTS = {
   ADMIN_USER_ROLE: (id: string) => `/admin/users/${id}/role`,
   ADMIN_USER_BAN: (id: string) => `/admin/users/${id}/ban`,
   ADMIN_USER_BALANCE: (id: string) => `/admin/users/${id}/adjust-balance`,
+  ADMIN_USER_DELETE: (id: string) => `/admin/users/${id}`,
 
   // Admin Models
   // Admin Models

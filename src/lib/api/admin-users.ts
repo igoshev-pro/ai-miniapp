@@ -46,4 +46,9 @@ export const adminUsersApi = {
     const res = await apiClient.post(ENDPOINTS.ADMIN_USER_BALANCE(id), body)
     return unwrap(res)
   },
+
+  async remove(id: string) {
+  const res = await apiClient.delete(ENDPOINTS.ADMIN_USER_DELETE(id))
+  return unwrap(res)
+},
 }

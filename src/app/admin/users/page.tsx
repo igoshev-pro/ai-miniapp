@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  Users as UsersIcon, Search, Ban, ShieldCheck, Filter,
-  ChevronLeft, ChevronRight, Loader2, X,
+  Users as UsersIcon, Search, Ban, ShieldCheck,
+  ChevronLeft, ChevronRight, Loader2, X, Trash2,
 } from 'lucide-react'
 import { adminUsersApi } from '@/lib/api/admin-users'
 import type { AdminUser, AdminUsersQuery } from '@/types/admin-user'
+import { DeleteUserModal } from '../_components/DeleteUserModal'
 
 const LIMIT = 20
 
@@ -25,30 +26,32 @@ export default function AdminUsersPage() {
   const [sortBy, setSortBy] = useState<AdminUsersQuery['sortBy']>('createdAt')
   const [order, setOrder] = useState<AdminUsersQuery['order']>('desc')
 
- const fetchUsers = useCallback(async () => {
-  setLoading(true)
-  try {
-    const params: AdminUsersQuery = {
-      page,
-      limit: LIMIT,
-      sortBy,
-      order,
-    }
-    if (search) params.search = search
-    if (role && role !== 'all') params.role = role
-    if (banned && banned !== 'all') params.banned = banned
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null)
 
-    const res = await adminUsersApi.list(params)
-    setUsers(res.items || [])
-    setTotal(res.total || 0)
-    setPages(res.pages || 1)
-  } catch (e) {
-    console.error('Users load error', e)
-    setUsers([])
-  } finally {
-    setLoading(false)
-  }
-}, [page, search, role, banned, sortBy, order])
+  const fetchUsers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: AdminUsersQuery = {
+        page,
+        limit: LIMIT,
+        sortBy,
+        order,
+      }
+      if (search) params.search = search
+      if (role && role !== 'all') params.role = role
+      if (banned && banned !== 'all') params.banned = banned
+
+      const res = await adminUsersApi.list(params)
+      setUsers(res.items || [])
+      setTotal(res.total || 0)
+      setPages(res.pages || 1)
+    } catch (e) {
+      console.error('Users load error', e)
+      setUsers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, role, banned, sortBy, order])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
@@ -60,6 +63,13 @@ export default function AdminUsersPage() {
     }, 400)
     return () => clearTimeout(t)
   }, [searchInput])
+
+  const handleDelete = async (user: AdminUser) => {
+    await adminUsersApi.remove(user._id)
+    // оптимистично убираем из списка
+    setUsers((prev) => prev.filter((u) => u._id !== user._id))
+    setTotal((t) => Math.max(0, t - 1))
+  }
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
@@ -160,10 +170,17 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3 font-medium">Роль</th>
                 <th className="px-4 py-3 font-medium">Статус</th>
                 <th className="px-4 py-3 font-medium">Регистрация</th>
+                <th className="px-4 py-3 font-medium text-right">Действия</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {users.map((u) => <UserRow key={u._id} user={u} />)}
+              {users.map((u) => (
+                <UserRow
+                  key={u._id}
+                  user={u}
+                  onDelete={() => setUserToDelete(u)}
+                />
+              ))}
             </tbody>
           </table>
         )}
@@ -193,12 +210,27 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation modal */}
+      {userToDelete && (
+        <DeleteUserModal
+          user={userToDelete}
+          onClose={() => setUserToDelete(null)}
+          onConfirm={() => handleDelete(userToDelete)}
+        />
+      )}
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────
-function UserRow({ user }: { user: AdminUser }) {
+function UserRow({
+  user,
+  onDelete,
+}: {
+  user: AdminUser
+  onDelete: () => void
+}) {
   const fullName =
     [user.firstName, user.lastName].filter(Boolean).join(' ') ||
     user.username ||
@@ -208,10 +240,10 @@ function UserRow({ user }: { user: AdminUser }) {
   const totalBalance = user.tokenBalance + user.bonusTokens + user.cashbackBalance
 
   return (
-    <tr className="hover:bg-zinc-900/60 transition-colors">
+    <tr className="hover:bg-zinc-900/60 transition-colors group">
       {/* User */}
       <td className="px-4 py-3">
-        <Link href={`/admin/users/${user._id}`} className="flex items-center gap-3 group">
+        <Link href={`/admin/users/${user._id}`} className="flex items-center gap-3 group/link">
           <div className="relative">
             {user.photoUrl ? (
               <img
@@ -229,7 +261,7 @@ function UserRow({ user }: { user: AdminUser }) {
             )}
           </div>
           <div className="min-w-0">
-            <div className="text-sm text-white group-hover:text-blue-400 transition-colors truncate max-w-[200px]">
+            <div className="text-sm text-white group-hover/link:text-blue-400 transition-colors truncate max-w-[200px]">
               {fullName}
             </div>
             <div className="text-xs text-zinc-500 truncate max-w-[200px]">
@@ -301,6 +333,22 @@ function UserRow({ user }: { user: AdminUser }) {
       {/* Created */}
       <td className="px-4 py-3 text-xs text-zinc-500">
         {new Date(user.createdAt).toLocaleDateString('ru-RU')}
+      </td>
+
+      {/* Actions */}
+      <td className="px-4 py-3 text-right">
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onDelete()
+          }}
+          disabled={user.role === 'admin'}
+          className="p-1.5 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
+          title={user.role === 'admin' ? 'Нельзя удалить администратора' : 'Удалить пользователя'}
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </td>
     </tr>
   )
