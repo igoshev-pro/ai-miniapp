@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { apiClient, ENDPOINTS } from '@/lib/api'
 import { useAuthStore, useUserStore, type UserProfile } from '@/stores'
 import { toast } from '@/stores/toast.store'
@@ -41,7 +41,6 @@ function extractReferralCode(webApp: any): string | undefined {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Auth] Got start_param from Telegram:', startParam)
     }
-    // Поддерживаем оба формата: "ref_ABCD" и просто "ABCD"
     referralCode = startParam.startsWith('ref_')
       ? startParam.substring(4)
       : startParam
@@ -63,7 +62,7 @@ function extractReferralCode(webApp: any): string | undefined {
     }
   }
 
-  // 3. localStorage fallback (на случай если первая попытка авторизации упала)
+  // 3. localStorage fallback
   if (!referralCode && typeof window !== 'undefined') {
     try {
       const saved = localStorage.getItem(REFERRAL_STORAGE_KEY)
@@ -78,7 +77,6 @@ function extractReferralCode(webApp: any): string | undefined {
     }
   }
 
-  // Сохраняем в storage, чтобы пережить возможную перезагрузку до того как авторизация пройдёт
   if (referralCode && typeof window !== 'undefined') {
     try {
       localStorage.setItem(REFERRAL_STORAGE_KEY, referralCode)
@@ -106,22 +104,45 @@ export function useAuth() {
   const { setUser } = useUserStore()
   const attempted = useRef(false)
 
+  // Ждём гидрацию persist storage перед принятием решения об авторизации
+  const [hydrated, setHydrated] = useState(
+    () => useAuthStore.persist?.hasHydrated() ?? true,
+  )
+
   useEffect(() => {
-    if (!isReady || attempted.current) return
+    if (hydrated) return
+    const unsub = useAuthStore.persist?.onFinishHydration(() => setHydrated(true))
+    if (useAuthStore.persist?.hasHydrated()) setHydrated(true)
+    return unsub
+  }, [hydrated])
+
+  useEffect(() => {
+    if (!isReady || !hydrated || attempted.current) return
     attempted.current = true
 
-    const initData = webApp?.initData
-
-    // No initData — not in Telegram, wait for widget login
-    if (!initData) {
+    // ✅ Если токен уже восстановлен из localStorage — не дёргаем бэк
+    if (token) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[Auth] No initData — not in Telegram, waiting for widget login')
+        console.log('[Auth] Token restored from storage — skipping login')
       }
       setReady()
       return
     }
 
-    // Извлекаем реферальный код из всех источников
+    const initData = webApp?.initData
+
+    // Нет initData — не в Telegram, ждём логин через виджет
+    if (!initData) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[Auth] No initData — not in Telegram, waiting for widget login',
+        )
+      }
+      setReady()
+      return
+    }
+
+    // Извлекаем реферальный код
     const referralCode = extractReferralCode(webApp)
 
     if (process.env.NODE_ENV === 'development' && referralCode) {
@@ -138,21 +159,20 @@ export function useAuth() {
         const { token: jwt, user } = res.data.data
         setToken(jwt)
         setUser(user)
-        // Успешно авторизовались — чистим pending
         clearPendingReferral()
+        // setReady() уже вызван внутри setToken
       })
       .catch((err) => {
         console.error('[Auth] Failed:', err)
         toast.error('Не удалось авторизоваться')
         setReady()
       })
-  }, [isReady, webApp, setToken, setUser, setReady])
+  }, [isReady, hydrated, token, webApp, setToken, setUser, setReady])
 
-  // Login via Telegram Login Widget (for browser users)
+  // Login via Telegram Login Widget (для браузера)
   const loginWithWidget = useCallback(
     async (widgetData: TelegramWidgetData, referralCode?: string) => {
       try {
-        // Если referralCode не передали явно — берём из всех источников
         const effectiveRefCode = referralCode || extractReferralCode(webApp)
 
         const res = await apiClient.post<AuthApiResponse>(
@@ -170,7 +190,8 @@ export function useAuth() {
       } catch (err: any) {
         console.error('[Auth] Widget login failed:', err)
         const message =
-          err?.response?.data?.message || 'Не удалось авторизоваться через Telegram'
+          err?.response?.data?.message ||
+          'Не удалось авторизоваться через Telegram'
         toast.error(message)
         throw err
       }

@@ -1,3 +1,5 @@
+import { useAuthStore } from '@/stores/auth.store'
+
 /**
  * SSE стриминг через fetch + ReadableStream
  * Бэкенд: POST /chat/stream → SSE
@@ -26,7 +28,11 @@ export interface SSECallbacks {
   onConversation?: (data: { id: string; title: string }) => void
   onMessageStart?: (data: { messageId: string }) => void
   onToken: (token: string) => void
-  onDone: (data: { messageId: string; tokensUsed?: number; usage?: Record<string, number> }) => void
+  onDone: (data: {
+    messageId: string
+    tokensUsed?: number
+    usage?: Record<string, number>
+  }) => void
   onError: (error: string) => void
 }
 
@@ -45,8 +51,10 @@ export function streamChat(
   callbacks: SSECallbacks,
 ): AbortController {
   const controller = new AbortController()
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
-  const token = typeof window !== 'undefined' ? sessionStorage.getItem('jwt') : null
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+  // ✅ Токен из Zustand-стора (persist)
+  const token = useAuthStore.getState().token
 
   fetch(`${baseUrl}/chat/stream`, {
     method: 'POST',
@@ -61,6 +69,11 @@ export function streamChat(
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
 
+        if (response.status === 401) {
+          useAuthStore.getState().clearToken()
+          callbacks.onError('Сессия истекла, войдите снова')
+          return
+        }
         if (response.status === 402) {
           callbacks.onError('Недостаточно спичек для генерации')
           return
@@ -71,7 +84,8 @@ export function streamChat(
         }
 
         callbacks.onError(
-          (errorData as { message?: string }).message || `Ошибка сервера (${response.status})`,
+          (errorData as { message?: string }).message ||
+            `Ошибка сервера (${response.status})`,
         )
         return
       }
@@ -99,18 +113,15 @@ export function streamChat(
           const trimmed = line.trim()
 
           if (!trimmed) {
-            // Пустая строка = конец SSE блока, сброс
             currentEvent = ''
             continue
           }
 
-          // Парсим "event: <name>"
           if (trimmed.startsWith('event:')) {
             currentEvent = trimmed.slice(6).trim()
             continue
           }
 
-          // Парсим "data: <json>"
           if (trimmed.startsWith('data:')) {
             const jsonStr = trimmed.slice(5).trim()
             if (!jsonStr || jsonStr === '[DONE]') continue
@@ -145,11 +156,10 @@ export function streamChat(
                   return
 
                 case 'done':
-                  // Финальное событие, стрим завершён
                   return
 
                 default:
-                  // Fallback: если бекенд шлёт без event (legacy format)
+                  // Fallback: legacy format
                   if (data.type === 'token') {
                     callbacks.onToken(data.content || '')
                   } else if (data.type === 'done') {

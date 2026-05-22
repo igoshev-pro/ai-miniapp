@@ -12,6 +12,7 @@ import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
+import { useAuthStore } from '@/stores/auth.store'
 
 
 interface Props {
@@ -347,7 +348,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
       const formData = new FormData()
       formData.append('file', file)
 
-      const token = sessionStorage.getItem('jwt')
+      const token = useAuthStore.getState().token
       const API = process.env.NEXT_PUBLIC_API_URL || ''
 
       const response = await fetch(`${API}/upload/image`, {

@@ -7,6 +7,7 @@ import { useUserStore } from '@/stores/user.store'
 import { toast } from '@/stores/toast.store'
 import { useModelsStore } from '@/stores/models.store'
 import { allModels as fallbackModels } from '@/lib/data'
+import { useAuthStore } from '@/stores'
 
 /**
  * Бекенд возвращает conversations в формате:
@@ -118,7 +119,7 @@ export function useChat() {
 const loadChats = useCallback(async () => {
   try {
     // Проверяем наличие токена до запроса
-    const token = sessionStorage.getItem('jwt')
+    const token = useAuthStore.getState().token
     if (!token) {
       console.warn('[useChat] loadChats: no token yet, skipping')
       store.setChats([])

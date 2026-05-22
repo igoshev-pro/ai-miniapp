@@ -50,6 +50,21 @@ export function SpichkiApp() {
   const { refetch: refetchUser } = useUser()
   const { loadModels } = useModels()
 
+  // Ждём гидрацию persist-стора (иначе при F5 в браузере токен ещё null
+  // в момент первого рендера → мигнёт экран логина)
+  const [hydrated, setHydrated] = useState(
+    () => useAuthStore.persist?.hasHydrated() ?? true,
+  )
+
+  useEffect(() => {
+    if (hydrated) return
+    const unsub = useAuthStore.persist?.onFinishHydration(() =>
+      setHydrated(true),
+    )
+    if (useAuthStore.persist?.hasHydrated()) setHydrated(true)
+    return unsub
+  }, [hydrated])
+
   const [activeNav, setActiveNav] = useState('feed')
   const [page, setPage] = useState<Page>('home')
   const [pageHistory, setPageHistory] = useState<Page[]>([])
@@ -173,12 +188,17 @@ export function SpichkiApp() {
     await refetchUser()
   }, [refetchUser])
 
+  // Если есть токен (из persist) — догружаем профиль и модели
   useEffect(() => {
-    if (authReady && token) loadModels()
-  }, [authReady, token, loadModels])
+    if (authReady && token) {
+      refetchUser()
+      loadModels()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, token])
 
-  // 1) Ждём пока проинициализируется Telegram WebApp и попытка авто-логина
-  if (!isReady || !authReady) {
+  // 1) Ждём пока проинициализируется Telegram WebApp, гидрация persist и auth flow
+  if (!isReady || !authReady || !hydrated) {
     return (
       <div className="app-loading">
         <div className="app-loading__logo">🔥</div>
@@ -190,7 +210,7 @@ export function SpichkiApp() {
     )
   }
 
-  // 2) Не в Telegram + нет JWT → показываем экран логина через Telegram Login Widget
+  // 2) Не в Telegram + нет JWT → экран логина через Telegram Login Widget
   if (!isTelegram && !token) {
     return <TelegramLoginButton onAuth={loginWithWidget} />
   }
@@ -226,7 +246,11 @@ export function SpichkiApp() {
             onBack={goBack}
             initialCategory={initialCategory}
             onModelTap={(modelName, category) => {
-              if (category === 'image' || category === 'video' || category === 'audio') {
+              if (
+                category === 'image' ||
+                category === 'video' ||
+                category === 'audio'
+              ) {
                 openGeneration(category)
               } else {
                 openChat(modelName)
@@ -244,13 +268,21 @@ export function SpichkiApp() {
           />
         )}
 
-        {page === 'image-generation' && <ImageGenerationPage onBack={goBack} />}
-        {page === 'video-generation' && <VideoGenerationPage onBack={goBack} />}
-        {page === 'audio-generation' && <AudioGenerationPage onBack={goBack} />}
+        {page === 'image-generation' && (
+          <ImageGenerationPage onBack={goBack} />
+        )}
+        {page === 'video-generation' && (
+          <VideoGenerationPage onBack={goBack} />
+        )}
+        {page === 'audio-generation' && (
+          <AudioGenerationPage onBack={goBack} />
+        )}
         {page === 'chats-history' && (
           <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />
         )}
-        {page === 'profile' && <ProfilePage onNavigate={handleProfileNavigate} />}
+        {page === 'profile' && (
+          <ProfilePage onNavigate={handleProfileNavigate} />
+        )}
         {page === 'topup' && <TopUpPage onBack={goBack} />}
         {page === 'transactions' && <TransactionsPage onBack={goBack} />}
         {page === 'subscription' && <SubscriptionPage onBack={goBack} />}

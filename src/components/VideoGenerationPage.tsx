@@ -12,6 +12,7 @@ import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
+import { useAuthStore } from '@/stores'
 
 /* ─── Props ─── */
 
@@ -369,7 +370,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       try {
         const fd = new FormData()
         fd.append('file', file)
-        const token = sessionStorage.getItem('jwt')
+        const token = useAuthStore.getState().token
         const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/upload/image`, {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},

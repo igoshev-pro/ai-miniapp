@@ -10,6 +10,7 @@ import type { Generation } from '@/stores/generation.store'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration } from '@/hooks'
 import { toast } from '@/stores/toast.store'
+import { useAuthStore } from '@/stores'
 
 interface Props {
   generation: Generation
@@ -27,7 +28,7 @@ async function downloadFile(url: string, filename: string) {
   const API = process.env.NEXT_PUBLIC_API_URL || ''
   const proxyUrl = `${API}/upload/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
   try {
-    const token = sessionStorage.getItem('jwt')
+    const token = useAuthStore.getState().token
     const resp = await fetch(proxyUrl, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })

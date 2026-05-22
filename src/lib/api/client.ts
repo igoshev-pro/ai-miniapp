@@ -1,6 +1,8 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosError } from 'axios'
+import { useAuthStore } from '@/stores/auth.store'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -8,13 +10,11 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// JWT в каждый запрос
+// JWT в каждый запрос — берём из Zustand-стора (persist → localStorage)
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (typeof window !== 'undefined') {
-    const token = sessionStorage.getItem('jwt')
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
+  const token = useAuthStore.getState().token
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
@@ -27,8 +27,8 @@ apiClient.interceptors.response.use(
     const message = error.response?.data?.message || error.message
 
     // 401 — токен невалиден, очищаем
-    if (status === 401 && typeof window !== 'undefined') {
-      sessionStorage.removeItem('jwt')
+    if (status === 401) {
+      useAuthStore.getState().clearToken()
     }
 
     return Promise.reject({
