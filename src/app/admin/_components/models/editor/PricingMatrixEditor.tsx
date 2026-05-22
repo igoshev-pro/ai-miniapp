@@ -1,33 +1,90 @@
 'use client'
 import { Plus, Trash2 } from 'lucide-react'
 
-export function PricingMatrixEditor({ value, onChange }: { value: any[]; onChange: (v: any[]) => void }) {
-  const add = () => onChange([...(value ?? []), { match: {}, cost: 0 }])
-  const upd = (i: number, p: any) => onChange(value.map((x, idx) => idx === i ? { ...x, ...p } : x))
-  const del = (i: number) => onChange(value.filter((_, idx) => idx !== i))
+type Row = {
+  conditions: Record<string, any>
+  costInTokens: number
+  costInDollars?: number
+  label?: string
+}
+
+export function PricingMatrixEditor({ value, onChange }: { value: Row[]; onChange: (v: Row[]) => void }) {
+  const list = value ?? []
+
+  const add = () => onChange([...list, { conditions: {}, costInTokens: 0, costInDollars: 0, label: '' }])
+  const upd = (i: number, p: Partial<Row>) => onChange(list.map((x, idx) => idx === i ? { ...x, ...p } : x))
+  const del = (i: number) => onChange(list.filter((_, idx) => idx !== i))
+
+  const updCondKey = (i: number, oldKey: string, newKey: string) => {
+    const c = { ...list[i].conditions }
+    const v = c[oldKey]
+    delete c[oldKey]
+    if (newKey) c[newKey] = v
+    upd(i, { conditions: c })
+  }
+  const updCondVal = (i: number, key: string, val: string) =>
+    upd(i, { conditions: { ...list[i].conditions, [key]: val } })
+  const addCond = (i: number) =>
+    upd(i, { conditions: { ...list[i].conditions, '': '' } })
+  const delCond = (i: number, key: string) => {
+    const c = { ...list[i].conditions }; delete c[key]
+    upd(i, { conditions: c })
+  }
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">Каждая строка = условие → стоимость в токенах. match — JSON, например {`{"resolution":"1080p","duration":10}`}</p>
-      {(value ?? []).map((row, i) => (
-        <div key={i} className="grid grid-cols-12 gap-2 bg-zinc-800/40 rounded p-3">
-          <textarea
-            className="col-span-8 bg-zinc-900 rounded px-2 py-1 text-xs font-mono text-white"
-            rows={2}
-            value={JSON.stringify(row.match ?? {}, null, 0)}
-            onChange={(e) => { try { upd(i, { match: JSON.parse(e.target.value) }) } catch {} }}
-          />
-          <input
-            type="number"
-            className="col-span-3 bg-zinc-900 rounded px-2 py-1 text-sm text-white"
-            placeholder="cost"
-            value={row.cost ?? 0}
-            onChange={(e) => upd(i, { cost: Number(e.target.value) })}
-          />
-          <button onClick={() => del(i)} className="col-span-1 text-red-400 hover:text-red-300 flex justify-center"><Trash2 size={16} /></button>
+      <p className="text-xs text-zinc-500">
+        Каждая строка — правило. <b>conditions</b> — какие значения параметров должны совпасть, <b>costInTokens</b> — итоговая цена.
+      </p>
+
+      {list.map((row, i) => (
+        <div key={i} className="bg-zinc-800/40 rounded-lg border border-zinc-700/50 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <input
+              className={`${inp} max-w-xs`}
+              placeholder="Метка (Турбо режим)"
+              value={row.label ?? ''}
+              onChange={(e) => upd(i, { label: e.target.value })}
+            />
+            <button onClick={() => del(i)} className="text-red-400 hover:text-red-300"><Trash2 size={16}/></button>
+          </div>
+
+          {/* conditions */}
+          <div>
+            <div className="text-[10px] text-zinc-500 uppercase mb-1">Условия</div>
+            <div className="space-y-2">
+              {Object.entries(row.conditions ?? {}).map(([k, v], ki) => (
+                <div key={ki} className="grid grid-cols-12 gap-2">
+                  <input className={`${inp} col-span-4`} placeholder="ключ (mode)" defaultValue={k} onBlur={(e) => updCondKey(i, k, e.target.value)}/>
+                  <input className={`${inp} col-span-7`} placeholder="значение (turbo)" value={String(v ?? '')} onChange={(e) => updCondVal(i, k, e.target.value)}/>
+                  <button onClick={() => delCond(i, k)} className="col-span-1 text-red-400 hover:text-red-300 flex justify-center"><Trash2 size={14}/></button>
+                </div>
+              ))}
+              <button onClick={() => addCond(i)} className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 flex items-center gap-1">
+                <Plus size={12}/> Условие
+              </button>
+            </div>
+          </div>
+
+          {/* cost */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-[10px] text-zinc-500 uppercase mb-1">🔥 Токены</div>
+              <input type="number" className={inp} value={row.costInTokens ?? 0} onChange={(e) => upd(i, { costInTokens: Number(e.target.value) })}/>
+            </div>
+            <div>
+              <div className="text-[10px] text-zinc-500 uppercase mb-1">$ Долларов</div>
+              <input type="number" step="0.001" className={inp} value={row.costInDollars ?? 0} onChange={(e) => upd(i, { costInDollars: Number(e.target.value) })}/>
+            </div>
+          </div>
         </div>
       ))}
-      <button onClick={add} className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-sm text-zinc-200 flex items-center gap-2"><Plus size={14} /> Добавить правило</button>
+
+      <button onClick={add} className="px-3 py-2 bg-indigo-600/80 hover:bg-indigo-500 rounded text-sm text-white flex items-center gap-2">
+        <Plus size={14}/> Добавить правило
+      </button>
     </div>
   )
 }
+
+const inp = 'w-full bg-zinc-900 rounded px-2 py-1.5 text-sm text-white border border-zinc-700 focus:border-indigo-500 outline-none'
