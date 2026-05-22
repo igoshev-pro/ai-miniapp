@@ -7,7 +7,7 @@ import { apiClient, ENDPOINTS, isApiError } from '@/lib/api'
 import { toast } from '@/stores/toast.store'
 import type { AdminModel, UpdateModelPayload } from '@/types/admin-model'
 import { useModelActions } from '@/hooks/useAdminModels'
-import { UIParametersEditor } from '../UIParametersEditor'
+import { UIParametersEditor } from '../../_components/models/UIParametersEditor'
 
 interface ApiEnvelope<T> { success: boolean; data: T }
 
