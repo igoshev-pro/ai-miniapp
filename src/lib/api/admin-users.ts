@@ -8,9 +8,17 @@ function unwrap<T>(res: any): T {
 
 export const adminUsersApi = {
   async list(query: AdminUsersQuery = {}): Promise<AdminUsersResponse> {
-    const res = await apiClient.get(ENDPOINTS.ADMIN_USERS, { params: query })
-    return unwrap<AdminUsersResponse>(res)
-  },
+  const res = await apiClient.get(ENDPOINTS.ADMIN_USERS, { params: query })
+  const payload = res?.data?.data ?? res?.data ?? {}
+  
+  // бек отдаёт { users, pagination } — нормализуем под наш формат { items, total, pages }
+  return {
+    items: payload.users || payload.items || [],
+    total: Number(payload.pagination?.total ?? payload.total ?? 0),
+    page: Number(payload.pagination?.page ?? payload.page ?? 1),
+    pages: Number(payload.pagination?.pages ?? payload.pages ?? 1),
+  }
+},
 
   async getOne(id: string): Promise<{ user: AdminUser; [k: string]: any }> {
     const res = await apiClient.get(`${ENDPOINTS.ADMIN_USERS}/${id}`)

@@ -25,22 +25,30 @@ export default function AdminUsersPage() {
   const [sortBy, setSortBy] = useState<AdminUsersQuery['sortBy']>('createdAt')
   const [order, setOrder] = useState<AdminUsersQuery['order']>('desc')
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await adminUsersApi.list({
-        page, limit: LIMIT, search, role, banned, sortBy, order,
-      })
-      setUsers(res.items || [])
-      setTotal(res.total || 0)
-      setPages(res.pages || 1)
-    } catch (e) {
-      console.error('Users load error', e)
-      setUsers([])
-    } finally {
-      setLoading(false)
+ const fetchUsers = useCallback(async () => {
+  setLoading(true)
+  try {
+    const params: AdminUsersQuery = {
+      page,
+      limit: LIMIT,
+      sortBy,
+      order,
     }
-  }, [page, search, role, banned, sortBy, order])
+    if (search) params.search = search
+    if (role && role !== 'all') params.role = role
+    if (banned && banned !== 'all') params.banned = banned
+
+    const res = await adminUsersApi.list(params)
+    setUsers(res.items || [])
+    setTotal(res.total || 0)
+    setPages(res.pages || 1)
+  } catch (e) {
+    console.error('Users load error', e)
+    setUsers([])
+  } finally {
+    setLoading(false)
+  }
+}, [page, search, role, banned, sortBy, order])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
