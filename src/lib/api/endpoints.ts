@@ -64,7 +64,7 @@ export const ENDPOINTS = {
   ADMIN_USER_BALANCE: (id: string) => `/admin/users/${id}/adjust-balance`,
 
   // Admin Models
-    // Admin Models
+  // Admin Models
   ADMIN_MODELS: '/admin/models',
   ADMIN_MODEL: (slug: string) => `/admin/models/${slug}`,
   ADMIN_MODEL_TOGGLE: (slug: string) => `/admin/models/${slug}/toggle`,
@@ -85,6 +85,7 @@ export const ENDPOINTS = {
 
   // Admin Settings (Часть 4)
   ADMIN_SETTINGS: '/admin/settings',
+  ADMIN_SETTINGS_TOKENOMICS: '/admin/settings/tokenomics',  // 🆕
 
   // Admin Analytics
   ADMIN_ANALYTICS_REVENUE: '/admin/analytics/revenue',
