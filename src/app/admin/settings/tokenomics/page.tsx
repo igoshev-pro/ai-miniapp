@@ -30,22 +30,36 @@ export default function TokenomicsPage() {
   const [savedAt, setSavedAt] = useState<number | null>(null)
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res: any = await apiClient.get(ENDPOINTS.ADMIN_SETTINGS_TOKENOMICS)
-        const d = res?.data ?? res
-        setDraft({
-          tokenToDollarRate: d.tokenToDollarRate,
-          freeTokensOnSignup: d.freeTokensOnSignup,
-          minPurchaseTokens: d.minPurchaseTokens,
-          purchasePacks: d.purchasePacks ?? [],
-          refundOnError: d.refundOnError,
-        })
-      } finally {
-        setLoading(false)
+  (async () => {
+    try {
+      const res: any = await apiClient.get(ENDPOINTS.ADMIN_SETTINGS_TOKENOMICS)
+
+      // Универсальная распаковка: ищем объект с tokenToDollarRate
+      const d =
+        res?.data?.data?.tokenToDollarRate !== undefined ? res.data.data :
+        res?.data?.tokenToDollarRate !== undefined ? res.data :
+        res?.tokenToDollarRate !== undefined ? res :
+        null
+
+      if (!d) {
+        console.error('❌ Не нашёл данные токеномики в ответе:', res)
+        return
       }
-    })()
-  }, [])
+
+      setDraft({
+        tokenToDollarRate: d.tokenToDollarRate,
+        freeTokensOnSignup: d.freeTokensOnSignup,
+        minPurchaseTokens: d.minPurchaseTokens,
+        purchasePacks: d.purchasePacks ?? [],
+        refundOnError: d.refundOnError,
+      })
+    } catch (e) {
+      console.error('❌ Tokenomics load error:', e)
+    } finally {
+      setLoading(false)
+    }
+  })()
+}, [])
 
   if (loading || !draft) {
     return <div className="p-8 text-zinc-400">Загрузка...</div>
