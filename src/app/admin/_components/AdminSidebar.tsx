@@ -26,8 +26,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/admin', label: 'Дашборд', icon: LayoutDashboard },
   { href: '/admin/models', label: 'Модели', icon: Bot },
-  { href: '/admin/plans', label: 'Тарифы', icon: Gem },
-  { href: '/admin/packages', label: 'Пакеты спичек', icon: Package },
+  { href: '/admin/billing/plans', label: 'Тарифы', icon: Gem },
+  { href: '/admin/billing/packages', label: 'Пакеты спичек', icon: Package },
   { href: '/admin/users', label: 'Пользователи', icon: Users },
   { href: '/admin/promo-codes', label: 'Промокоды', icon: Ticket },
   { href: '/admin/transactions', label: 'Транзакции', icon: Receipt },
