@@ -31,7 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/users', label: 'Пользователи', icon: Users },
   { href: '/admin/promo-codes', label: 'Промокоды', icon: Ticket },
   { href: '/admin/transactions', label: 'Транзакции', icon: Receipt },
-  { href: '/admin/providers', label: 'Провайдеры', icon: Plug },
+//   { href: '/admin/providers', label: 'Провайдеры', icon: Plug },
   {
     href: '/admin/settings',
     label: 'Настройки',

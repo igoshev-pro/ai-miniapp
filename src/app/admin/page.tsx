@@ -66,14 +66,14 @@ const QUICK_LINKS: QuickLink[] = [
     color:
       'from-emerald-500/20 to-green-500/10 text-emerald-400 ring-emerald-500/30',
   },
-  {
-    href: '/admin/providers',
-    label: 'Провайдеры',
-    description: 'OpenAI, Anthropic, KIE и др.',
-    icon: Plug,
-    color:
-      'from-indigo-500/20 to-violet-500/10 text-indigo-400 ring-indigo-500/30',
-  },
+//   {
+//     href: '/admin/providers',
+//     label: 'Провайдеры',
+//     description: 'OpenAI, Anthropic, KIE и др.',
+//     icon: Plug,
+//     color:
+//       'from-indigo-500/20 to-violet-500/10 text-indigo-400 ring-indigo-500/30',
+//   },
   {
     href: '/admin/settings',
     label: 'Настройки',
