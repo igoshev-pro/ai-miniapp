@@ -92,4 +92,9 @@ export const ENDPOINTS = {
   ADMIN_ANALYTICS_REVENUE: '/admin/analytics/revenue',
   ADMIN_ANALYTICS_GENERATIONS: '/admin/analytics/generations',
   ADMIN_ANALYTICS_MODELS: '/admin/analytics/models',
+
+  // Admin Transactions
+  ADMIN_TRANSACTIONS: '/admin/transactions',
+  ADMIN_TRANSACTION: (id: string) => `/admin/transactions/${id}`,
+  ADMIN_TRANSACTIONS_STATS: '/admin/transactions/stats',
 } as const
