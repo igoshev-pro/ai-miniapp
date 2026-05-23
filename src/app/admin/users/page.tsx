@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   Users as UsersIcon, Search, Ban, ShieldCheck,
@@ -13,6 +13,7 @@ import { DeleteUserModal } from '../_components/DeleteUserModal'
 import { BanUserModal } from '../_components/BanUserModal'
 import { ChangeRoleModal } from '../_components/ChangeRoleModal'
 import { AdjustBalanceModal } from '../_components/AdjustBalanceModal'
+import { createPortal } from 'react-dom'
 
 const LIMIT = 20
 
@@ -293,6 +294,8 @@ function UserRow({
   onAdjustBalance: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
 
   const fullName =
     [user.firstName, user.lastName].filter(Boolean).join(' ') ||
@@ -307,6 +310,32 @@ function UserRow({
     e.stopPropagation()
   }
 
+  const openMenu = (e: React.MouseEvent) => {
+    stop(e)
+    const rect = btnRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const MENU_W = 176 // w-44
+    setMenuPos({
+      top: rect.bottom + 4,
+      left: Math.max(8, rect.right - MENU_W), // align-right
+    })
+    setMenuOpen(true)
+  }
+
+  // Закрывать при скролле/ресайзе
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = () => setMenuOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [menuOpen])
+
+  const isProtected = user.role === 'admin' || user.role === 'super_admin'
+
   return (
     <tr className="hover:bg-zinc-900/60 transition-colors group">
       {/* User */}
@@ -314,6 +343,7 @@ function UserRow({
         <Link href={`/admin/users/${user._id}`} className="flex items-center gap-3 group/link">
           <div className="relative">
             {user.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.photoUrl}
                 alt=""
@@ -408,7 +438,7 @@ function UserRow({
       </td>
 
       {/* Actions */}
-      <td className="px-4 py-3 text-right relative">
+      <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {/* Balance */}
           <button
@@ -422,14 +452,14 @@ function UserRow({
           {/* Ban / Unban */}
           <button
             onClick={(e) => { stop(e); onBan() }}
-            disabled={user.role === 'admin' || user.role === 'super_admin'}
+            disabled={isProtected}
             className={`p-1.5 rounded-lg transition-all ${
               user.isBanned
                 ? 'text-zinc-600 hover:text-emerald-400 hover:bg-emerald-500/10'
                 : 'text-zinc-600 hover:text-red-400 hover:bg-red-500/10'
             } disabled:opacity-30 disabled:cursor-not-allowed`}
             title={
-              user.role === 'admin' || user.role === 'super_admin'
+              isProtected
                 ? 'Нельзя забанить администратора'
                 : user.isBanned ? 'Разбанить' : 'Забанить'
             }
@@ -437,41 +467,48 @@ function UserRow({
             {user.isBanned ? <ShieldCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
           </button>
 
-          {/* More menu */}
-          <div className="relative">
-            <button
-              onClick={(e) => { stop(e); setMenuOpen((v) => !v) }}
-              className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-            {menuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={(e) => { stop(e); setMenuOpen(false) }}
-                />
-                <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden">
-                  <button
-                    onClick={(e) => { stop(e); setMenuOpen(false); onChangeRole() }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-orange-400" />
-                    Изменить роль
-                  </button>
-                  <button
-                    onClick={(e) => { stop(e); setMenuOpen(false); onDelete() }}
-                    disabled={user.role === 'admin' || user.role === 'super_admin'}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Удалить
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          {/* More menu trigger */}
+          <button
+            ref={btnRef}
+            onClick={openMenu}
+            className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
         </div>
+
+        {/* Portal-меню */}
+        {menuOpen && menuPos && typeof window !== 'undefined' && createPortal(
+          <>
+            {/* backdrop для закрытия по клику снаружи */}
+            <div
+              className="fixed inset-0 z-[100]"
+              onClick={(e) => { stop(e); setMenuOpen(false) }}
+            />
+            <div
+              className="fixed z-[101] w-44 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden"
+              style={{ top: menuPos.top, left: menuPos.left }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={(e) => { stop(e); setMenuOpen(false); onChangeRole() }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
+              >
+                <ShieldCheck className="w-4 h-4 text-orange-400" />
+                Изменить роль
+              </button>
+              <button
+                onClick={(e) => { stop(e); setMenuOpen(false); onDelete() }}
+                disabled={isProtected}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-4 h-4" />
+                Удалить
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
       </td>
     </tr>
   )
