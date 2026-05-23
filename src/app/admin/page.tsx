@@ -30,7 +30,7 @@ const QUICK_LINKS: QuickLink[] = [
     color: 'from-orange-500/20 to-red-500/10 text-orange-400 ring-orange-500/30',
   },
   {
-    href: '/admin/plans',
+    href: '/admin/billing/plans',
     label: 'Тарифы',
     description: 'Подписки: Basic, Plus, Max, Ultimate',
     icon: Gem,
@@ -38,7 +38,7 @@ const QUICK_LINKS: QuickLink[] = [
       'from-purple-500/20 to-fuchsia-500/10 text-purple-400 ring-purple-500/30',
   },
   {
-    href: '/admin/packages',
+    href: '/admin/billing/plans',
     label: 'Пакеты спичек',
     description: 'Разовая покупка токенов',
     icon: Package,
