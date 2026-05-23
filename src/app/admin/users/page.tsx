@@ -5,10 +5,14 @@ import Link from 'next/link'
 import {
   Users as UsersIcon, Search, Ban, ShieldCheck,
   ChevronLeft, ChevronRight, Loader2, X, Trash2,
+  MoreVertical, Wallet, Crown,
 } from 'lucide-react'
 import { adminUsersApi } from '@/lib/api/admin-users'
-import type { AdminUser, AdminUsersQuery } from '@/types/admin-user'
+import type { AdminUser, AdminUsersQuery, UserRole } from '@/types/admin-user'
 import { DeleteUserModal } from '../_components/DeleteUserModal'
+import { BanUserModal } from '../_components/BanUserModal'
+import { ChangeRoleModal } from '../_components/ChangeRoleModal'
+import { AdjustBalanceModal } from '../_components/AdjustBalanceModal'
 
 const LIMIT = 20
 
@@ -26,17 +30,16 @@ export default function AdminUsersPage() {
   const [sortBy, setSortBy] = useState<AdminUsersQuery['sortBy']>('createdAt')
   const [order, setOrder] = useState<AdminUsersQuery['order']>('desc')
 
+  // Modals
   const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null)
+  const [userToBan, setUserToBan] = useState<AdminUser | null>(null)
+  const [userToChangeRole, setUserToChangeRole] = useState<AdminUser | null>(null)
+  const [userToAdjustBalance, setUserToAdjustBalance] = useState<AdminUser | null>(null)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const params: AdminUsersQuery = {
-        page,
-        limit: LIMIT,
-        sortBy,
-        order,
-      }
+      const params: AdminUsersQuery = { page, limit: LIMIT, sortBy, order }
       if (search) params.search = search
       if (role && role !== 'all') params.role = role
       if (banned && banned !== 'all') params.banned = banned
@@ -55,7 +58,6 @@ export default function AdminUsersPage() {
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
-  // debounce поиск
   useEffect(() => {
     const t = setTimeout(() => {
       setSearch(searchInput.trim())
@@ -64,11 +66,38 @@ export default function AdminUsersPage() {
     return () => clearTimeout(t)
   }, [searchInput])
 
+  // Locally patch user in list after action
+  const patchUser = (id: string, patch: Partial<AdminUser>) => {
+    setUsers((prev) => prev.map((u) => (u._id === id ? { ...u, ...patch } : u)))
+  }
+
   const handleDelete = async (user: AdminUser) => {
     await adminUsersApi.remove(user._id)
-    // оптимистично убираем из списка
     setUsers((prev) => prev.filter((u) => u._id !== user._id))
     setTotal((t) => Math.max(0, t - 1))
+  }
+
+  const handleBan = async (user: AdminUser, reason: string) => {
+    const ban = !user.isBanned
+    const updated = await adminUsersApi.toggleBan(user._id, ban, reason)
+    patchUser(user._id, { isBanned: updated.isBanned, banReason: updated.banReason })
+  }
+
+  const handleChangeRole = async (user: AdminUser, newRole: UserRole) => {
+    const updated = await adminUsersApi.changeRole(user._id, newRole)
+    patchUser(user._id, { role: updated.role })
+  }
+
+  const handleAdjustBalance = async (
+    user: AdminUser,
+    body: { balanceType: 'tokenBalance' | 'bonusTokens' | 'cashbackBalance'; amount: number; reason: string },
+  ) => {
+    const res = await adminUsersApi.adjustBalance(user._id, body)
+    patchUser(user._id, {
+      tokenBalance: res.totals.tokenBalance,
+      bonusTokens: res.totals.bonusTokens,
+      cashbackBalance: res.totals.cashbackBalance,
+    })
   }
 
   return (
@@ -86,7 +115,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Filters bar */}
+            {/* Filters bar */}
       <div className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 flex flex-wrap items-center gap-2">
         {/* Search */}
         <div className="relative flex-1 min-w-[240px]">
@@ -115,8 +144,9 @@ export default function AdminUsersPage() {
         >
           <option value="all">Все роли</option>
           <option value="user">User</option>
-          <option value="admin">Admin</option>
           <option value="moderator">Moderator</option>
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
         </select>
 
         {/* Status filter */}
@@ -144,6 +174,7 @@ export default function AdminUsersPage() {
           <option value="lastActiveAt:desc">Активные недавно</option>
           <option value="totalDeposited:desc">По депозитам ↓</option>
           <option value="totalTokensSpent:desc">По тратам ↓</option>
+          <option value="tokenBalance:desc">По балансу ↓</option>
         </select>
       </div>
 
@@ -179,6 +210,9 @@ export default function AdminUsersPage() {
                   key={u._id}
                   user={u}
                   onDelete={() => setUserToDelete(u)}
+                  onBan={() => setUserToBan(u)}
+                  onChangeRole={() => setUserToChangeRole(u)}
+                  onAdjustBalance={() => setUserToAdjustBalance(u)}
                 />
               ))}
             </tbody>
@@ -211,12 +245,33 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* Delete confirmation modal */}
+      {/* Modals */}
       {userToDelete && (
         <DeleteUserModal
           user={userToDelete}
           onClose={() => setUserToDelete(null)}
           onConfirm={() => handleDelete(userToDelete)}
+        />
+      )}
+      {userToBan && (
+        <BanUserModal
+          user={userToBan}
+          onClose={() => setUserToBan(null)}
+          onConfirm={(reason) => handleBan(userToBan, reason)}
+        />
+      )}
+      {userToChangeRole && (
+        <ChangeRoleModal
+          user={userToChangeRole}
+          onClose={() => setUserToChangeRole(null)}
+          onConfirm={(role) => handleChangeRole(userToChangeRole, role)}
+        />
+      )}
+      {userToAdjustBalance && (
+        <AdjustBalanceModal
+          user={userToAdjustBalance}
+          onClose={() => setUserToAdjustBalance(null)}
+          onConfirm={(body) => handleAdjustBalance(userToAdjustBalance, body)}
         />
       )}
     </div>
@@ -227,10 +282,18 @@ export default function AdminUsersPage() {
 function UserRow({
   user,
   onDelete,
+  onBan,
+  onChangeRole,
+  onAdjustBalance,
 }: {
   user: AdminUser
   onDelete: () => void
+  onBan: () => void
+  onChangeRole: () => void
+  onAdjustBalance: () => void
 }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+
   const fullName =
     [user.firstName, user.lastName].filter(Boolean).join(' ') ||
     user.username ||
@@ -238,6 +301,11 @@ function UserRow({
     `tg:${user.telegramId}`
 
   const totalBalance = user.tokenBalance + user.bonusTokens + user.cashbackBalance
+
+  const stop = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
 
   return (
     <tr className="hover:bg-zinc-900/60 transition-colors group">
@@ -304,7 +372,11 @@ function UserRow({
 
       {/* Role */}
       <td className="px-4 py-3">
-        {user.role === 'admin' ? (
+        {user.role === 'super_admin' ? (
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-1 rounded bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
+            <Crown className="w-3 h-3" /> Super
+          </span>
+        ) : user.role === 'admin' ? (
           <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-1 rounded bg-orange-500/15 text-orange-400 border border-orange-500/30">
             <ShieldCheck className="w-3 h-3" /> Admin
           </span>
@@ -336,19 +408,70 @@ function UserRow({
       </td>
 
       {/* Actions */}
-      <td className="px-4 py-3 text-right">
-        <button
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onDelete()
-          }}
-          disabled={user.role === 'admin'}
-          className="p-1.5 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 disabled:cursor-not-allowed"
-          title={user.role === 'admin' ? 'Нельзя удалить администратора' : 'Удалить пользователя'}
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+      <td className="px-4 py-3 text-right relative">
+        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Balance */}
+          <button
+            onClick={(e) => { stop(e); onAdjustBalance() }}
+            className="p-1.5 rounded-lg text-zinc-600 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
+            title="Корректировать баланс"
+          >
+            <Wallet className="w-4 h-4" />
+          </button>
+
+          {/* Ban / Unban */}
+          <button
+            onClick={(e) => { stop(e); onBan() }}
+            disabled={user.role === 'admin' || user.role === 'super_admin'}
+            className={`p-1.5 rounded-lg transition-all ${
+              user.isBanned
+                ? 'text-zinc-600 hover:text-emerald-400 hover:bg-emerald-500/10'
+                : 'text-zinc-600 hover:text-red-400 hover:bg-red-500/10'
+            } disabled:opacity-30 disabled:cursor-not-allowed`}
+            title={
+              user.role === 'admin' || user.role === 'super_admin'
+                ? 'Нельзя забанить администратора'
+                : user.isBanned ? 'Разбанить' : 'Забанить'
+            }
+          >
+            {user.isBanned ? <ShieldCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+          </button>
+
+          {/* More menu */}
+          <div className="relative">
+            <button
+              onClick={(e) => { stop(e); setMenuOpen((v) => !v) }}
+              className="p-1.5 rounded-lg text-zinc-600 hover:text-white hover:bg-zinc-800 transition-all"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={(e) => { stop(e); setMenuOpen(false) }}
+                />
+                <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl overflow-hidden">
+                  <button
+                    onClick={(e) => { stop(e); setMenuOpen(false); onChangeRole() }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-orange-400" />
+                    Изменить роль
+                  </button>
+                  <button
+                    onClick={(e) => { stop(e); setMenuOpen(false); onDelete() }}
+                    disabled={user.role === 'admin' || user.role === 'super_admin'}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Удалить
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </td>
     </tr>
   )

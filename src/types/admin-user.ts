@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'admin' | 'moderator' // подгони под свой enum
+export type UserRole = 'user' | 'admin' | 'moderator' | 'super_admin'// подгони под свой enum
 export type AuthProvider = 'telegram' | 'email' | 'google'
 export type SubscriptionPlan = 'free' | 'pro' | 'premium' // подгони
 
