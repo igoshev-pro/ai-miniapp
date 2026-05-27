@@ -72,6 +72,8 @@ export function SpichkiApp() {
   const [chatModel, setChatModel] = useState<string>('ChatGPT 4o')
   const [chatId, setChatId] = useState<string | undefined>(undefined)
 
+  const [genModel, setGenModel] = useState<string | undefined>(undefined)
+
   const navigateTo = useCallback(
     (newPage: Page) => {
       setPageHistory((prev) => [...prev, page])
@@ -96,6 +98,7 @@ export function SpichkiApp() {
     setPageHistory([])
     setInitialCategory(null)
     setChatId(undefined)
+    setGenModel(undefined)               // 🆕 сброс
     setActiveNav('feed')
   }, [])
 
@@ -121,7 +124,8 @@ export function SpichkiApp() {
   )
 
   const openGeneration = useCallback(
-    (type: 'image' | 'video' | 'audio') => {
+    (type: 'image' | 'video' | 'audio', modelSlug?: string) => {
+      setGenModel(modelSlug)              // 🆕 запоминаем выбранную модель
       navigateTo(`${type}-generation` as Page)
       setActiveNav('create')
     },
@@ -251,7 +255,7 @@ export function SpichkiApp() {
                 category === 'video' ||
                 category === 'audio'
               ) {
-                openGeneration(category)
+                openGeneration(category, modelName)
               } else {
                 openChat(modelName)
               }
@@ -269,13 +273,25 @@ export function SpichkiApp() {
         )}
 
         {page === 'image-generation' && (
-          <ImageGenerationPage onBack={goBack} />
+          <ImageGenerationPage
+            key={genModel || 'default-image'}        // 🆕 пересоздать при смене модели
+            initialModel={genModel}                  // 🆕
+            onBack={goBack}
+          />
         )}
         {page === 'video-generation' && (
-          <VideoGenerationPage onBack={goBack} />
+          <VideoGenerationPage
+            key={genModel || 'default-video'}        // 🆕
+            initialModel={genModel}                  // 🆕
+            onBack={goBack}
+          />
         )}
         {page === 'audio-generation' && (
-          <AudioGenerationPage onBack={goBack} />
+          <AudioGenerationPage
+            key={genModel || 'default-audio'}        // 🆕
+            initialModel={genModel}                  // 🆕
+            onBack={goBack}
+          />
         )}
         {page === 'chats-history' && (
           <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />
