@@ -621,7 +621,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           <MessageSquare size={14} className="text-[var(--gray-500)] shrink-0" />
           <span className="truncate">{selectedModelName}</span>
           <span className="text-[11px] text-white/40 ml-auto shrink-0">
-            от {modelCost % 1 === 0 ? modelCost : modelCost.toFixed(2)} 🔥
+            от {modelCost} 🔥
           </span>
           <ChevronDown
             size={14}
@@ -708,7 +708,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] text-white/40">
-                      от {m.cost % 1 === 0 ? m.cost : m.cost.toFixed(2)} 🔥
+                      от {m.cost} 🔥
                     </span>
                     {selectedModelName === m.name && (
                       <Check size={14} className="text-[var(--accent-yellow)]" />

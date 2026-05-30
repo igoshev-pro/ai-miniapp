@@ -260,7 +260,7 @@ function ModelCard({
               tracking-[0.2px]
             "
           >
-            от {model.cost % 1 === 0 ? model.cost : model.cost.toFixed(2)} 🔥
+            от {model.cost} 🔥
           </span>
         </div>
         <div
