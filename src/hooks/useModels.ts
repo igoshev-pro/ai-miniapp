@@ -18,13 +18,19 @@ interface BackendModel {
   type: 'text' | 'image' | 'video' | 'audio'
   provider?: string
   description?: string
-  cost?: number
-  minCost?: number
+
+  // 🆕 реальные поля цены из бэка
+  tokenCost?: number              // спички за единицу
+  minTokenCost?: number           // минимальная стоимость генерации
+  fixedCostPerGeneration?: number // фикс. цена за генерацию (image/video/audio)
+  costPerMillionInputTokens?: number
+  costPerMillionOutputTokens?: number
+
   hasVariants?: boolean
   isActive?: boolean
   isPremium?: boolean
-  capabilities?: string[]      // ← ['vision', 'web_search', ...]
-  supportsVision?: boolean     // если бэк отдаёт явно
+  capabilities?: string[]
+  supportsVision?: boolean
   limits?: any
   defaultParams?: any
 }
@@ -40,23 +46,18 @@ function hasCapability(caps: string[] | undefined, keyword: string): boolean {
 }
 
 function mapBackendModel(m: BackendModel, index: number): ModelItem {
-  // Vision: явное поле supportsVision ИЛИ capabilities содержит 'vision'
   const supportsVision =
     m.supportsVision === true || hasCapability(m.capabilities, 'vision')
 
-  // 🆕 Web search: capabilities содержит 'web_search' / 'search' / 'web'
   const webSearch =
     hasCapability(m.capabilities, 'web_search') ||
-    hasCapability(m.capabilities, 'web-search')
+    hasCapability(m.capabilities, 'web-search') ||
+    hasCapability(m.capabilities, 'web_search') ||
+    hasCapability(m.capabilities, 'search')
 
-  // 🆕 Безопасный расчёт цены:
-  // приоритет minCost → cost. Если оба null/undefined/<=0 → -1 ("?")
-  const rawCost =
-    typeof m.minCost === 'number' && m.minCost > 0
-      ? m.minCost
-      : typeof m.cost === 'number' && m.cost > 0
-        ? m.cost
-        : -1 // неизвестно
+  // 🆕 Расчёт минимальной цены по приоритету реальных полей бэка:
+  // minTokenCost → fixedCostPerGeneration → tokenCost → -1 ("?")
+  const rawCost = pickCost(m)
 
   return {
     id: `${m.type[0]}${index + 1}`,
@@ -68,8 +69,21 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
     cost: rawCost,
     hasVariants: m.hasVariants ?? false,
     supportsVision,
-    webSearch, // 🆕
+    webSearch,
   }
+}
+
+// 🆕 Хелпер выбора цены
+function pickCost(m: BackendModel): number {
+  const candidates = [
+    m.minTokenCost,            // 1️⃣ минимальная цена в спичках — главное
+    m.fixedCostPerGeneration,  // 2️⃣ фикс. цена за генерацию (image/video/audio)
+    m.tokenCost,               // 3️⃣ обычная цена за единицу
+  ]
+  for (const c of candidates) {
+    if (typeof c === 'number' && c > 0) return c
+  }
+  return -1 // → "?"
 }
 
 function guessProvider(slug: string): string {
