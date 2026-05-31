@@ -49,6 +49,8 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
   const supportsVision =
     m.supportsVision === true || hasCapability(m.capabilities, 'vision')
 
+    console.log('[RAW]', m.slug, JSON.stringify(m))
+
   const webSearch =
     hasCapability(m.capabilities, 'web_search') ||
     hasCapability(m.capabilities, 'web-search') ||
