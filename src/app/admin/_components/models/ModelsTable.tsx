@@ -40,7 +40,7 @@ export function ModelsTable({
             <th className="px-4 py-3 text-left">Модель</th>
             <th className="px-4 py-3 text-left">Тип</th>
             <th className="px-4 py-3 text-center">Флаги</th>
-            <th className="px-4 py-3 text-right">TokenCost</th>
+            <th className="px-4 py-3 text-right">Цена (от)</th>
             <th className="px-4 py-3 text-right">$ / 1M In</th>
             <th className="px-4 py-3 text-right">$ / 1M Out</th>
             <th className="px-4 py-3 text-center">Order</th>
@@ -78,17 +78,24 @@ function Row({
   onInlineTokenCost: (v: number) => void
   onDelete: (hard: boolean) => void
 }) {
+  // 🆕 Минимальная цена для отображения «от X» (как в приложении)
+  const minCost =
+    m.preview?.minCostInTokens ??
+    m.minTokenCost ??
+    m.tokenCost ??
+    0
+
   const [editingCost, setEditingCost] = useState(false)
-  const [costValue, setCostValue] = useState(String(m.tokenCost ?? 0))
+  const [costValue, setCostValue] = useState(String(minCost))
 
   const commitCost = () => {
     const num = Number(costValue)
     setEditingCost(false)
     if (!Number.isFinite(num) || num < 0) {
-      setCostValue(String(m.tokenCost ?? 0))
+      setCostValue(String(minCost))
       return
     }
-    if (num !== (m.tokenCost ?? 0)) onInlineTokenCost(num)
+    if (num !== minCost) onInlineTokenCost(num)
   }
 
   return (
@@ -118,49 +125,48 @@ function Row({
       </td>
 
       {/* Флаги */}
-<td className="px-4 py-3 text-center">
-  <div className="flex gap-1 justify-center text-xs flex-wrap">
-    {m.isPremium && (
-      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400" title="Premium">
-        <Star size={12} className="inline" />
-      </span>
-    )}
-    {m.supportsVision && (
-      <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400" title="Vision">
-        <Eye size={12} className="inline" />
-      </span>
-    )}
-    {/* 🆕 Выход в интернет */}
-    {(m.capabilities?.includes('web_search') ||
-      m.capabilities?.includes('web') ||
-      m.supportsWebSearch) && (
-      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400" title="Интернет">
-        <Globe size={12} className="inline" />
-      </span>
-    )}
-    {/* 🆕 Function calling (опционально) */}
-    {m.capabilities?.includes('function_calling') && (
-      <span className="px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400" title="Function calling">
-        <Wrench size={12} className="inline" />
-      </span>
-    )}
-  </div>
-</td>
+      <td className="px-4 py-3 text-center">
+        <div className="flex gap-1 justify-center text-xs flex-wrap">
+          {m.isPremium && (
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400" title="Premium">
+              <Star size={12} className="inline" />
+            </span>
+          )}
+          {m.supportsVision && (
+            <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400" title="Vision">
+              <Eye size={12} className="inline" />
+            </span>
+          )}
+          {(m.capabilities?.includes('web_search') ||
+            m.capabilities?.includes('web') ||
+            m.supportsWebSearch) && (
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400" title="Интернет">
+              <Globe size={12} className="inline" />
+            </span>
+          )}
+          {m.capabilities?.includes('function_calling') && (
+            <span className="px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400" title="Function calling">
+              <Wrench size={12} className="inline" />
+            </span>
+          )}
+        </div>
+      </td>
 
-      {/* Inline tokenCost */}
+      {/* Inline цена (min) */}
       <td className="px-4 py-3 text-right">
         {editingCost ? (
           <input
             autoFocus
             type="number"
             min={0}
+            step="0.01"
             value={costValue}
             onChange={(e) => setCostValue(e.target.value)}
             onBlur={commitCost}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitCost()
               if (e.key === 'Escape') {
-                setCostValue(String(m.tokenCost ?? 0))
+                setCostValue(String(minCost))
                 setEditingCost(false)
               }
             }}
@@ -171,8 +177,9 @@ function Row({
             onClick={() => setEditingCost(true)}
             className="text-white hover:text-indigo-400 hover:underline tabular-nums"
             disabled={busy}
+            title={`avg: ${m.preview?.avgCostInTokens ?? '—'} · max: ${m.preview?.maxCostInTokens ?? '—'}`}
           >
-            {m.tokenCost ?? '—'}
+            от {minCost}
           </button>
         )}
       </td>

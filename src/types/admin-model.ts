@@ -51,6 +51,14 @@ export interface AdminModel {
 
     createdAt: string;
     updatedAt: string;
+
+    preview?: {
+        avgCostInTokens?: number
+        minCostInTokens?: number
+        maxCostInTokens?: number
+        pricingType?: string
+        details?: Record<string, any>
+    }
 }
 
 export interface ModelsFilters {
