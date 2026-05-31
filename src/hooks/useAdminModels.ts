@@ -16,6 +16,41 @@ interface ApiEnvelope<T> {
   data: T
 }
 
+// ─── PAYLOAD SANITIZER ─────────────────────────────────────────
+// Бэк (UpdateModelDto + forbidNonWhitelisted) принимает ТОЛЬКО эти поля.
+// Всё остальное (_id, slug, __v, createdAt, stats, limits,
+// providerMappings, pricePerMillion*, и т.д.) надо вырезать.
+const UPDATE_ALLOWED_KEYS: (keyof UpdateModelPayload)[] = [
+  'name',
+  'displayName',
+  'description',
+  'icon',
+  'type',
+  'isActive',
+  'isPremium',
+  'supportsVision',
+  'sortOrder',
+  'costPerMillionInputTokens',
+  'costPerMillionOutputTokens',
+  'fixedCostPerGeneration',
+  'tokensPerDollar',
+  'minTokenCost',
+  'tokenCost',
+  'capabilities',
+  'uiParameters',
+  'pricingMatrix',
+  'inputCapabilities',
+  'defaultParams',
+]
+
+function pickUpdatePayload(draft: Partial<AdminModel>): UpdateModelPayload {
+  const out: Record<string, any> = {}
+  for (const key of UPDATE_ALLOWED_KEYS) {
+    if (draft[key] !== undefined) out[key] = draft[key]
+  }
+  return out as UpdateModelPayload
+}
+
 // ─── LIST ─────────────────────────────────────────────────────
 
 export function useAdminModels(initialFilters: ModelsFilters = {}) {
@@ -63,7 +98,6 @@ export function useAdminModels(initialFilters: ModelsFilters = {}) {
     filters,
     setFilters,
     refetch: () => fetchModels(filters),
-    // локальные апдейты для optimistic UI
     patchLocal: (slug: string, patch: Partial<AdminModel>) =>
       setItems(prev => prev.map(m => (m.slug === slug ? { ...m, ...patch } : m))),
     removeLocal: (slug: string) =>
@@ -79,12 +113,18 @@ export function useModelActions() {
   const [busy, setBusy] = useState(false)
 
   const update = useCallback(
-    async (slug: string, payload: UpdateModelPayload): Promise<AdminModel | null> => {
+    async (
+      slug: string,
+      payload: UpdateModelPayload | Partial<AdminModel>,
+    ): Promise<AdminModel | null> => {
       setBusy(true)
       try {
+        // 🔑 вырезаем всё, что DTO не принимает
+        const clean = pickUpdatePayload(payload as Partial<AdminModel>)
+
         const { data } = await apiClient.put<ApiEnvelope<AdminModel>>(
           ENDPOINTS.ADMIN_MODEL(slug),
-          payload,
+          clean,
         )
         toast.success(`Модель "${data.data.displayName}" обновлена`)
         return data.data
@@ -120,9 +160,18 @@ export function useModelActions() {
     async (payload: CreateModelPayload): Promise<AdminModel | null> => {
       setBusy(true)
       try {
+        // create тоже чистим, но сохраняем обязательные slug/name/displayName/type
+        const clean = {
+          ...pickUpdatePayload(payload as Partial<AdminModel>),
+          slug: payload.slug,
+          name: payload.name,
+          displayName: payload.displayName,
+          type: payload.type,
+        }
+
         const { data } = await apiClient.post<ApiEnvelope<AdminModel>>(
           ENDPOINTS.ADMIN_MODELS,
-          payload,
+          clean,
         )
         toast.success(`Модель "${data.data.displayName}" создана`)
         return data.data

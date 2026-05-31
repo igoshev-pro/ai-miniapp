@@ -1,5 +1,5 @@
 // src/lib/api/admin-models.ts
-import { apiClient } from './client'; // твой axios-инстанс
+import { apiClient } from './client';
 import type {
   AdminModel,
   CreateModelPayload,
@@ -11,6 +11,23 @@ import type {
 interface ApiEnvelope<T> {
   success: boolean;
   data: T;
+}
+
+const UPDATE_ALLOWED_KEYS: (keyof UpdateModelPayload)[] = [
+  'name', 'displayName', 'description', 'icon', 'type',
+  'isActive', 'isPremium', 'supportsVision', 'sortOrder',
+  'costPerMillionInputTokens', 'costPerMillionOutputTokens',
+  'fixedCostPerGeneration', 'tokensPerDollar', 'minTokenCost', 'tokenCost',
+  'capabilities', 'uiParameters', 'pricingMatrix',
+  'inputCapabilities', 'defaultParams',
+];
+
+function pickUpdatePayload(draft: Partial<AdminModel>): UpdateModelPayload {
+  const out: Record<string, any> = {};
+  for (const key of UPDATE_ALLOWED_KEYS) {
+    if (draft[key] !== undefined) out[key] = draft[key];
+  }
+  return out as UpdateModelPayload;
 }
 
 export const adminModelsApi = {
@@ -35,10 +52,13 @@ export const adminModelsApi = {
     return data.data;
   },
 
-  async update(slug: string, payload: UpdateModelPayload): Promise<AdminModel> {
+  async update(
+    slug: string,
+    payload: UpdateModelPayload | Partial<AdminModel>,
+  ): Promise<AdminModel> {
     const { data } = await apiClient.put<ApiEnvelope<AdminModel>>(
       `/admin/models/${slug}`,
-      payload,
+      pickUpdatePayload(payload as Partial<AdminModel>),  // 🔑
     );
     return data.data;
   },
@@ -51,9 +71,16 @@ export const adminModelsApi = {
   },
 
   async create(payload: CreateModelPayload): Promise<AdminModel> {
+    const clean = {
+      ...pickUpdatePayload(payload as Partial<AdminModel>),
+      slug: payload.slug,
+      name: payload.name,
+      displayName: payload.displayName,
+      type: payload.type,
+    };
     const { data } = await apiClient.post<ApiEnvelope<AdminModel>>(
       '/admin/models',
-      payload,
+      clean,
     );
     return data.data;
   },
