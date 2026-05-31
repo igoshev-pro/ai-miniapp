@@ -24,6 +24,7 @@ export interface AdminModel {
     isActive: boolean;
     isPremium: boolean;
     supportsVision: boolean;
+    supportsWebSearch: boolean;
 
     sortOrder: number;
 

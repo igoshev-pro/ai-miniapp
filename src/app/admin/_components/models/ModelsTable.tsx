@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2, Check, X, Star, Eye } from 'lucide-react'
+import { Pencil, Trash2, X, Star, Eye, Globe, Wrench } from 'lucide-react'
 import type { AdminModel } from '@/types/admin-model'
 
 interface Props {
@@ -118,20 +118,34 @@ function Row({
       </td>
 
       {/* Флаги */}
-      <td className="px-4 py-3 text-center">
-        <div className="flex gap-1 justify-center text-xs">
-          {m.isPremium && (
-            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400" title="Premium">
-              <Star size={12} className="inline" />
-            </span>
-          )}
-          {m.supportsVision && (
-            <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400" title="Vision">
-              <Eye size={12} className="inline" />
-            </span>
-          )}
-        </div>
-      </td>
+<td className="px-4 py-3 text-center">
+  <div className="flex gap-1 justify-center text-xs flex-wrap">
+    {m.isPremium && (
+      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400" title="Premium">
+        <Star size={12} className="inline" />
+      </span>
+    )}
+    {m.supportsVision && (
+      <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400" title="Vision">
+        <Eye size={12} className="inline" />
+      </span>
+    )}
+    {/* 🆕 Выход в интернет */}
+    {(m.capabilities?.includes('web_search') ||
+      m.capabilities?.includes('web') ||
+      m.supportsWebSearch) && (
+      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400" title="Интернет">
+        <Globe size={12} className="inline" />
+      </span>
+    )}
+    {/* 🆕 Function calling (опционально) */}
+    {m.capabilities?.includes('function_calling') && (
+      <span className="px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400" title="Function calling">
+        <Wrench size={12} className="inline" />
+      </span>
+    )}
+  </div>
+</td>
 
       {/* Inline tokenCost */}
       <td className="px-4 py-3 text-right">
