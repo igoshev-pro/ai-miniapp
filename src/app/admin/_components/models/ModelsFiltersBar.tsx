@@ -10,7 +10,7 @@ interface Props {
 
 const TYPE_OPTIONS = [
   { value: '', label: 'Все типы' },
-  { value: 'chat', label: 'Чат' },
+  { value: 'text', label: 'Чат' },
   { value: 'image', label: 'Изображения' },
   { value: 'video', label: 'Видео' },
   { value: 'audio', label: 'Аудио' },
