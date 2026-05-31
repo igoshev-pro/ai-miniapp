@@ -20,7 +20,17 @@ interface BackendModel {
   description?: string
 
   // 🆕 реальные поля цены из бэка
-  tokenCost?: number              // спички за единицу
+  tokenCost?: number    
+  preview?: {
+    avgCostInTokens?: number
+    minCostInTokens?: number
+    pricingType?: 'per_token' | 'per_generation'
+    details?: {
+      pricePerMillionInput?: number
+      pricePerMillionOutput?: number
+      avgTokensPerRequest?: number
+    }
+  }          // спички за единицу
   minTokenCost?: number           // минимальная стоимость генерации
   fixedCostPerGeneration?: number // фикс. цена за генерацию (image/video/audio)
   costPerMillionInputTokens?: number
@@ -78,9 +88,9 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
 // 🆕 Хелпер выбора цены
 function pickCost(m: BackendModel): number {
   const candidates = [
-    m.minTokenCost,            // 1️⃣ минимальная цена в спичках — главное
-    m.fixedCostPerGeneration,  // 2️⃣ фикс. цена за генерацию (image/video/audio)
-    m.tokenCost,               // 3️⃣ обычная цена за единицу
+    m.preview?.minCostInTokens,   // 1️⃣ минимальная цена в спичках — главное
+    m.preview?.avgCostInTokens,   // 2️⃣ средняя цена
+    m.tokenCost,                  // 3️⃣ фолбэк — цена за токен
   ]
   for (const c of candidates) {
     if (typeof c === 'number' && c > 0) return c
