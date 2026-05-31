@@ -52,6 +52,7 @@ export const ENDPOINTS = {
   // Upload
   UPLOAD_AUDIO: '/upload/audio',
   UPLOAD_IMAGE: '/upload/image',
+  UPLOAD_DOCUMENT: '/upload/document', 
 
   // ============ ADMIN ============
   ADMIN_CHECK: '/admin/check',

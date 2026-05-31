@@ -6,7 +6,10 @@ export {
   uploadImage,
   uploadImages,
   validateImageFile,
+  uploadDocument,        // 🆕
+  validateDocumentFile,  // 🆕
   type UploadResult,
   type UploadProgress,
   type UploadOptions,
 } from './upload'
+export type { UploadDocumentResult } from './upload'  // 🆕

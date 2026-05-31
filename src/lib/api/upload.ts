@@ -146,3 +146,134 @@ export async function uploadImages(
     ),
   )
 }
+
+// ─── ДОКУМЕНТЫ ──────────────────────────────────────────
+
+const DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+]
+const DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv']
+const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024 // 20 MB
+
+export function validateDocumentFile(file: File): string | null {
+  const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '')
+  const okMime = DOCUMENT_MIME_TYPES.includes(file.type)
+  const okExt = DOCUMENT_EXTENSIONS.includes(ext)
+  if (!okMime && !okExt) {
+    return 'Поддерживаются: PDF, Word, Excel, TXT, CSV'
+  }
+  if (file.size > MAX_DOCUMENT_SIZE) {
+    return `Файл слишком большой (${(file.size / 1024 / 1024).toFixed(1)} MB). Максимум 20 MB`
+  }
+  if (file.size === 0) {
+    return 'Файл пустой'
+  }
+  return null
+}
+
+export interface UploadDocumentResult {
+  url: string
+  key: string
+  filename: string
+  size: number
+  mimetype: string
+  hasText: boolean
+  textLength: number
+  extractedText: string
+}
+
+export function uploadDocument(
+  file: File,
+  options: UploadOptions = {},
+): Promise<UploadDocumentResult> {
+  return new Promise((resolve, reject) => {
+    const validationError = validateDocumentFile(file)
+    if (validationError) {
+      reject(new Error(validationError))
+      return
+    }
+
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+    const token = useAuthStore.getState().token
+
+    if (!token) {
+      reject(new Error('Не авторизован'))
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${baseUrl}/upload/document`)
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    if (options.onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          options.onProgress!({
+            loaded: e.loaded,
+            total: e.total,
+            percent: Math.round((e.loaded / e.total) * 100),
+          })
+        }
+      })
+    }
+
+        xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText)
+          const data = response.success ? response.data : response
+          if (data && data.url) {
+            resolve({
+              url: data.url,
+              key: data.key || '',
+              filename: data.filename || file.name,
+              size: data.size || file.size,
+              mimetype: data.mimetype || file.type,
+              hasText: !!data.hasText,
+              textLength: data.textLength || 0,
+              extractedText: data.extractedText || '',
+            })
+          } else {
+            reject(new Error(response.message || 'Ошибка загрузки'))
+          }
+        } catch {
+          reject(new Error('Некорректный ответ сервера'))
+        }
+      } else {
+        if (xhr.status === 401) {
+          useAuthStore.getState().clearToken()
+        }
+        try {
+          const errResp = JSON.parse(xhr.responseText)
+          reject(new Error(errResp.message || `Ошибка ${xhr.status}`))
+        } catch {
+          reject(new Error(`Ошибка ${xhr.status}`))
+        }
+      }
+    })
+
+    xhr.addEventListener('error', () => reject(new Error('Ошибка сети')))
+    xhr.addEventListener('abort', () => reject(new Error('Загрузка отменена')))
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        xhr.abort()
+        reject(new Error('Загрузка отменена'))
+        return
+      }
+      options.signal.addEventListener('abort', () => xhr.abort())
+    }
+
+    xhr.send(formData)
+  })
+}

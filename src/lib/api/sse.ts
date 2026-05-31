@@ -36,11 +36,19 @@ export interface SSECallbacks {
   onError: (error: string) => void
 }
 
+export interface ChatAttachment {
+  url: string
+  filename: string
+  mimeType?: string
+  text?: string
+}
+
 export interface SSERequest {
   conversationId?: string
   modelSlug: string
   content: string
   imageUrls?: string[]
+  attachments?: ChatAttachment[]   // 🆕
   systemPrompt?: string
   temperature?: number
   maxTokens?: number

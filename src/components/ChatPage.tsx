@@ -17,6 +17,9 @@ import {
   Loader2,
   Eye,
   Globe,
+  FileText,
+  FileSpreadsheet,
+  FileType,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites } from '@/hooks'
@@ -28,6 +31,8 @@ import {
   streamChat,
   uploadImage,
   validateImageFile,
+  uploadDocument,
+  validateDocumentFile,
 } from '@/lib/api'
 import { useUserStore } from '@/stores/user.store'
 import { MessageContent } from '@/components/ui/MessageContent'
@@ -39,15 +44,32 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 interface ImageAttachment {
   id: string
   file: File
-  previewUrl: string         // blob: URL для локального превью
+  previewUrl: string
   status: 'pending' | 'uploading' | 'done' | 'error'
-  progress: number           // 0..100
-  remoteUrl?: string         // URL после загрузки на S3
+  progress: number
+  remoteUrl?: string
   errorMessage?: string
   abortController?: AbortController
 }
 
 const MAX_IMAGES = 10
+
+// ─── Типы для прикреплённых документов ───
+interface DocAttachment {
+  id: string
+  file: File
+  status: 'pending' | 'uploading' | 'done' | 'error'
+  progress: number
+  remoteUrl?: string
+  filename: string
+  mimeType: string
+  extractedText?: string
+  hasText?: boolean
+  errorMessage?: string
+  abortController?: AbortController
+}
+
+const MAX_DOCS = 5
 
 const examplePrompts = [
   'Объясни квантовые вычисления простыми словами',
@@ -85,6 +107,23 @@ function getModelName(slug: string): string {
   return models.find((m) => m.slug === slug)?.name || slug
 }
 
+// Выбор иконки по типу документа
+function getDocIcon(filename: string, mimeType: string) {
+  const lower = filename.toLowerCase()
+  if (
+    mimeType.includes('sheet') ||
+    lower.endsWith('.xlsx') ||
+    lower.endsWith('.xls') ||
+    lower.endsWith('.csv')
+  ) {
+    return FileSpreadsheet
+  }
+  if (mimeType.includes('pdf') || lower.endsWith('.pdf')) {
+    return FileType
+  }
+  return FileText
+}
+
 export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
@@ -114,6 +153,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [images, setImages] = useState<ImageAttachment[]>([])
+  const [docs, setDocs] = useState<DocAttachment[]>([])
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
 
@@ -121,6 +161,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const docInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const didLoadRef = useRef(false)
 
@@ -131,7 +172,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   )
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
-  // 🆕 Поддержка vision у текущей модели
   const supportsVision = currentModel?.supportsVision ?? false
 
   const isCurrentChatFavorite = useMemo(() => {
@@ -160,6 +200,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               role: msg.role === 'system' ? 'assistant' : msg.role,
               content: msg.content,
               imageUrls: Array.isArray(msg.imageUrls) ? msg.imageUrls : undefined,
+              attachments: Array.isArray(msg.attachments)
+                ? msg.attachments
+                : undefined,
               model: msg.modelSlug ? getModelName(msg.modelSlug) : undefined,
               tokensUsed: msg.tokensCost || msg.usage?.totalTokens,
               createdAt: msg.createdAt,
@@ -199,7 +242,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     }
   }, [input])
 
-  // 🆕 Очистка blob URL при размонтировании
+  // Очистка blob URL при размонтировании
   useEffect(() => {
     return () => {
       images.forEach((img: any) => {
@@ -218,61 +261,192 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   // ─── Работа с картинками ───────────────────────────────────
 
-  const startUpload = useCallback((attachment: ImageAttachment) => {
-    setImages((prev: any) =>
-      prev.map((img: any) =>
-        img.id === attachment.id
-          ? { ...img, status: 'uploading', progress: 0 }
-          : img,
-      ),
-    )
+  const startUpload = useCallback(
+    (attachment: ImageAttachment) => {
+      setImages((prev: any) =>
+        prev.map((img: any) =>
+          img.id === attachment.id
+            ? { ...img, status: 'uploading', progress: 0 }
+            : img,
+        ),
+      )
 
-    const ctrl = new AbortController()
+      const ctrl = new AbortController()
 
-    uploadImage(attachment.file, {
-      signal: ctrl.signal,
-      onProgress: (p) => {
-        setImages((prev: any) =>
-          prev.map((img: any) =>
-            img.id === attachment.id ? { ...img, progress: p.percent } : img,
-          ),
-        )
-      },
-    })
-      .then((result) => {
-        setImages((prev: any) =>
-          prev.map((img: any) =>
-            img.id === attachment.id
-              ? {
-                  ...img,
-                  status: 'done',
-                  progress: 100,
-                  remoteUrl: result.url,
-                }
-              : img,
-          ),
-        )
+      uploadImage(attachment.file, {
+        signal: ctrl.signal,
+        onProgress: (p) => {
+          setImages((prev: any) =>
+            prev.map((img: any) =>
+              img.id === attachment.id ? { ...img, progress: p.percent } : img,
+            ),
+          )
+        },
       })
-      .catch((err: Error) => {
-        if (err.message === 'Загрузка отменена') return
-        setImages((prev: any) =>
-          prev.map((img: any) =>
-            img.id === attachment.id
-              ? { ...img, status: 'error', errorMessage: err.message }
-              : img,
-          ),
-        )
-        toast.error(err.message || 'Ошибка загрузки изображения')
-        hapticNotification('error')
-      })
+        .then((result) => {
+          setImages((prev: any) =>
+            prev.map((img: any) =>
+              img.id === attachment.id
+                ? {
+                    ...img,
+                    status: 'done',
+                    progress: 100,
+                    remoteUrl: result.url,
+                  }
+                : img,
+            ),
+          )
+        })
+        .catch((err: Error) => {
+          if (err.message === 'Загрузка отменена') return
+          setImages((prev: any) =>
+            prev.map((img: any) =>
+              img.id === attachment.id
+                ? { ...img, status: 'error', errorMessage: err.message }
+                : img,
+            ),
+          )
+          toast.error(err.message || 'Ошибка загрузки изображения')
+          hapticNotification('error')
+        })
 
-    // сохраняем abort controller
-    setImages((prev: any) =>
-      prev.map((img: any) =>
-        img.id === attachment.id ? { ...img, abortController: ctrl } : img,
-      ),
-    )
-  }, [hapticNotification])
+      setImages((prev: any) =>
+        prev.map((img: any) =>
+          img.id === attachment.id ? { ...img, abortController: ctrl } : img,
+        ),
+      )
+    },
+    [hapticNotification],
+  )
+
+  // ─── Работа с документами ───────────────────────────────────
+
+  const startDocUpload = useCallback(
+    (att: DocAttachment) => {
+      setDocs((prev: any) =>
+        prev.map((d: any) =>
+          d.id === att.id ? { ...d, status: 'uploading', progress: 0 } : d,
+        ),
+      )
+      const ctrl = new AbortController()
+
+      uploadDocument(att.file, {
+        signal: ctrl.signal,
+        onProgress: (p) => {
+          setDocs((prev: any) =>
+            prev.map((d: any) =>
+              d.id === att.id ? { ...d, progress: p.percent } : d,
+            ),
+          )
+        },
+      })
+        .then((result) => {
+          setDocs((prev: any) =>
+            prev.map((d: any) =>
+              d.id === att.id
+                ? {
+                    ...d,
+                    status: 'done',
+                    progress: 100,
+                    remoteUrl: result.url,
+                    extractedText: result.extractedText,
+                    hasText: result.hasText,
+                  }
+                : d,
+            ),
+          )
+          if (!result.hasText) {
+            toast.warning(`Не удалось извлечь текст из «${att.filename}»`)
+          }
+        })
+        .catch((err: Error) => {
+          if (err.message === 'Загрузка отменена') return
+          setDocs((prev: any) =>
+            prev.map((d: any) =>
+              d.id === att.id
+                ? { ...d, status: 'error', errorMessage: err.message }
+                : d,
+            ),
+          )
+          toast.error(err.message || 'Ошибка загрузки документа')
+          hapticNotification('error')
+        })
+
+      setDocs((prev: any) =>
+        prev.map((d: any) =>
+          d.id === att.id ? { ...d, abortController: ctrl } : d,
+        ),
+      )
+    },
+    [hapticNotification],
+  )
+
+  const handleDocsSelected = useCallback(
+    (fileList: FileList | null) => {
+      if (!fileList || fileList.length === 0) return
+      const files = Array.from(fileList)
+      const available = MAX_DOCS - docs.length
+      if (available <= 0) {
+        toast.warning(`Максимум ${MAX_DOCS} документов`)
+        return
+      }
+      const toProcess = files.slice(0, available)
+      if (files.length > available) {
+        toast.warning(
+          `Добавлено ${available} из ${files.length}. Лимит ${MAX_DOCS}.`,
+        )
+      }
+      const newDocs: DocAttachment[] = []
+      for (const file of toProcess) {
+        const err = validateDocumentFile(file)
+        if (err) {
+          toast.error(`${file.name}: ${err}`)
+          continue
+        }
+        newDocs.push({
+          id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          status: 'pending',
+          progress: 0,
+          filename: file.name,
+          mimeType: file.type,
+        })
+      }
+      if (newDocs.length === 0) return
+      setDocs((prev: any) => [...prev, ...newDocs])
+      haptic('light')
+      newDocs.forEach((d) => startDocUpload(d))
+    },
+    [docs.length, haptic, startDocUpload],
+  )
+
+  const removeDoc = useCallback(
+    (id: string) => {
+      haptic('light')
+      setDocs((prev: any) => {
+        const t = prev.find((d: any) => d.id === id)
+        t?.abortController?.abort()
+        return prev.filter((d: any) => d.id !== id)
+      })
+    },
+    [haptic],
+  )
+
+  const retryDoc = useCallback(
+    (id: string) => {
+      const target = docs.find((d: any) => d.id === id)
+      if (!target) return
+      haptic('light')
+      startDocUpload(target)
+    },
+    [docs, haptic, startDocUpload],
+  )
+
+  const openDocPicker = useCallback(() => {
+    haptic('light')
+    setShowAttachMenu(false)
+    docInputRef.current?.click()
+  }, [haptic])
 
   const handleFilesSelected = useCallback(
     (fileList: FileList | null) => {
@@ -290,7 +464,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
       const toProcess = files.slice(0, available)
       if (files.length > available) {
-        toast.warning(`Добавлено ${available} из ${files.length}. Лимит ${MAX_IMAGES}.`)
+        toast.warning(
+          `Добавлено ${available} из ${files.length}. Лимит ${MAX_IMAGES}.`,
+        )
       }
 
       const newAttachments: ImageAttachment[] = []
@@ -314,26 +490,27 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       setImages((prev: any) => [...prev, ...newAttachments])
       haptic('light')
 
-      // Запускаем загрузку каждого
       newAttachments.forEach((att) => startUpload(att))
     },
     [images.length, haptic, hapticNotification, startUpload],
   )
 
-  const removeImage = useCallback((id: string) => {
-    haptic('light')
-    setImages((prev: any) => {
-      const target = prev.find((img: any) => img.id === id)
-      if (target) {
-        // отменяем загрузку если идёт
-        target.abortController?.abort()
-        if (target.previewUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(target.previewUrl)
+  const removeImage = useCallback(
+    (id: string) => {
+      haptic('light')
+      setImages((prev: any) => {
+        const target = prev.find((img: any) => img.id === id)
+        if (target) {
+          target.abortController?.abort()
+          if (target.previewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(target.previewUrl)
+          }
         }
-      }
-      return prev.filter((img: any) => img.id !== id)
-    })
-  }, [haptic])
+        return prev.filter((img: any) => img.id !== id)
+      })
+    },
+    [haptic],
+  )
 
   const retryImage = useCallback(
     (id: string) => {
@@ -356,11 +533,12 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const handleSend = useCallback(async () => {
     const text = input.trim()
     const hasImages = images.length > 0
+    const hasDocs = docs.length > 0
 
-    if (!text && !hasImages) return
+    if (!text && !hasImages && !hasDocs) return
     if (isStreaming) return
 
-    // 🆕 Проверка vision-совместимости
+    // Проверка vision-совместимости (только для картинок)
     if (hasImages && !supportsVision) {
       toast.warning(
         `Модель "${selectedModelName}" не поддерживает изображения. Выберите GPT-4o, Claude, Gemini или Grok.`,
@@ -369,17 +547,25 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       return
     }
 
-    // 🆕 Дождаться завершения загрузки всех картинок
-    const stillUploading = images.some((img: any) => img.status === 'uploading' || img.status === 'pending')
-    if (stillUploading) {
-      toast.warning('Дождитесь загрузки всех изображений')
+    // Документы работают с любой текстовой моделью (текст извлекается на бэке)
+
+    // Дождаться загрузки всех картинок и документов
+    const imagesUploading = images.some(
+      (img: any) => img.status === 'uploading' || img.status === 'pending',
+    )
+    const docsUploading = docs.some(
+      (d: any) => d.status === 'uploading' || d.status === 'pending',
+    )
+    if (imagesUploading || docsUploading) {
+      toast.warning('Дождитесь загрузки всех файлов')
       return
     }
 
-    // 🆕 Если есть ошибки загрузки — не отправляем
-    const hasErrors = images.some((img: any) => img.status === 'error')
-    if (hasErrors) {
-      toast.error('Удалите или повторите загрузку проблемных изображений')
+    // Если есть ошибки загрузки — не отправляем
+    const hasImageErrors = images.some((img: any) => img.status === 'error')
+    const hasDocErrors = docs.some((d: any) => d.status === 'error')
+    if (hasImageErrors || hasDocErrors) {
+      toast.error('Удалите или повторите загрузку проблемных файлов')
       hapticNotification('error')
       return
     }
@@ -392,12 +578,22 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
     haptic('medium')
 
-        // 🆕 Собираем URL загруженных картинок
+    // URL загруженных картинок
     const imageUrls = images
       .filter((img: any) => img.status === 'done' && img.remoteUrl)
       .map((img: any) => img.remoteUrl!) as string[]
 
-    // Очищаем blob URLs и стейт картинок
+    // Метаданные + текст документов
+    const attachments = docs
+      .filter((d: any) => d.status === 'done' && d.remoteUrl)
+      .map((d: any) => ({
+        url: d.remoteUrl!,
+        filename: d.filename,
+        mimeType: d.mimeType,
+        text: d.extractedText || '',
+      }))
+
+    // Очищаем blob URLs картинок
     images.forEach((img: any) => {
       if (img.previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(img.previewUrl)
@@ -406,6 +602,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
     setInput('')
     setImages([])
+    setDocs([])
     setShowAttachMenu(false)
 
     const store = useChatStore.getState()
@@ -415,13 +612,21 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         ? currentActiveChatId
         : null
 
-    // Сообщение пользователя (с картинками если есть)
+    // Сообщение пользователя
     const userMessage: ChatMessage = {
       id: 'temp-' + Date.now(),
       chatId: chatIdToSend || 'pending',
       role: 'user',
       content: text,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+      attachments:
+        attachments.length > 0
+          ? attachments.map((a) => ({
+              url: a.url,
+              filename: a.filename,
+              mimeType: a.mimeType,
+            }))
+          : undefined,
       createdAt: new Date().toISOString(),
     }
     store.addMessage(userMessage)
@@ -434,6 +639,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         modelSlug,
         content: text,
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       },
       {
         onConversation: (data) => {
@@ -456,7 +662,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         },
         onMessageStart: () => {},
         onToken: (token) => store.appendStreamingContent(token),
-        onDone: (data) => {
+                onDone: (data) => {
           const finalContent = useChatStore.getState().streamingContent
           const finalChatId = useChatStore.getState().activeChatId
           const assistantMessage: ChatMessage = {
@@ -501,6 +707,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   }, [
     input,
     images,
+    docs,
     isStreaming,
     balance,
     modelCost,
@@ -552,17 +759,20 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const hasMessages = messages.length > 0
 
-  // 🆕 Состояние кнопки Send
+  // Состояние кнопки Send
   const canSend = useMemo(() => {
     if (isStreaming) return false
-    if (!input.trim() && images.length === 0) return false
-    // Если есть картинки — все должны быть загружены
+    if (!input.trim() && images.length === 0 && docs.length === 0) return false
     if (images.length > 0) {
       const allDone = images.every((img: any) => img.status === 'done')
       if (!allDone) return false
     }
+    if (docs.length > 0) {
+      const allDone = docs.every((d: any) => d.status === 'done')
+      if (!allDone) return false
+    }
     return true
-  }, [isStreaming, input, images])
+  }, [isStreaming, input, images, docs])
 
   return (
     <div
@@ -573,7 +783,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
       "
     >
-      {/* Скрытый file input */}
+      {/* Скрытый file input для картинок */}
       <input
         ref={fileInputRef}
         type="file"
@@ -582,7 +792,19 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         className="hidden"
         onChange={(e) => {
           handleFilesSelected(e.target.files)
-          // сбрасываем input чтобы можно было выбрать тот же файл снова
+          e.target.value = ''
+        }}
+      />
+
+      {/* Скрытый file input для документов */}
+      <input
+        ref={docInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          handleDocsSelected(e.target.files)
           e.target.value = ''
         }}
       />
@@ -672,7 +894,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               overflow-hidden max-h-[400px] overflow-y-auto
             "
           >
-                        {textModels.map((m: any) => {
+            {textModels.map((m: any) => {
               const mVision = m.supportsVision
               const mWebSearch = m.webSearch
               return (
@@ -749,13 +971,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
       {/* ── Messages ── */}
       <div
-  ref={messagesContainerRef}
-  className="
-    fs-page__scroll
-    flex-1 min-h-0 overflow-y-auto
-    overscroll-contain [-webkit-overflow-scrolling:touch]
-  "
->
+        ref={messagesContainerRef}
+        className="
+          fs-page__scroll
+          flex-1 min-h-0 overflow-y-auto
+          overscroll-contain [-webkit-overflow-scrolling:touch]
+        "
+      >
         <div className="flex flex-col gap-3.5 px-4 py-3">
           {/* Empty state */}
           {!hasMessages && !isStreaming && !isLoadingMessages && (
@@ -810,7 +1032,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 </div>
               )}
 
-              {/* 🆕 Превью картинок в user-сообщении СВЕРХУ */}
+              {/* Превью картинок в user-сообщении СВЕРХУ */}
               {msg.role === 'user' && msg.imageUrls && msg.imageUrls.length > 0 && (
                 <div
                   className={`
@@ -843,7 +1065,39 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 </div>
               )}
 
-              {/* Текстовый «пузырь» (показываем только если есть текст) */}
+              {/* 🆕 Документы в user-сообщении */}
+              {msg.role === 'user' &&
+                msg.attachments &&
+                msg.attachments.length > 0 && (
+                  <div className="flex flex-col gap-1 mb-1 max-w-[280px]">
+                    {msg.attachments.map((att, i) => {
+                      const Icon = getDocIcon(att.filename, att.mimeType || '')
+                      return (
+                        <a
+                          key={i}
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="
+                            flex items-center gap-2 py-1.5 px-2.5
+                            rounded-[10px] bg-white/[0.06]
+                            border border-white/[0.08]
+                          "
+                        >
+                          <Icon
+                            size={14}
+                            className="text-[var(--accent-yellow)] shrink-0"
+                          />
+                          <span className="text-[12px] text-white/80 truncate">
+                            {att.filename}
+                          </span>
+                        </a>
+                      )
+                    })}
+                  </div>
+                )}
+
+              {/* Текстовый «пузырь» */}
               {msg.content && (
                 <div
                   className={`
@@ -936,7 +1190,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
       >
-        {/* 🆕 Превью загружаемых картинок (Вариант A) */}
+        {/* Превью загружаемых картинок */}
         {images.length > 0 && (
           <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch] pb-0.5">
             {images.map((img) => (
@@ -968,7 +1222,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   </div>
                 )}
 
-                {/* Overlay: pending (ожидание старта) */}
+                {/* Overlay: pending */}
                 {img.status === 'pending' && (
                   <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
                     <Loader2 size={16} className="text-white/80 animate-spin" />
@@ -986,14 +1240,14 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   </button>
                 )}
 
-                {/* Success checkmark (быстро мигает) */}
+                {/* Success checkmark */}
                 {img.status === 'done' && (
                   <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-[var(--accent-yellow)] flex items-center justify-center">
                     <Check size={10} className="text-[#0a0a0a]" strokeWidth={3} />
                   </div>
                 )}
 
-                {/* Кнопка удалить (всегда поверх) */}
+                                {/* Кнопка удалить */}
                 <button
                   onClick={() => removeImage(img.id)}
                   className="
@@ -1013,7 +1267,75 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           </div>
         )}
 
-                {/* 🆕 Подсказка для не-vision модели когда есть картинки */}
+        {/* 🆕 Превью документов */}
+        {docs.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            {docs.map((doc) => {
+              const Icon = getDocIcon(doc.filename, doc.mimeType)
+              return (
+                <div
+                  key={doc.id}
+                  className="
+                    flex items-center gap-2
+                    py-2 px-2.5
+                    rounded-[var(--radius-xs)]
+                    border border-[var(--border-glass)]
+                    bg-white/[0.03]
+                  "
+                >
+                  <div className="w-8 h-8 rounded-[8px] bg-white/[0.05] flex items-center justify-center shrink-0">
+                    {doc.status === 'uploading' || doc.status === 'pending' ? (
+                      <Loader2 size={16} className="text-white/70 animate-spin" />
+                    ) : doc.status === 'error' ? (
+                      <AlertCircle size={16} className="text-[var(--accent-red)]" />
+                    ) : (
+                      <Icon size={16} className="text-[var(--accent-yellow)]" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] text-white/80 font-medium truncate">
+                      {doc.filename}
+                    </div>
+                    <div className="text-[10px] text-white/35">
+                      {doc.status === 'uploading'
+                        ? `Загрузка ${doc.progress}%`
+                        : doc.status === 'error'
+                        ? doc.errorMessage || 'Ошибка'
+                        : doc.status === 'done'
+                        ? doc.hasText
+                          ? `${(doc.file.size / 1024).toFixed(0)} KB · текст извлечён`
+                          : `${(doc.file.size / 1024).toFixed(0)} KB · без текста`
+                        : 'Ожидание...'}
+                    </div>
+                  </div>
+
+                  {doc.status === 'error' && (
+                    <button
+                      onClick={() => retryDoc(doc.id)}
+                      className="text-[10px] text-[var(--accent-yellow)] px-2 py-1 shrink-0"
+                    >
+                      Повтор
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => removeDoc(doc.id)}
+                    className="
+                      w-6 h-6 rounded-full bg-white/[0.06]
+                      flex items-center justify-center shrink-0
+                      active:scale-[0.85]
+                    "
+                  >
+                    <X size={12} className="text-white/60" strokeWidth={2.5} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Подсказка для не-vision модели когда есть картинки */}
         {images.length > 0 && !supportsVision && (
           <div
             className="
@@ -1035,7 +1357,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
         {/* Attach menu */}
         {showAttachMenu && (
-          <div className="flex gap-1.5 fade-in">
+          <div className="flex gap-1.5 fade-in flex-wrap">
             <button
               className={`
                 flex items-center gap-1.5
@@ -1059,6 +1381,32 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 </span>
               )}
             </button>
+
+            {/* 🆕 Кнопка Документ */}
+            <button
+              className={`
+                flex items-center gap-1.5
+                py-2 px-3.5
+                rounded-[var(--radius-xs)]
+                border border-[var(--border-glass)]
+                bg-[var(--bg-glass)]
+                text-[var(--gray-400)] text-[12px] font-medium
+                cursor-pointer transition-all duration-150
+                font-[inherit]
+                active:scale-[0.96] active:bg-[var(--bg-card-hover)]
+                disabled:opacity-40 disabled:cursor-not-allowed
+              `}
+              onClick={openDocPicker}
+              disabled={docs.length >= MAX_DOCS}
+            >
+              <FileText size={16} /> Документ
+              {docs.length > 0 && (
+                <span className="text-[10px] text-[var(--gray-600)] ml-0.5">
+                  {docs.length}/{MAX_DOCS}
+                </span>
+              )}
+            </button>
+
             <button
               className="
                 flex items-center gap-1.5
@@ -1119,6 +1467,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             placeholder={
               images.length > 0
                 ? 'Опишите что нужно сделать с изображением...'
+                : docs.length > 0
+                ? 'Опишите что нужно сделать с документом...'
                 : 'Написать сообщение...'
             }
             value={input}

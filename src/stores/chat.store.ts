@@ -6,7 +6,8 @@ export interface ChatMessage {
   chatId: string
   role: 'user' | 'assistant'
   content: string
-  imageUrls?: string[]           // 🆕 картинки в сообщении (для user-сообщений)
+  imageUrls?: string[]
+  attachments?: { url: string; filename: string; mimeType?: string }[]  // 🆕          // 🆕 картинки в сообщении (для user-сообщений)
   model?: string
   tokensUsed?: number
   createdAt: string
