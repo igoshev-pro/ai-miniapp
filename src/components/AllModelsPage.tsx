@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import {
   MessageSquare,
   Image,
@@ -9,11 +8,14 @@ import {
   ChevronRight,
   Search,
   Star,
+  Eye,
+  Globe,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useFavorites } from '@/hooks'
 import { useModels } from '@/hooks'
-import type { ModelItem } from '@/lib/data'
+import { formatCost, type ModelItem } from '@/lib/data'
+import { useState } from 'react'
 
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -133,7 +135,7 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
           >
             Все
           </button>
-          {modelCategories.map((cat) => (
+          {modelCategories.map((cat: any) => (
             <button
               key={cat.id}
               className={`
@@ -246,12 +248,42 @@ function ModelCard({
         {modelIcons[model.category]}
       </div>
 
-      {/* Body */}
+            {/* Body */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-bold text-white lg:text-[15px]">
             {model.name}
           </span>
+
+          {/* 🆕 Бэйджи возможностей */}
+          {model.supportsVision && (
+            <span
+              className="
+                inline-flex items-center gap-0.5
+                text-[10px] font-semibold
+                text-sky-400 bg-sky-400/[0.1]
+                px-1.5 py-px rounded-[5px] shrink-0
+              "
+              title="Понимает изображения"
+            >
+              <Eye size={10} />
+            </span>
+          )}
+          {model.webSearch && (
+            <span
+              className="
+                inline-flex items-center gap-0.5
+                text-[10px] font-semibold
+                text-emerald-400 bg-emerald-400/[0.1]
+                px-1.5 py-px rounded-[5px] shrink-0
+              "
+              title="Поиск в интернете"
+            >
+              <Globe size={10} />
+            </span>
+          )}
+
+          {/* Цена */}
           <span
             className="
               text-[11px] font-semibold text-yellow-400
@@ -260,7 +292,7 @@ function ModelCard({
               tracking-[0.2px]
             "
           >
-            от {model.cost} 🔥
+            от {formatCost(model.cost)} 🔥
           </span>
         </div>
         <div

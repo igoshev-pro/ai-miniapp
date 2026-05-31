@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown,
   Paperclip,
@@ -16,6 +15,8 @@ import {
   Star,
   AlertCircle,
   Loader2,
+  Eye,
+  Globe,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites } from '@/hooks'
@@ -30,8 +31,9 @@ import {
 } from '@/lib/api'
 import { useUserStore } from '@/stores/user.store'
 import { MessageContent } from '@/components/ui/MessageContent'
-import { allModels as fallbackModels } from '@/lib/data'
+import { allModels as fallbackModels, formatCost } from '@/lib/data'
 import { toast } from '@/stores/toast.store'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // ─── Типы для прикреплённых изображений ───
 interface ImageAttachment {
@@ -200,7 +202,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   // 🆕 Очистка blob URL при размонтировании
   useEffect(() => {
     return () => {
-      images.forEach((img) => {
+      images.forEach((img: any) => {
         if (img.previewUrl.startsWith('blob:')) {
           URL.revokeObjectURL(img.previewUrl)
         }
@@ -217,8 +219,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   // ─── Работа с картинками ───────────────────────────────────
 
   const startUpload = useCallback((attachment: ImageAttachment) => {
-    setImages((prev) =>
-      prev.map((img) =>
+    setImages((prev: any) =>
+      prev.map((img: any) =>
         img.id === attachment.id
           ? { ...img, status: 'uploading', progress: 0 }
           : img,
@@ -230,16 +232,16 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     uploadImage(attachment.file, {
       signal: ctrl.signal,
       onProgress: (p) => {
-        setImages((prev) =>
-          prev.map((img) =>
+        setImages((prev: any) =>
+          prev.map((img: any) =>
             img.id === attachment.id ? { ...img, progress: p.percent } : img,
           ),
         )
       },
     })
       .then((result) => {
-        setImages((prev) =>
-          prev.map((img) =>
+        setImages((prev: any) =>
+          prev.map((img: any) =>
             img.id === attachment.id
               ? {
                   ...img,
@@ -253,8 +255,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       })
       .catch((err: Error) => {
         if (err.message === 'Загрузка отменена') return
-        setImages((prev) =>
-          prev.map((img) =>
+        setImages((prev: any) =>
+          prev.map((img: any) =>
             img.id === attachment.id
               ? { ...img, status: 'error', errorMessage: err.message }
               : img,
@@ -265,8 +267,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       })
 
     // сохраняем abort controller
-    setImages((prev) =>
-      prev.map((img) =>
+    setImages((prev: any) =>
+      prev.map((img: any) =>
         img.id === attachment.id ? { ...img, abortController: ctrl } : img,
       ),
     )
@@ -309,7 +311,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
       if (newAttachments.length === 0) return
 
-      setImages((prev) => [...prev, ...newAttachments])
+      setImages((prev: any) => [...prev, ...newAttachments])
       haptic('light')
 
       // Запускаем загрузку каждого
@@ -320,8 +322,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const removeImage = useCallback((id: string) => {
     haptic('light')
-    setImages((prev) => {
-      const target = prev.find((img) => img.id === id)
+    setImages((prev: any) => {
+      const target = prev.find((img: any) => img.id === id)
       if (target) {
         // отменяем загрузку если идёт
         target.abortController?.abort()
@@ -329,13 +331,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           URL.revokeObjectURL(target.previewUrl)
         }
       }
-      return prev.filter((img) => img.id !== id)
+      return prev.filter((img: any) => img.id !== id)
     })
   }, [haptic])
 
   const retryImage = useCallback(
     (id: string) => {
-      const target = images.find((img) => img.id === id)
+      const target = images.find((img: any) => img.id === id)
       if (!target) return
       haptic('light')
       startUpload(target)
@@ -368,14 +370,14 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     }
 
     // 🆕 Дождаться завершения загрузки всех картинок
-    const stillUploading = images.some((img) => img.status === 'uploading' || img.status === 'pending')
+    const stillUploading = images.some((img: any) => img.status === 'uploading' || img.status === 'pending')
     if (stillUploading) {
       toast.warning('Дождитесь загрузки всех изображений')
       return
     }
 
     // 🆕 Если есть ошибки загрузки — не отправляем
-    const hasErrors = images.some((img) => img.status === 'error')
+    const hasErrors = images.some((img: any) => img.status === 'error')
     if (hasErrors) {
       toast.error('Удалите или повторите загрузку проблемных изображений')
       hapticNotification('error')
@@ -392,11 +394,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
         // 🆕 Собираем URL загруженных картинок
     const imageUrls = images
-      .filter((img) => img.status === 'done' && img.remoteUrl)
-      .map((img) => img.remoteUrl!) as string[]
+      .filter((img: any) => img.status === 'done' && img.remoteUrl)
+      .map((img: any) => img.remoteUrl!) as string[]
 
     // Очищаем blob URLs и стейт картинок
-    images.forEach((img) => {
+    images.forEach((img: any) => {
       if (img.previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(img.previewUrl)
       }
@@ -556,7 +558,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     if (!input.trim() && images.length === 0) return false
     // Если есть картинки — все должны быть загружены
     if (images.length > 0) {
-      const allDone = images.every((img) => img.status === 'done')
+      const allDone = images.every((img: any) => img.status === 'done')
       if (!allDone) return false
     }
     return true
@@ -621,7 +623,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           <MessageSquare size={14} className="text-[var(--gray-500)] shrink-0" />
           <span className="truncate">{selectedModelName}</span>
           <span className="text-[11px] text-white/40 ml-auto shrink-0">
-            от {modelCost} 🔥
+            от {formatCost(modelCost)} 🔥
           </span>
           <ChevronDown
             size={14}
@@ -670,8 +672,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               overflow-hidden max-h-[400px] overflow-y-auto
             "
           >
-            {textModels.map((m) => {
+                        {textModels.map((m: any) => {
               const mVision = m.supportsVision
+              const mWebSearch = m.webSearch
               return (
                 <button
                   key={m.id}
@@ -693,12 +696,35 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                     haptic('light')
                   }}
                 >
-                  <div className="flex flex-col gap-[1px]">
-                    <span className="font-semibold flex items-center gap-1.5">
-                      {m.name}
+                  <div className="flex flex-col gap-[1px] min-w-0">
+                    <span className="font-semibold flex items-center gap-1.5 flex-wrap">
+                      <span className="truncate">{m.name}</span>
+
+                      {/* 👁 Vision */}
                       {mVision && (
-                        <span className="text-[9px] px-1 py-px rounded bg-[rgba(250,204,21,0.12)] text-[var(--accent-yellow)] font-bold">
-                          👁
+                        <span
+                          className="
+                            inline-flex items-center
+                            text-[9px] px-1 py-px rounded
+                            bg-[rgba(56,189,248,0.14)] text-sky-400 font-bold
+                          "
+                          title="Понимает изображения"
+                        >
+                          <Eye size={9} />
+                        </span>
+                      )}
+
+                      {/* 🌐 Web Search */}
+                      {mWebSearch && (
+                        <span
+                          className="
+                            inline-flex items-center
+                            text-[9px] px-1 py-px rounded
+                            bg-[rgba(52,211,153,0.14)] text-emerald-400 font-bold
+                          "
+                          title="Поиск в интернете"
+                        >
+                          <Globe size={9} />
                         </span>
                       )}
                     </span>
@@ -706,9 +732,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                       {m.provider}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <span className="text-[11px] text-white/40">
-                      от {m.cost} 🔥
+                      от {formatCost(m.cost)} 🔥
                     </span>
                     {selectedModelName === m.name && (
                       <Check size={14} className="text-[var(--accent-yellow)]" />

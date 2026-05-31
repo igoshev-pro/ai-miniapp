@@ -23,8 +23,8 @@ interface BackendModel {
   hasVariants?: boolean
   isActive?: boolean
   isPremium?: boolean
-  capabilities?: string[]      // ← может приходить ['vision', ...]
-  supportsVision?: boolean     // 🆕 если бэк отдаёт явно
+  capabilities?: string[]      // ← ['vision', 'web_search', ...]
+  supportsVision?: boolean     // если бэк отдаёт явно
   limits?: any
   defaultParams?: any
 }
@@ -34,14 +34,29 @@ interface ModelsResponse {
   data: BackendModel[]
 }
 
+function hasCapability(caps: string[] | undefined, keyword: string): boolean {
+  if (!Array.isArray(caps)) return false
+  return caps.some((c) => c?.toLowerCase().includes(keyword))
+}
+
 function mapBackendModel(m: BackendModel, index: number): ModelItem {
-  // 🆕 Vision определяем 2 способами:
-  // 1) явное поле supportsVision
-  // 2) capabilities содержит 'vision'
+  // Vision: явное поле supportsVision ИЛИ capabilities содержит 'vision'
   const supportsVision =
-    m.supportsVision === true ||
-    (Array.isArray(m.capabilities) &&
-      m.capabilities.some((c) => c?.toLowerCase().includes('vision')))
+    m.supportsVision === true || hasCapability(m.capabilities, 'vision')
+
+  // 🆕 Web search: capabilities содержит 'web_search' / 'search' / 'web'
+  const webSearch =
+    hasCapability(m.capabilities, 'web_search') ||
+    hasCapability(m.capabilities, 'web-search')
+
+  // 🆕 Безопасный расчёт цены:
+  // приоритет minCost → cost. Если оба null/undefined/<=0 → -1 ("?")
+  const rawCost =
+    typeof m.minCost === 'number' && m.minCost > 0
+      ? m.minCost
+      : typeof m.cost === 'number' && m.cost > 0
+        ? m.cost
+        : -1 // неизвестно
 
   return {
     id: `${m.type[0]}${index + 1}`,
@@ -50,9 +65,10 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
     provider: m.provider || guessProvider(m.slug),
     category: m.type,
     description: m.description || '',
-    cost: m.minCost || m.cost || guessCost(m.type),
+    cost: rawCost,
     hasVariants: m.hasVariants ?? false,
-    supportsVision,            // 🆕
+    supportsVision,
+    webSearch, // 🆕
   }
 }
 
@@ -79,16 +95,6 @@ function guessProvider(slug: string): string {
   return 'AI'
 }
 
-function guessCost(type: string): number {
-  switch (type) {
-    case 'text': return 1
-    case 'image': return 2
-    case 'video': return 5
-    case 'audio': return 1
-    default: return 1
-  }
-}
-
 export function useModels() {
   const models = useModelsStore((s) => s.models)
   const categories = useModelsStore((s) => s.categories)
@@ -96,7 +102,6 @@ export function useModels() {
   const isLoading = useModelsStore((s) => s.isLoading)
 
   const loadModels = useCallback(async () => {
-    // Читаем актуальное состояние через getState() — без замыканий
     const state = useModelsStore.getState()
     if (state.isLoaded || state.isLoading) return
 
@@ -117,13 +122,12 @@ export function useModels() {
       }
     } catch (err) {
       console.warn('[useModels] Failed to load from backend, using fallback:', err)
-      // Проверяем что ещё не загружено (защита от гонки)
       const current = useModelsStore.getState()
       if (!current.isLoaded) {
         current.setModels(fallbackModels)
       }
     }
-  }, []) // <-- ПУСТЫЕ зависимости! loadModels стабильна
+  }, [])
 
   return {
     models: isLoaded ? models : fallbackModels,
