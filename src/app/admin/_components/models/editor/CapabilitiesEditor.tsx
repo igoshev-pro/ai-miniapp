@@ -5,7 +5,7 @@ type Caps = {
   acceptsVideo?: boolean
   acceptsAudio?: boolean
   maxInputImages?: number
-  mimeTypes?: string[]
+  acceptedMimeTypes?: string[]   // ← было mimeTypes
 }
 
 interface Props {
@@ -17,11 +17,6 @@ interface Props {
   onCapabilitiesChange?: (v: string[]) => void
 }
 
-/**
- * 📌 Популярные возможности моделей.
- * Каждая = строка в массиве `capabilities` модели.
- * Фронт использует их для отображения иконок и фильтров.
- */
 const KNOWN_CAPABILITIES: Array<{
   key: string
   label: string
@@ -29,11 +24,8 @@ const KNOWN_CAPABILITIES: Array<{
   description: string
   group: 'core' | 'feature'
 }> = [
-  // Технические возможности
   { key: 'streaming', label: 'Streaming', icon: '⚡', description: 'Потоковая выдача токенов (SSE)', group: 'core' },
   { key: 'function_calling', label: 'Function Calling', icon: '🔧', description: 'Вызов функций / tools', group: 'core' },
-
-  // Видимые пользователю фичи
   { key: 'vision', label: 'Vision', icon: '👁', description: 'Понимает картинки во входе', group: 'feature' },
   { key: 'web_search', label: 'Web Search', icon: '🌐', description: 'Поиск в интернете (актуальные данные)', group: 'feature' },
   { key: 'reasoning', label: 'Reasoning', icon: '🧠', description: 'Глубокие рассуждения / chain of thought', group: 'feature' },
@@ -51,7 +43,6 @@ export function CapabilitiesEditor({
   const set = (k: keyof Caps, val: any) => onChange({ ...v, [k]: val })
 
   const caps = Array.isArray(capabilities) ? capabilities : []
-
   const hasCapability = (key: string) => caps.includes(key)
 
   const toggleCapability = (key: string) => {
@@ -62,17 +53,12 @@ export function CapabilitiesEditor({
     onCapabilitiesChange(next)
   }
 
-  // Кастомные capabilities (не из KNOWN_CAPABILITIES) — редактируются через текстовое поле
   const knownKeys = KNOWN_CAPABILITIES.map((c) => c.key)
   const customCaps = caps.filter((c) => !knownKeys.includes(c))
 
   const setCustomCaps = (input: string) => {
     if (!onCapabilitiesChange) return
-    const customList = input
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-    // Сохраняем известные + добавляем кастомные
+    const customList = input.split(',').map((s) => s.trim()).filter(Boolean)
     const known = caps.filter((c) => knownKeys.includes(c))
     onCapabilitiesChange([...known, ...customList])
   }
@@ -82,9 +68,6 @@ export function CapabilitiesEditor({
 
   return (
     <div className="space-y-8 max-w-3xl">
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* СЕКЦИЯ 1: Возможности модели (capabilities)                  */}
-      {/* ═══════════════════════════════════════════════════════════ */}
       {onCapabilitiesChange && (
         <section className="space-y-4">
           <div>
@@ -96,7 +79,6 @@ export function CapabilitiesEditor({
             </p>
           </div>
 
-          {/* Видимые пользователю фичи */}
           <div>
             <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2 font-semibold">
               Видимые в UI
@@ -115,7 +97,6 @@ export function CapabilitiesEditor({
             </div>
           </div>
 
-          {/* Технические */}
           <div>
             <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2 font-semibold">
               Технические
@@ -134,7 +115,6 @@ export function CapabilitiesEditor({
             </div>
           </div>
 
-          {/* Кастомные capabilities */}
           <div>
             <label className="text-sm text-zinc-300 block mb-2">
               Дополнительные (через запятую)
@@ -152,9 +132,6 @@ export function CapabilitiesEditor({
         </section>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* СЕКЦИЯ 2: Входные данные (inputCapabilities)                 */}
-      {/* ═══════════════════════════════════════════════════════════ */}
       <section className="space-y-4 border-t border-zinc-800 pt-6">
         <div>
           <h3 className="text-base font-semibold text-white flex items-center gap-2">
@@ -209,14 +186,11 @@ export function CapabilitiesEditor({
           <input
             className="bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm text-white w-full focus:border-indigo-500 outline-none"
             placeholder="image/png, image/jpeg, video/mp4"
-            value={Array.isArray(v.mimeTypes) ? v.mimeTypes.join(', ') : ''}
+            value={Array.isArray(v.acceptedMimeTypes) ? v.acceptedMimeTypes.join(', ') : ''}
             onChange={(e) =>
               set(
-                'mimeTypes',
-                e.target.value
-                  .split(',')
-                  .map((s) => s.trim())
-                  .filter(Boolean),
+                'acceptedMimeTypes',
+                e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
               )
             }
           />
@@ -226,8 +200,6 @@ export function CapabilitiesEditor({
     </div>
   )
 }
-
-// ─── Helpers ──────────────────────────────────────────
 
 function Row({ label, children }: any) {
   return (
@@ -239,30 +211,19 @@ function Row({ label, children }: any) {
 }
 
 function CapabilityToggle({
-  icon,
-  label,
-  description,
-  active,
-  onToggle,
+  icon, label, description, active, onToggle,
 }: {
-  icon: string
-  label: string
-  description: string
-  active: boolean
-  onToggle: () => void
+  icon: string; label: string; description: string; active: boolean; onToggle: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
-      className={`
-        flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-all
-        ${
-          active
-            ? 'bg-indigo-500/15 border-indigo-500/40 text-white'
-            : 'bg-zinc-800/40 border-zinc-700/50 text-zinc-300 hover:bg-zinc-800/60 hover:border-zinc-600'
-        }
-      `}
+      className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${
+        active
+          ? 'bg-indigo-500/15 border-indigo-500/40 text-white'
+          : 'bg-zinc-800/40 border-zinc-700/50 text-zinc-300 hover:bg-zinc-800/60 hover:border-zinc-600'
+      }`}
     >
       <span className="text-lg shrink-0 leading-none mt-0.5">{icon}</span>
       <div className="flex-1 min-w-0">
@@ -274,9 +235,7 @@ function CapabilityToggle({
             </span>
           )}
         </div>
-        <div className="text-[11px] text-zinc-500 leading-tight mt-0.5">
-          {description}
-        </div>
+        <div className="text-[11px] text-zinc-500 leading-tight mt-0.5">{description}</div>
       </div>
     </button>
   )

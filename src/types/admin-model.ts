@@ -138,9 +138,11 @@ export interface PricingRule {
 // ─── Input Capabilities ─────────────────────────
 
 export interface InputCapabilities {
-    acceptsImage?: boolean
-    maxImages?: number
+    acceptsImages?: boolean      // было acceptsImage
     acceptsVideo?: boolean
     acceptsAudio?: boolean
-    maxFileSizeMB?: number
+    acceptsFiles?: boolean
+    maxInputImages?: number      // было maxImages
+    maxFileSize?: number         // в MB (было maxFileSizeMB)
+    acceptedMimeTypes?: string[]
 }
