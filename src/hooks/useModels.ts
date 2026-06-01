@@ -104,7 +104,7 @@ function guessProvider(slug: string): string {
   if (slug.includes('claude')) return 'Anthropic'
   if (slug.includes('gemini') || slug.includes('imagen') || slug.includes('veo'))
     return 'Google'
-  if (slug.includes('deepseek')) return 'DeepSeek'
+  if (slug.includes('deepseek')) return 'DeepSeek';
   if (slug.includes('grok')) return 'xAI'
   if (slug.includes('perplexity')) return 'Perplexity'
   if (slug.includes('qwen')) return 'Alibaba'
