@@ -20,10 +20,8 @@ interface Props {
 /* ─── Helpers ─── */
 
 async function downloadFile(url: string, filename: string) {
-  const tg = (window as any).Telegram?.WebApp
-  if (tg?.downloadFile) {
-    try { tg.downloadFile({ url, file_name: filename }); return } catch {}
-  }
+  // ⚠️ tg.downloadFile() убран — он показывает нативную модалку Telegram
+  //    с подтверждением и длинным URL. Качаем сразу через blob.
 
   const API = process.env.NEXT_PUBLIC_API_URL || ''
   const proxyUrl = `${API}/upload/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`
