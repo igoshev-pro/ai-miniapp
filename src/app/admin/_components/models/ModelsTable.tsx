@@ -40,9 +40,30 @@ export function ModelsTable({
             <th className="px-4 py-3 text-left">Модель</th>
             <th className="px-4 py-3 text-left">Тип</th>
             <th className="px-4 py-3 text-center">Флаги</th>
-            <th className="px-4 py-3 text-right">Цена (от)</th>
-            <th className="px-4 py-3 text-right">$ / 1M In</th>
-            <th className="px-4 py-3 text-right">$ / 1M Out</th>
+            <th
+              className="px-4 py-3 text-right"
+              title="Минимальная стоимость списания за запрос (спички 🔥)"
+            >
+              Мин. 🔥
+            </th>
+            <th
+              className="px-4 py-3 text-right"
+              title="Цена для клиента за 1M входных токенов, в спичках 🔥"
+            >
+              🔥 / 1M In
+            </th>
+            <th
+              className="px-4 py-3 text-right"
+              title="Цена для клиента за 1M выходных токенов, в спичках 🔥"
+            >
+              🔥 / 1M Out
+            </th>
+            <th
+              className="px-4 py-3 text-right"
+              title="Себестоимость у провайдера за 1M токенов (input / output), в долларах"
+            >
+              $ провайдер (In/Out)
+            </th>
             <th className="px-4 py-3 text-center">Order</th>
             <th className="px-4 py-3 text-center">Active</th>
             <th className="px-4 py-3 text-right">Действия</th>
@@ -78,12 +99,27 @@ function Row({
   onInlineTokenCost: (v: number) => void
   onDelete: (hard: boolean) => void
 }) {
-  // 🆕 Минимальная цена для отображения «от X» (как в приложении)
+  // Минимальная цена для отображения «от X 🔥»
   const minCost =
     m.preview?.minCostInTokens ??
     m.minTokenCost ??
     m.tokenCost ??
     0
+
+  // 🔥 Цена за 1M токенов В СПИЧКАХ (именно по этим полям идёт списание)
+  const priceInSpichkiInput =
+    (m as any).pricePerMillionInputTokens ??
+    m.costPerMillionInputTokens ?? // fallback на legacy если новое не задано
+    0
+
+  const priceInSpichkiOutput =
+    (m as any).pricePerMillionOutputTokens ??
+    m.costPerMillionOutputTokens ??
+    0
+
+  // $ Себестоимость провайдера (для контроля маржи)
+  const providerCostInput = (m as any).providerCostPerMillionInput ?? 0
+  const providerCostOutput = (m as any).providerCostPerMillionOutput ?? 0
 
   const [editingCost, setEditingCost] = useState(false)
   const [costValue, setCostValue] = useState(String(minCost))
@@ -152,7 +188,7 @@ function Row({
         </div>
       </td>
 
-      {/* Inline цена (min) */}
+      {/* Inline цена (min, в спичках) */}
       <td className="px-4 py-3 text-right">
         {editingCost ? (
           <input
@@ -177,19 +213,32 @@ function Row({
             onClick={() => setEditingCost(true)}
             className="text-white hover:text-indigo-400 hover:underline tabular-nums"
             disabled={busy}
-            title={`avg: ${m.preview?.avgCostInTokens ?? '—'} · max: ${m.preview?.maxCostInTokens ?? '—'}`}
+            title={`avg: ${m.preview?.avgCostInTokens ?? '—'} 🔥 · max: ${m.preview?.maxCostInTokens ?? '—'} 🔥`}
           >
-            от {minCost}
+            от {minCost} 🔥
           </button>
         )}
       </td>
 
-      {/* Стоимости */}
-      <td className="px-4 py-3 text-right text-zinc-300 tabular-nums">
-        ${m.costPerMillionInputTokens?.toFixed(2) ?? '0.00'}
+      {/* 🔥 / 1M Input (цена для клиента в спичках) */}
+      <td className="px-4 py-3 text-right text-white tabular-nums">
+        {priceInSpichkiInput.toFixed(2)} 🔥
       </td>
-      <td className="px-4 py-3 text-right text-zinc-300 tabular-nums">
-        ${m.costPerMillionOutputTokens?.toFixed(2) ?? '0.00'}
+
+      {/* 🔥 / 1M Output (цена для клиента в спичках) */}
+      <td className="px-4 py-3 text-right text-white tabular-nums">
+        {priceInSpichkiOutput.toFixed(2)} 🔥
+      </td>
+
+      {/* $ провайдер — себестоимость, для контроля маржи */}
+      <td className="px-4 py-3 text-right text-zinc-500 tabular-nums text-xs">
+        {providerCostInput > 0 || providerCostOutput > 0 ? (
+          <>
+            ${providerCostInput.toFixed(2)} / ${providerCostOutput.toFixed(2)}
+          </>
+        ) : (
+          <span className="text-zinc-700">—</span>
+        )}
       </td>
 
       {/* Order */}
