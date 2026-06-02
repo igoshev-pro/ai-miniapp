@@ -292,7 +292,7 @@ function ModelCard({
               tracking-[0.2px]
             "
           >
-            от {formatCost(model.cost)} 🔥
+            {model.category === 'text' ? 'от ' : ''}{formatCost(model.cost)} 🔥
           </span>
         </div>
         <div

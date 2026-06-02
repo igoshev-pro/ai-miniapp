@@ -878,7 +878,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-[11px] text-white/40">
-                    от {formatCost(m.cost)} 🔥
+                    {formatCost(m.cost)} 🔥
                   </span>
                   {slug === m.slug && <Check size={14} className="text-[var(--accent-yellow)]" />}
                 </div>

@@ -724,7 +724,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] text-white/40">
-                    от {formatCost(m.cost)} 🔥
+                    {formatCost(m.cost)} 🔥
                   </span>
                   {selectedModelSlug === m.slug && (
                     <Check size={14} className="text-[var(--accent-yellow)]" />
