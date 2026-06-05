@@ -22,7 +22,7 @@ import {
   FileType,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useUser, useFavorites } from '@/hooks'
+import { useUser, useFavorites, useModels } from '@/hooks'
 import { useChatStore, type ChatMessage } from '@/stores/chat.store'
 import { useModelsStore } from '@/stores/models.store'
 import {
@@ -134,8 +134,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const streamingContent = useChatStore((s) => s.streamingContent)
   const activeChatId = useChatStore((s) => s.activeChatId)
 
-  const storeModels = useModelsStore((s) => s.models)
-  const allModels = storeModels.length > 0 ? storeModels : fallbackModels
+  // ✅ Используем useModels() — тот же источник, что и AllModelsPage
+  const { models: hookModels } = useModels()
+  const allModels = hookModels.length > 0 ? hookModels : fallbackModels
   const textModels = useMemo(
     () => allModels.filter((m) => m.category === 'text'),
     [allModels],
@@ -288,11 +289,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             prev.map((img: any) =>
               img.id === attachment.id
                 ? {
-                    ...img,
-                    status: 'done',
-                    progress: 100,
-                    remoteUrl: result.url,
-                  }
+                  ...img,
+                  status: 'done',
+                  progress: 100,
+                  remoteUrl: result.url,
+                }
                 : img,
             ),
           )
@@ -345,13 +346,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             prev.map((d: any) =>
               d.id === att.id
                 ? {
-                    ...d,
-                    status: 'done',
-                    progress: 100,
-                    remoteUrl: result.url,
-                    extractedText: result.extractedText,
-                    hasText: result.hasText,
-                  }
+                  ...d,
+                  status: 'done',
+                  progress: 100,
+                  remoteUrl: result.url,
+                  extractedText: result.extractedText,
+                  hasText: result.hasText,
+                }
                 : d,
             ),
           )
@@ -622,10 +623,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       attachments:
         attachments.length > 0
           ? attachments.map((a) => ({
-              url: a.url,
-              filename: a.filename,
-              mimeType: a.mimeType,
-            }))
+            url: a.url,
+            filename: a.filename,
+            mimeType: a.mimeType,
+          }))
           : undefined,
       createdAt: new Date().toISOString(),
     }
@@ -660,9 +661,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             })
           }
         },
-        onMessageStart: () => {},
+        onMessageStart: () => { },
         onToken: (token) => store.appendStreamingContent(token),
-                onDone: (data) => {
+        onDone: (data) => {
           const finalContent = useChatStore.getState().streamingContent
           const finalChatId = useChatStore.getState().activeChatId
           const assistantMessage: ChatMessage = {
@@ -744,7 +745,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const copyMessage = useCallback(
     (id: string, content: string) => {
-      navigator.clipboard.writeText(content).catch(() => {})
+      navigator.clipboard.writeText(content).catch(() => { })
       setCopiedId(id)
       haptic('light')
       setTimeout(() => setCopiedId(null), 2000)
@@ -866,10 +867,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               cursor-pointer transition-all duration-150
               shrink-0 [-webkit-tap-highlight-color:transparent]
               active:scale-[0.9]
-              ${
-                isCurrentChatFavorite
-                  ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-                  : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
+              ${isCurrentChatFavorite
+                ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
               }
             `}
             onClick={() => {
@@ -1102,10 +1102,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 <div
                   className={`
                     py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
-                    ${
-                      msg.role === 'user'
-                        ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
-                        : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
+                    ${msg.role === 'user'
+                      ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
+                      : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
                     }
                   `}
                 >
@@ -1247,7 +1246,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   </div>
                 )}
 
-                                {/* Кнопка удалить */}
+                {/* Кнопка удалить */}
                 <button
                   onClick={() => removeImage(img.id)}
                   className="
@@ -1301,12 +1300,12 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                       {doc.status === 'uploading'
                         ? `Загрузка ${doc.progress}%`
                         : doc.status === 'error'
-                        ? doc.errorMessage || 'Ошибка'
-                        : doc.status === 'done'
-                        ? doc.hasText
-                          ? `${(doc.file.size / 1024).toFixed(0)} KB · текст извлечён`
-                          : `${(doc.file.size / 1024).toFixed(0)} KB · без текста`
-                        : 'Ожидание...'}
+                          ? doc.errorMessage || 'Ошибка'
+                          : doc.status === 'done'
+                            ? doc.hasText
+                              ? `${(doc.file.size / 1024).toFixed(0)} KB · текст извлечён`
+                              : `${(doc.file.size / 1024).toFixed(0)} KB · без текста`
+                            : 'Ожидание...'}
                     </div>
                   </div>
 
@@ -1434,10 +1433,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               flex items-center justify-center
               cursor-pointer transition-all duration-150
               shrink-0 self-center
-              ${
-                showAttachMenu
-                  ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
-                  : 'bg-white/[0.04] text-[var(--gray-500)]'
+              ${showAttachMenu
+                ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                : 'bg-white/[0.04] text-[var(--gray-500)]'
               }
               active:scale-[0.92]
             `}
@@ -1468,8 +1466,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               images.length > 0
                 ? 'Опишите что нужно сделать с изображением...'
                 : docs.length > 0
-                ? 'Опишите что нужно сделать с документом...'
-                : 'Написать сообщение...'
+                  ? 'Опишите что нужно сделать с документом...'
+                  : 'Написать сообщение...'
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
