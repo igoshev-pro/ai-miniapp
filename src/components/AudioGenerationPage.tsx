@@ -1149,7 +1149,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             placeholder={placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKey}
+            // onKeyDown={onKey}
             rows={caps.type === 'elevenlabs-dialogue' ? 3 : 1}
             disabled={isGenerating || (caps.supportsAudioInput && caps.type !== 'elevenlabs-stt')}
           />

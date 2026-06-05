@@ -1061,7 +1061,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKey}
+            // onKeyDown={onKey}
             rows={1}
             disabled={generating}
           />

@@ -1372,7 +1372,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
+            // onKeyDown={handleKeyDown}
             rows={1}
             disabled={isGenerating}
           />

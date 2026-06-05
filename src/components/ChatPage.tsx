@@ -1473,7 +1473,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
+            // onKeyDown={handleKeyDown}
             rows={1}
           />
 
