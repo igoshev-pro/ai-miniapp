@@ -19,16 +19,40 @@ interface Props {
 
 /* ─── Helpers ─── */
 
+function isTelegramEnv(): boolean {
+  const tg = (window as any).Telegram?.WebApp
+  return !!tg?.initData && tg.initData.length > 0
+}
+
+/** Нативный Telegram downloadFile (Bot API 6.4+). Возвращает true если вызов прошёл. */
+function downloadFileNative(url: string, filename: string): boolean {
+  const tg = (window as any).Telegram?.WebApp
+  if (tg?.downloadFile) {
+    try {
+      tg.downloadFile({ url, file_name: filename })
+      return true
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const blobUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = blobUrl
+  a.download = filename
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
+}
+
 /**
- * Скачивание файла.
- * 1. Пытаемся скачать через blob (proxy → direct fetch) — без модалок.
- * 2. Если не вышло — fallback на нативный tg.downloadFile, но он показывает
- *    системную модалку Telegram с URL. Поэтому вызываем его только когда
- *    blob невозможен, предварительно спросив подтверждение СВОЕЙ модалкой
- *    без ссылки на файл (см. handleDownload / handleDownloadAll).
- *
- * @returns true — если файл успешно скачан через blob,
- *          false — если blob не сработал (нужен нативный fallback)
+ * Скачивание через blob (для веб-браузера).
+ * @returns true — если файл успешно скачан через blob.
  */
 async function downloadFileBlob(url: string, filename: string): Promise<boolean> {
   const API = process.env.NEXT_PUBLIC_API_URL || ''
@@ -52,27 +76,6 @@ async function downloadFileBlob(url: string, filename: string): Promise<boolean>
   return false
 }
 
-/** Нативный Telegram downloadFile (показывает системную модалку с URL). */
-function downloadFileNative(url: string, filename: string): boolean {
-  const tg = (window as any).Telegram?.WebApp
-  if (tg?.downloadFile) {
-    try { tg.downloadFile({ url, file_name: filename }); return true } catch { }
-  }
-  return false
-}
-
-function triggerBlobDownload(blob: Blob, filename: string) {
-  const blobUrl = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = blobUrl
-  a.download = filename
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
-}
-
 function getFileExtension(url: string, type: string): string {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/)
   if (match) return match[1].toLowerCase()
@@ -85,7 +88,7 @@ function getFileExtension(url: string, type: string): string {
 /* ─── Component ─── */
 
 export function MediaResult({ generation, onRetry }: Props) {
-  const { haptic, webApp } = useTelegram()
+  const { haptic } = useTelegram()
   const { toggleFavorite } = useGeneration()
   const { status, progress, resultUrl, resultUrls, error, type, refunded } = generation
 
@@ -99,27 +102,30 @@ export function MediaResult({ generation, onRetry }: Props) {
 
   useEffect(() => { setImageError(false) }, [activeUrl])
 
-  /**
-   * Своя модалка подтверждения (без ссылки на файл).
-   * Используется только как fallback, когда blob-скачивание невозможно
-   * и остаётся лишь нативный tg.downloadFile.
-   */
-  const confirmNativeDownload = useCallback((message: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      // showConfirm может отсутствовать в типах WebApp / в старых версиях клиента
-      const tgConfirm = (webApp as any)?.showConfirm as
-        | ((msg: string, cb: (ok: boolean) => void) => void)
-        | undefined
-
-      if (typeof tgConfirm === 'function') {
-        tgConfirm(message, (ok: boolean) => resolve(!!ok))
-      } else if (typeof window !== 'undefined' && window.confirm) {
-        resolve(window.confirm(message))
-      } else {
-        resolve(true)
+  /** Единая точка скачивания одного файла. */
+  const downloadOne = useCallback(async (url: string, filename: string): Promise<boolean> => {
+    // В Telegram — сразу нативный downloadFile (blob/<a download> в WebView ТГ не работает)
+    if (isTelegramEnv()) {
+      const native = downloadFileNative(url, filename)
+      if (native) return true
+      // если downloadFile недоступен в этой версии клиента — пробуем blob, потом ссылку
+      const ok = await downloadFileBlob(url, filename)
+      if (ok) return true
+      try {
+        await navigator.clipboard.writeText(url)
+        toast.info('Ссылка скопирована — откройте в браузере')
+      } catch {
+        toast.error('Не удалось скачать файл')
       }
-    })
-  }, [webApp])
+      return false
+    }
+
+    // В обычном браузере — blob, при неудаче открыть в новой вкладке
+    const ok = await downloadFileBlob(url, filename)
+    if (ok) return true
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return false
+  }, [])
 
   const handleDownload = useCallback(async () => {
     if (!activeUrl || downloading) return
@@ -128,73 +134,35 @@ export function MediaResult({ generation, onRetry }: Props) {
     try {
       const ext = getFileExtension(activeUrl, type)
       const filename = `spichki_${type}_${Date.now()}_${currentIndex + 1}.${ext}`
-
-      // 1. Пробуем без модалки — через blob
-      const ok = await downloadFileBlob(activeUrl, filename)
-      if (ok) return
-
-      // 2. Blob не сработал — спрашиваем подтверждение СВОЕЙ модалкой (без URL)
-      const confirmed = await confirmNativeDownload('Подтвердите скачивание файла')
-      if (!confirmed) return
-
-      const native = downloadFileNative(activeUrl, filename)
-      if (!native) {
-        // 3. Совсем никак — копируем ссылку
-        try {
-          await navigator.clipboard.writeText(activeUrl)
-          toast.info('Ссылка скопирована — откройте в браузере')
-        } catch {
-          toast.error('Не удалось скачать файл')
-        }
-      }
+      const ok = await downloadOne(activeUrl, filename)
+      if (ok && isTelegramEnv()) toast.success('Файл сохраняется')
     } catch {
       toast.error('Не удалось скачать файл')
     } finally {
       setDownloading(false)
     }
-  }, [activeUrl, type, currentIndex, downloading, haptic, confirmNativeDownload])
+  }, [activeUrl, type, currentIndex, downloading, haptic, downloadOne])
 
   const handleDownloadAll = useCallback(async () => {
     if (!hasMultiple || downloading) return
     haptic('medium')
     setDownloading(true)
     try {
-      let blobFailed = false
-      let confirmedNative = false
-
+      let success = 0
       for (let i = 0; i < urls.length; i++) {
         const ext = getFileExtension(urls[i], type)
         const filename = `spichki_${type}_${Date.now()}_${i + 1}.${ext}`
-
-        // 1. Пробуем blob
-        const ok = await downloadFileBlob(urls[i], filename)
-        if (ok) {
-          if (i < urls.length - 1) await new Promise((r) => setTimeout(r, 500))
-          continue
-        }
-
-        // 2. Blob не сработал — один раз спрашиваем подтверждение на весь пакет
-        if (!blobFailed) {
-          blobFailed = true
-          confirmedNative = await confirmNativeDownload(
-            `Подтвердите скачивание файлов (${urls.length} шт.)`
-          )
-        }
-        if (!confirmedNative) break
-
-        downloadFileNative(urls[i], filename)
-        if (i < urls.length - 1) await new Promise((r) => setTimeout(r, 500))
+        const ok = await downloadOne(urls[i], filename)
+        if (ok) success++
+        if (i < urls.length - 1) await new Promise((r) => setTimeout(r, 600))
       }
-
-      if (!blobFailed) {
-        toast.success(`Скачано ${urls.length} файлов`)
-      }
+      if (success > 0) toast.success(`Скачивается ${success} из ${urls.length}`)
     } catch {
       toast.error('Ошибка при скачивании')
     } finally {
       setDownloading(false)
     }
-  }, [urls, type, hasMultiple, downloading, haptic, confirmNativeDownload])
+  }, [urls, type, hasMultiple, downloading, haptic, downloadOne])
 
   const handleCopyLink = useCallback(() => {
     if (!activeUrl) return

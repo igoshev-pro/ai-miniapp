@@ -280,20 +280,20 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   }, [initialModel, imageModels, selectedModelSlug])
 
   // Telegram BackButton
-  useEffect(() => {
-    if (!webApp?.BackButton) return
-    webApp.BackButton.show()
-    const handler = () => {
-      if (showSettings) { setShowSettings(false); return }
-      if (showModelPicker) { setShowModelPicker(false); return }
-      onBack?.()
-    }
-    webApp.BackButton.onClick(handler)
-    return () => {
-      webApp.BackButton.offClick(handler)
-      webApp.BackButton.hide()
-    }
-  }, [webApp, onBack, showSettings, showModelPicker])
+  // useEffect(() => {
+  //   if (!webApp?.BackButton) return
+  //   webApp.BackButton.show()
+  //   const handler = () => {
+  //     if (showSettings) { setShowSettings(false); return }
+  //     if (showModelPicker) { setShowModelPicker(false); return }
+  //     onBack?.()
+  //   }
+  //   webApp.BackButton.onClick(handler)
+  //   return () => {
+  //     webApp.BackButton.offClick(handler)
+  //     webApp.BackButton.hide()
+  //   }
+  // }, [webApp, onBack, showSettings, showModelPicker])
 
   // 🆕 Батч-сброс настроек когда пришёл uiConfig — инициализируем ВСЕ select-параметры дефолтами
   useEffect(() => {

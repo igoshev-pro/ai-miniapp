@@ -166,6 +166,8 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   const showBackButton = useCallback(
     (callback: () => void) => {
       if (webApp?.BackButton) {
+        // снимаем возможный прошлый handler, чтобы они не накапливались
+        try { webApp.BackButton.offClick(callback) } catch { }
         webApp.BackButton.onClick(callback)
         webApp.BackButton.show()
       }

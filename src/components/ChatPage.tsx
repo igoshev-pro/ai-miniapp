@@ -224,16 +224,16 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     }
   }, [messages, streamingContent])
 
-  useEffect(() => {
-    if (!webApp?.BackButton || !onBack) return
-    webApp.BackButton.show()
-    const handler = () => onBack()
-    webApp.BackButton.onClick(handler)
-    return () => {
-      webApp.BackButton.offClick(handler)
-      webApp.BackButton.hide()
-    }
-  }, [webApp, onBack])
+  // useEffect(() => {
+  //   if (!webApp?.BackButton || !onBack) return
+  //   webApp.BackButton.show()
+  //   const handler = () => onBack()
+  //   webApp.BackButton.onClick(handler)
+  //   return () => {
+  //     webApp.BackButton.offClick(handler)
+  //     webApp.BackButton.hide()
+  //   }
+  // }, [webApp, onBack])
 
   useEffect(() => {
     if (inputRef.current) {

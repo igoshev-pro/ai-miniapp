@@ -73,28 +73,28 @@ export default function ReferralPage({ onBack }: Props) {
   const [wdSuccess, setWdSuccess] = useState('');
 
   // ─── Telegram BackButton ─────────────────────────────────
-  useEffect(() => {
-    if (!webApp?.BackButton) return;
+  // useEffect(() => {
+  //   if (!webApp?.BackButton) return;
 
-    // Если открыта модалка — back закрывает модалку, иначе — выход на главную
-    const handler = () => {
-      if (showWithdrawModal) {
-        setShowWithdrawModal(false);
-      } else if (showHistoryModal) {
-        setShowHistoryModal(false);
-      } else {
-        onBack?.();
-      }
-    };
+  //   // Если открыта модалка — back закрывает модалку, иначе — выход на главную
+  //   const handler = () => {
+  //     if (showWithdrawModal) {
+  //       setShowWithdrawModal(false);
+  //     } else if (showHistoryModal) {
+  //       setShowHistoryModal(false);
+  //     } else {
+  //       onBack?.();
+  //     }
+  //   };
 
-    webApp.BackButton.show();
-    webApp.BackButton.onClick(handler);
+  //   webApp.BackButton.show();
+  //   webApp.BackButton.onClick(handler);
 
-    return () => {
-      webApp.BackButton.offClick(handler);
-      webApp.BackButton.hide();
-    };
-  }, [webApp, onBack, showWithdrawModal, showHistoryModal]);
+  //   return () => {
+  //     webApp.BackButton.offClick(handler);
+  //     webApp.BackButton.hide();
+  //   };
+  // }, [webApp, onBack, showWithdrawModal, showHistoryModal]);
 
   // ─── Load data ───────────────────────────────────────────
   useEffect(() => {

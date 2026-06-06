@@ -61,13 +61,13 @@ export function TopUpPage({ onBack }: Props) {
   const [promoOk, setPromoOk] = useState(false)
   const [provider, setProvider] = useState<Provider>('stars')
 
-  useEffect(() => {
-    if (!webApp?.BackButton) return
-    webApp.BackButton.show()
-    const h = () => onBack?.()
-    webApp.BackButton.onClick(h)
-    return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
-  }, [webApp, onBack])
+  // useEffect(() => {
+  //   if (!webApp?.BackButton) return
+  //   webApp.BackButton.show()
+  //   const h = () => onBack?.()
+  //   webApp.BackButton.onClick(h)
+  //   return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
+  // }, [webApp, onBack])
 
   const pkg = PKGS.find(p => p.id === sel)
 

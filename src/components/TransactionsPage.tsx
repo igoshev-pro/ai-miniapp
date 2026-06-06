@@ -63,13 +63,13 @@ export function TransactionsPage({ onBack }: Props) {
   const [loadingMore, setLoadingMore] = useState(false)
   const loaderRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!webApp?.BackButton) return
-    webApp.BackButton.show()
-    const h = () => onBack?.()
-    webApp.BackButton.onClick(h)
-    return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
-  }, [webApp, onBack])
+  // useEffect(() => {
+  //   if (!webApp?.BackButton) return
+  //   webApp.BackButton.show()
+  //   const h = () => onBack?.()
+  //   webApp.BackButton.onClick(h)
+  //   return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
+  // }, [webApp, onBack])
 
   useEffect(() => {
     setLoading(true)

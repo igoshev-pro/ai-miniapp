@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useAuth, useModels, useUser } from '@/hooks'
 import { useAuthStore } from '@/stores'
@@ -44,13 +44,13 @@ type Page =
   | 'support'
 
 export function SpichkiApp() {
-  const { isReady, isTelegram } = useTelegram()
+  const { isReady, isTelegram, webApp } = useTelegram()
   const { isReady: authReady, loginWithWidget } = useAuth()
   const token = useAuthStore((s) => s.token)
   const { refetch: refetchUser } = useUser()
   const { loadModels } = useModels()
 
-  // Ждём гидрацию persist-стора (иначе при F5 в браузере токен ещё null
+    // Ждём гидрацию persist-стора (иначе при F5 в браузере токен ещё null
   // в момент первого рендера → мигнёт экран логина)
   const [hydrated, setHydrated] = useState(
     () => useAuthStore.persist?.hasHydrated() ?? true,
@@ -83,22 +83,24 @@ export function SpichkiApp() {
   )
 
   const goBack = useCallback(() => {
-    const prev = pageHistory[pageHistory.length - 1]
-    if (prev) {
-      setPageHistory((h) => h.slice(0, -1))
-      setPage(prev)
-    } else {
+    setPageHistory((h) => {
+      const prev = h[h.length - 1]
+      if (prev) {
+        setPage(prev)
+        return h.slice(0, -1)
+      }
       setPage('home')
       setActiveNav('feed')
-    }
-  }, [pageHistory])
+      return []
+    })
+  }, [])
 
   const goHome = useCallback(() => {
     setPage('home')
     setPageHistory([])
     setInitialCategory(null)
     setChatId(undefined)
-    setGenModel(undefined)               // 🆕 сброс
+    setGenModel(undefined)
     setActiveNav('feed')
   }, [])
 
@@ -125,7 +127,7 @@ export function SpichkiApp() {
 
   const openGeneration = useCallback(
     (type: 'image' | 'video' | 'audio', modelSlug?: string) => {
-      setGenModel(modelSlug)              // 🆕 запоминаем выбранную модель
+      setGenModel(modelSlug)
       navigateTo(`${type}-generation` as Page)
       setActiveNav('create')
     },
@@ -201,6 +203,41 @@ export function SpichkiApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, token])
 
+  // ─────────────────────────────────────────────────────────────
+  // 🆕 Единый глобальный контроллер Telegram BackButton.
+  // Раньше каждая страница вешала свой onClick/offClick, из-за чего
+  // при переходах handler'ы конфликтовали и кнопка "назад" умирала.
+  // Теперь BackButton управляется ТОЛЬКО здесь, в одном месте.
+  // ─────────────────────────────────────────────────────────────
+  const goBackRef = useRef(goBack)
+  useEffect(() => { goBackRef.current = goBack }, [goBack])
+
+  useEffect(() => {
+    const bb = webApp?.BackButton
+    if (!bb) return
+
+    const handler = () => {
+      goBackRef.current()
+    }
+
+    bb.onClick(handler)
+
+    return () => {
+      bb.offClick(handler)
+    }
+  }, [webApp])
+
+  // Показываем/прячем кнопку в зависимости от страницы
+  useEffect(() => {
+    const bb = webApp?.BackButton
+    if (!bb) return
+    if (page === 'home') {
+      bb.hide()
+    } else {
+      bb.show()
+    }
+  }, [webApp, page])
+
   // 1) Ждём пока проинициализируется Telegram WebApp, гидрация persist и auth flow
   if (!isReady || !authReady || !hydrated) {
     return (
@@ -274,22 +311,22 @@ export function SpichkiApp() {
 
         {page === 'image-generation' && (
           <ImageGenerationPage
-            key={genModel || 'default-image'}        // 🆕 пересоздать при смене модели
-            initialModel={genModel}                  // 🆕
+            key={genModel || 'default-image'}
+            initialModel={genModel}
             onBack={goBack}
           />
         )}
         {page === 'video-generation' && (
           <VideoGenerationPage
-            key={genModel || 'default-video'}        // 🆕
-            initialModel={genModel}                  // 🆕
+            key={genModel || 'default-video'}
+            initialModel={genModel}
             onBack={goBack}
           />
         )}
         {page === 'audio-generation' && (
           <AudioGenerationPage
-            key={genModel || 'default-audio'}        // 🆕
-            initialModel={genModel}                  // 🆕
+            key={genModel || 'default-audio'}
+            initialModel={genModel}
             onBack={goBack}
           />
         )}
@@ -318,3 +355,4 @@ export function SpichkiApp() {
     </div>
   )
 }
+    

@@ -119,16 +119,16 @@ export function SupportPage({ onBack }: Props) {
   const endRef = useRef<HTMLDivElement>(null)
 
   /* Telegram back button */
-  useEffect(() => {
-    if (!webApp?.BackButton) return
-    webApp.BackButton.show()
-    const h = () => {
-      if (view === 'ticket' || view === 'new') setView('list')
-      else onBack?.()
-    }
-    webApp.BackButton.onClick(h)
-    return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
-  }, [webApp, onBack, view])
+  // useEffect(() => {
+  //   if (!webApp?.BackButton) return
+  //   webApp.BackButton.show()
+  //   const h = () => {
+  //     if (view === 'ticket' || view === 'new') setView('list')
+  //     else onBack?.()
+  //   }
+  //   webApp.BackButton.onClick(h)
+  //   return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
+  // }, [webApp, onBack, view])
 
   /* Load tickets */
   const load = useCallback(async () => {

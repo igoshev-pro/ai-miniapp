@@ -111,13 +111,13 @@ export function SubscriptionPage({ onBack }: Props) {
   const [cur, setCur] = useState<Currency>('rub')
   const plan = subscription.plan
 
-  useEffect(() => {
-    if (!webApp?.BackButton) return
-    webApp.BackButton.show()
-    const h = () => onBack?.()
-    webApp.BackButton.onClick(h)
-    return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
-  }, [webApp, onBack])
+  // useEffect(() => {
+  //   if (!webApp?.BackButton) return
+  //   webApp.BackButton.show()
+  //   const h = () => onBack?.()
+  //   webApp.BackButton.onClick(h)
+  //   return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
+  // }, [webApp, onBack])
 
   const go = useCallback(async (id: string) => {
     if (id === plan) return

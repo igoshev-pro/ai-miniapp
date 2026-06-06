@@ -412,20 +412,20 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
   /* ── Telegram BackButton ── */
 
-  useEffect(() => {
-    if (!webApp?.BackButton) return
-    webApp.BackButton.show()
-    const h = () => {
-      if (showSettings) { setShowSettings(false); return }
-      if (showModelPicker) { setShowModelPicker(false); return }
-      onBack?.()
-    }
-    webApp.BackButton.onClick(h)
-    return () => {
-      webApp.BackButton.offClick(h)
-      webApp.BackButton.hide()
-    }
-  }, [webApp, onBack, showSettings, showModelPicker])
+  // useEffect(() => {
+  //   if (!webApp?.BackButton) return
+  //   webApp.BackButton.show()
+  //   const h = () => {
+  //     if (showSettings) { setShowSettings(false); return }
+  //     if (showModelPicker) { setShowModelPicker(false); return }
+  //     onBack?.()
+  //   }
+  //   webApp.BackButton.onClick(h)
+  //   return () => {
+  //     webApp.BackButton.offClick(h)
+  //     webApp.BackButton.hide()
+  //   }
+  // }, [webApp, onBack, showSettings, showModelPicker])
 
   /* ── Batch reset при смене модели/caps ── */
 

@@ -89,17 +89,17 @@ export function FavoritesPage({ onBack, onOpenChat, onOpenGeneration, onOpenMode
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const loaderRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (webApp?.BackButton && onBack) {
-      webApp.BackButton.show()
-      const handler = () => onBack()
-      webApp.BackButton.onClick(handler)
-      return () => {
-        webApp.BackButton.offClick(handler)
-        webApp.BackButton.hide()
-      }
-    }
-  }, [webApp, onBack])
+  // useEffect(() => {
+  //   if (webApp?.BackButton && onBack) {
+  //     webApp.BackButton.show()
+  //     const handler = () => onBack()
+  //     webApp.BackButton.onClick(handler)
+  //     return () => {
+  //       webApp.BackButton.offClick(handler)
+  //       webApp.BackButton.hide()
+  //     }
+  //   }
+  // }, [webApp, onBack])
 
   const loadFavorites = useCallback(
     async (pageNum: number, append: boolean) => {
