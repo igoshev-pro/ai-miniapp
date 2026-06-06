@@ -31,6 +31,10 @@ const MODE_LABELS: Record<string, string> = {
   basic: 'Basic',
 }
 
+const VERSION_LABELS: Record<string, string> = {
+  flex: 'Flex', pro: 'Pro', ultra: 'Ultra', standard: 'Standard',
+}
+
 const ASPECT_RATIO_LABELS: Record<string, string> = {
   '1:1': '1:1 Квадрат', '4:3': '4:3', '3:4': '3:4',
   '16:9': '16:9 Пейзаж', '9:16': '9:16 Портрет',
@@ -116,12 +120,13 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const [showSettings, setShowSettings] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const [aspectRatio, setAspectRatio] = useState('1:1')
-  const [resolution, setResolution] = useState('')
-  const [quality, setQuality] = useState('')
-  const [mode, setMode] = useState<string | undefined>(undefined)
+  // 🆕 Универсальный словарь всех select-параметров модели (mode/resolution/quality/version/aspectRatio/...)
+  const [paramValues, setParamValues] = useState<Record<string, any>>({})
+
+  // отдельные поля, которые не входят в select-матрицу
   const [outputFormat, setOutputFormat] = useState('png')
   const [seed, setSeed] = useState<number | undefined>(undefined)
+  const [negativePromptState] = useState('') // совместимость (не используется)
 
   const [inputImages, setInputImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -145,6 +150,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     const resolutions = getParamOptions(uiConfig, 'resolution')
     const qualities = getParamOptions(uiConfig, 'quality')
     const modes = getParamOptions(uiConfig, 'mode')
+    const versions = getParamOptions(uiConfig, 'version')
     const inputCap = uiConfig?.inputCapabilities || {}
 
     return {
@@ -152,6 +158,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       resolutions,
       qualities,
       modes,
+      versions,
       supportsNegativePrompt: hasParam(uiConfig, 'negativePrompt'),
       supportsImg2Img: inputCap.acceptsImages === true,
       maxInputImages: inputCap.maxInputImages ?? 0,
@@ -163,28 +170,36 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const isImg2ImgModel = caps.supportsImg2Img && caps.maxInputImages > 0
   const requiresInputImage = selectedModelSlug.includes('img2img')
 
-  // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
-  const hasPriceVariants = useMemo(
-    () =>
-      caps.modes.length > 1 ||
-      caps.resolutions.length > 1 ||
-      caps.qualities.length > 1,
-    [caps],
-  )
+  // удобные геттеры текущих значений из paramValues
+  const mode = paramValues.mode as string | undefined
+  const resolution = (paramValues.resolution as string | undefined) ?? ''
+  const quality = (paramValues.quality as string | undefined) ?? ''
+  const version = paramValues.version as string | undefined
+  const aspectRatio = (paramValues.aspectRatio as string | undefined) ?? '1:1'
 
-  // priceParams синхронны с caps
+  // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
+  const hasPriceVariants = useMemo(() => {
+    if (!uiConfig?.uiParameters) return false
+    return uiConfig.uiParameters.some(
+      (p) => p.affectsPrice && (p.options?.length ?? 0) > 1,
+    )
+  }, [uiConfig])
+
+  // 🆕 priceParams — собираем ВСЕ параметры из uiConfig динамически
   const priceParams = useMemo(() => {
     const p: Record<string, any> = {}
-    if (caps.modes.length > 0 && mode) p.mode = mode
-    if (caps.resolutions.length > 0 && resolution) p.resolution = resolution
-    if (caps.qualities.length > 0 && quality) p.quality = quality
-    if (caps.aspectRatios.includes(aspectRatio)) p.aspectRatio = aspectRatio
+    if (uiConfig?.uiParameters) {
+      for (const param of uiConfig.uiParameters) {
+        const val = paramValues[param.key]
+        if (val !== undefined && val !== '') p[param.key] = val
+      }
+    }
     if (inputImages.length > 0) {
       p.hasInputImage = true
       p.numImages = inputImages.length
     }
     return p
-  }, [mode, resolution, quality, aspectRatio, caps, inputImages.length])
+  }, [paramValues, uiConfig, inputImages.length])
 
   const { price, isCalculating } = usePriceCalculator(
     selectedModelSlug,
@@ -241,8 +256,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const showPriceLoader =
     !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
 
-  // 🆕 Логика "от": показываем префикс пока конфиг не готов
-  // ИЛИ если модель имеет варианты цены и точная цена ещё не определена (fallback)
+  // 🆕 Логика "от"
   const showFromPrefix = !isConfigReady || (hasPriceVariants && isFallbackPrice)
 
   // Sync initialModel
@@ -281,26 +295,28 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [webApp, onBack, showSettings, showModelPicker])
 
-  // Батч-сброс настроек когда пришёл uiConfig
+  // 🆕 Батч-сброс настроек когда пришёл uiConfig — инициализируем ВСЕ select-параметры дефолтами
   useEffect(() => {
     if (!uiConfig) return
 
-    const defAspect =
-      getDefaultValue(uiConfig, 'aspectRatio') ?? caps.aspectRatios[0] ?? '1:1'
-    const defResolution =
-      getDefaultValue(uiConfig, 'resolution') ?? caps.resolutions[0] ?? ''
-    const defQuality =
-      getDefaultValue(uiConfig, 'quality') ?? caps.qualities[0] ?? ''
-    const defMode =
-      getDefaultValue(uiConfig, 'mode') ?? caps.modes[0]
-    const defOutput =
-      getDefaultValue(uiConfig, 'outputFormat') ?? 'png'
+    const defaults: Record<string, any> = {}
+    if (uiConfig.uiParameters) {
+      for (const p of uiConfig.uiParameters) {
+        if (p.defaultValue !== undefined) {
+          defaults[p.key] = p.defaultValue
+        } else if (p.options?.[0]) {
+          defaults[p.key] = p.options[0].value
+        }
+      }
+    }
+    // гарантируем aspectRatio даже если его нет в конфиге
+    if (defaults.aspectRatio === undefined) {
+      defaults.aspectRatio =
+        getDefaultValue(uiConfig, 'aspectRatio') ?? caps.aspectRatios[0] ?? '1:1'
+    }
 
-    setAspectRatio(defAspect)
-    setResolution(defResolution)
-    setQuality(defQuality)
-    setMode(defMode)
-    setOutputFormat(defOutput)
+    setParamValues(defaults)
+    setOutputFormat(getDefaultValue(uiConfig, 'outputFormat') ?? 'png')
     setSeed(undefined)
     setNegativePrompt('')
     setInputImages([])
@@ -383,6 +399,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     haptic('light')
   }
 
+  // helper для обновления одного параметра
+  const setParam = useCallback((key: string, value: any) => {
+    setParamValues((prev) => ({ ...prev, [key]: value }))
+    haptic('light')
+  }, [haptic])
+
   // ─── Generate ─────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
     const prompt = input.trim()
@@ -402,11 +424,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     haptic('medium')
     setIsGenerating(true)
 
-    const settings: Record<string, unknown> = { aspectRatio }
+    // 🆕 settings = все select-параметры из paramValues + доп. поля
+    const settings: Record<string, unknown> = { ...priceParams }
+    // убираем служебные поля от прайс-калькулятора
+    delete settings.hasInputImage
+    delete settings.numImages
 
-    if (caps.resolutions.length > 0 && resolution) settings.resolution = resolution
-    if (caps.qualities.length > 0 && quality) settings.quality = quality
-    if (caps.modes.length > 0 && mode) settings.mode = mode
     if (caps.supportsNegativePrompt && negativePrompt.trim()) {
       settings.negativePrompt = negativePrompt.trim()
     }
@@ -435,8 +458,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [
     input, negativePrompt, balance, displayedCost, selectedModelSlug,
-    aspectRatio, resolution, quality, mode, outputFormat, seed,
-    inputImages, caps, requiresInputImage, haptic, hapticNotification, generate,
+    priceParams, outputFormat, seed, inputImages, caps,
+    requiresInputImage, haptic, hapticNotification, generate,
   ])
 
   const insertExample = () => {
@@ -460,6 +483,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   // 🆕 Собираем активные бейджики для строки настроек
   const activeBadges = useMemo(() => {
     const badges: { key: string; label: string; accent?: boolean }[] = []
+    if (caps.versions.length > 0 && version) {
+      badges.push({ key: 'version', label: VERSION_LABELS[version] || version, accent: true })
+    }
     if (caps.modes.length > 0 && mode) {
       badges.push({ key: 'mode', label: MODE_LABELS[mode] || mode, accent: true })
     }
@@ -480,9 +506,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       })
     }
     return badges
-  }, [caps, mode, aspectRatio, resolution, quality, isImg2ImgModel, inputImages.length])
+  }, [caps, version, mode, aspectRatio, resolution, quality, isImg2ImgModel, inputImages.length])
 
-  // 🆕 Извлечение стоимости генерации для отображения возле результата
+  // 🆕 Извлечение стоимости генерации
   const getGenCost = (gen: any): number | undefined => {
     return gen.tokensUsed ?? gen.cost ?? gen.costInTokens ?? gen.tokensCost
   }
@@ -512,7 +538,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           border-b border-white/[0.04]
         "
       >
-        {/* Центр: модель слева, бейджики + цена справа (тап → выбор модели) */}
         <button
           className="
             flex-1 min-w-0
@@ -533,13 +558,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         >
           <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
 
-          {/* Название модели — слева */}
           <span className="text-white text-[13px] font-semibold truncate shrink-0 max-w-[42%]">
             {currentModel?.name ?? selectedModelSlug}
           </span>
 
-          {/* Spacer — отталкивает всё остальное вправо */}
-          <div className="flex-1 min-w-0" />
+                    <div className="flex-1 min-w-0" />
 
           {/* Бейджики выбранных параметров — прижаты вправо, рядом с ценой */}
           <div className="flex items-center gap-1 overflow-x-auto min-w-0 shrink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-end">
@@ -558,7 +581,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               >
                 {b.label}
               </span>
-                        ))}
+            ))}
           </div>
 
           {/* Цена — справа, рядом с бейджиками */}
@@ -647,7 +670,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {/* В списке всегда "от" — это минимальная стоимость */}
                   <span className="text-[11px] text-white/40">
                     от {formatCost(m.cost)} 🔥
                   </span>
@@ -776,7 +798,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                   }}
                 />
 
-                {/* 🆕 Затрачено спичек — как в текстовых моделях */}
                 {gen.status === 'completed' && genCost != null && (
                   <div className="flex items-center px-0.5">
                     <span className="text-[10px] text-white/30">
@@ -894,6 +915,43 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </div>
 
             <div className="flex flex-col gap-5 p-5">
+              {/* 🆕 Версия модели (Flex/Pro) */}
+              {caps.versions.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                    <Sparkles size={12} />
+                    Версия модели
+                    <span className="text-[10px] text-[var(--accent-yellow)]/70 normal-case font-medium ml-1">
+                      влияет на цену
+                    </span>
+                  </div>
+                  <div
+                    className={`grid gap-1.5 ${
+                      caps.versions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+                    }`}
+                  >
+                    {caps.versions.map((v) => (
+                      <button
+                        key={v}
+                        className={`
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${version === v
+                            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                          }
+                        `}
+                        onClick={() => setParam('version', v)}
+                      >
+                        {VERSION_LABELS[v] || v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Режим */}
               {caps.modes.length > 0 && (
                 <div className="flex flex-col gap-2">
@@ -926,10 +984,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                           }
                         `}
-                        onClick={() => {
-                          setMode(m)
-                          haptic('light')
-                        }}
+                        onClick={() => setParam('mode', m)}
                       >
                         {MODE_LABELS[m] || m}
                       </button>
@@ -958,10 +1013,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                           : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                         }
                       `}
-                      onClick={() => {
-                        setAspectRatio(ar)
-                        haptic('light')
-                      }}
+                      onClick={() => setParam('aspectRatio', ar)}
                     >
                       {ASPECT_RATIO_LABELS[ar] || ar}
                     </button>
@@ -993,10 +1045,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                           }
                         `}
-                        onClick={() => {
-                          setResolution(r)
-                          haptic('light')
-                        }}
+                        onClick={() => setParam('resolution', r)}
                       >
                         {RESOLUTION_LABELS[r] || r}
                       </button>
@@ -1029,10 +1078,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
                           }
                         `}
-                        onClick={() => {
-                          setQuality(q)
-                          haptic('light')
-                        }}
+                        onClick={() => setParam('quality', q)}
                       >
                         {QUALITY_LABELS[q] || q}
                       </button>
@@ -1099,7 +1145,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 </div>
               )}
 
-              {/* Seed */}
+                            {/* Seed */}
               {caps.supportsSeed && (
                 <div className="flex flex-col gap-2">
                   <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
@@ -1144,7 +1190,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 </div>
               )}
 
-                            {/* Img2Img — управление загруженными */}
+              {/* Img2Img — управление загруженными */}
               {isImg2ImgModel && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
