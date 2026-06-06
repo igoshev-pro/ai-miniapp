@@ -512,28 +512,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           border-b border-white/[0.04]
         "
       >
-        {/* Шестерёнка — открывает настройки */}
-        <button
-          className="
-            w-9 h-9 rounded-[9px]
-            border border-[var(--border-glass)]
-            bg-[var(--bg-glass)]
-            backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-            flex items-center justify-center
-            cursor-pointer transition-all duration-150
-            shrink-0 [-webkit-tap-highlight-color:transparent]
-            text-[var(--gray-400)]
-            active:scale-[0.9] active:text-[var(--accent-yellow)]
-          "
-          onClick={() => {
-            setShowSettings(true)
-            haptic('light')
-          }}
-        >
-          <Settings size={16} />
-        </button>
-
-                {/* Центр: модель (тап → выбор модели) + бейджики */}
+        {/* Центр: модель слева, бейджики + цена справа (тап → выбор модели) */}
         <button
           className="
             flex-1 min-w-0
@@ -554,13 +533,16 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         >
           <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
 
-          {/* Название модели */}
-          <span className="text-white text-[13px] font-semibold truncate shrink-0 max-w-[40%]">
+          {/* Название модели — слева */}
+          <span className="text-white text-[13px] font-semibold truncate shrink-0 max-w-[42%]">
             {currentModel?.name ?? selectedModelSlug}
           </span>
 
-          {/* Бейджики выбранных параметров */}
-          <div className="flex items-center gap-1 overflow-x-auto min-w-0 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* Spacer — отталкивает всё остальное вправо */}
+          <div className="flex-1 min-w-0" />
+
+          {/* Бейджики выбранных параметров — прижаты вправо, рядом с ценой */}
+          <div className="flex items-center gap-1 overflow-x-auto min-w-0 shrink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-end">
             {activeBadges.map((b) => (
               <span
                 key={b.key}
@@ -576,13 +558,13 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               >
                 {b.label}
               </span>
-            ))}
+                        ))}
           </div>
 
-          {/* Цена */}
+          {/* Цена — справа, рядом с бейджиками */}
           <span
             className={`
-              text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
+              text-[11px] shrink-0 inline-flex items-center gap-1
               transition-opacity duration-200
               ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
               ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
@@ -600,6 +582,27 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               ${showModelPicker ? 'rotate-180' : ''}
             `}
           />
+        </button>
+
+        {/* Шестерёнка — справа, открывает настройки */}
+        <button
+          className="
+            w-9 h-9 rounded-[9px]
+            border border-[var(--border-glass)]
+            bg-[var(--bg-glass)]
+            backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+            flex items-center justify-center
+            cursor-pointer transition-all duration-150
+            shrink-0 [-webkit-tap-highlight-color:transparent]
+            text-[var(--gray-400)]
+            active:scale-[0.9] active:text-[var(--accent-yellow)]
+          "
+          onClick={() => {
+            setShowSettings(true)
+            haptic('light')
+          }}
+        >
+          <Settings size={16} />
         </button>
 
         {/* Model dropdown */}
@@ -1122,7 +1125,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                         setSeed(e.target.value ? parseInt(e.target.value, 10) : undefined)
                       }
                     />
-                                        <button
+                    <button
                       className="
                         shrink-0 w-[42px] h-[42px]
                         rounded-[var(--radius-sm)]
@@ -1141,7 +1144,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 </div>
               )}
 
-              {/* Img2Img — управление загруженными */}
+                            {/* Img2Img — управление загруженными */}
               {isImg2ImgModel && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
