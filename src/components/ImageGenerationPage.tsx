@@ -14,15 +14,13 @@ import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 import { useAuthStore } from '@/stores/auth.store'
 
-
 interface Props {
   initialModel?: string
   onBack?: () => void
 }
 
-
 // ─────────────────────────────────────────────────────────────
-// UI labels (только для отображения)
+// UI labels
 // ─────────────────────────────────────────────────────────────
 
 const MODE_LABELS: Record<string, string> = {
@@ -59,7 +57,6 @@ const examplePrompts = [
   'Дракон летит над горами, эпичный свет заката',
 ]
 
-
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
@@ -80,7 +77,6 @@ function getDefaultValue(config: ModelUIConfig | null, key: string): string | un
   const p = config.uiParameters.find((x) => x.key === key)
   return p?.defaultValue !== undefined ? String(p.defaultValue) : undefined
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // Component
@@ -130,21 +126,17 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const [inputImages, setInputImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
 
-  // 🆕 slug, для которого настройки уже синхронизированы с uiConfig
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
-
-  // 🆕 флаг что initialModel уже применён (защита от повторного триггера)
   const initialAppliedRef = useRef(false)
 
   const currentModel = imageModels.find((m: any) => m.slug === selectedModelSlug)
   const modelMinCost = currentModel?.cost || 5
 
-  // UI-конфиг с бэка
   const { config: uiConfig, isLoading: isLoadingConfig } = useModelUIConfig(selectedModelSlug)
 
   // caps derived из бэка
@@ -171,6 +163,15 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const isImg2ImgModel = caps.supportsImg2Img && caps.maxInputImages > 0
   const requiresInputImage = selectedModelSlug.includes('img2img')
 
+  // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
+  const hasPriceVariants = useMemo(
+    () =>
+      caps.modes.length > 1 ||
+      caps.resolutions.length > 1 ||
+      caps.qualities.length > 1,
+    [caps],
+  )
+
   // priceParams синхронны с caps
   const priceParams = useMemo(() => {
     const p: Record<string, any> = {}
@@ -185,7 +186,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     return p
   }, [mode, resolution, quality, aspectRatio, caps, inputImages.length])
 
-  // Real-time расчёт цены — стартуем ТОЛЬКО когда настройки синхронизированы
   const { price, isCalculating } = usePriceCalculator(
     selectedModelSlug,
     priceParams,
@@ -195,63 +195,57 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     },
   )
 
-  // 🆕 Запоминаем последнюю успешно посчитанную цену
-const lastPriceRef = useRef<{ cost: number; label?: string; fallback: boolean } | null>(null)
+  // ── AntiFlicker кэш цены ──
+  const lastPriceRef = useRef<{ cost: number; label?: string; fallback: boolean } | null>(null)
 
-// "Базовая" готовность: конфиг загружен и засинкан с текущей моделью
-const isConfigReady =
-  !!uiConfig &&
-  !isLoadingConfig &&
-  syncedSlug === selectedModelSlug
+  const isConfigReady =
+    !!uiConfig &&
+    !isLoadingConfig &&
+    syncedSlug === selectedModelSlug
 
-// Когда пришла свежая цена — кэшируем её
-useEffect(() => {
-  if (isConfigReady && !isCalculating && price) {
-    lastPriceRef.current = {
-      cost: price.costInTokens ?? modelMinCost,
-      label: price.matchedRule?.label,
-      fallback: price.fallback ?? true,
+  useEffect(() => {
+    if (isConfigReady && !isCalculating && price) {
+      lastPriceRef.current = {
+        cost: price.costInTokens ?? modelMinCost,
+        label: price.matchedRule?.label,
+        fallback: price.fallback ?? true,
+      }
     }
-  }
-}, [isConfigReady, isCalculating, price, modelMinCost])
+  }, [isConfigReady, isCalculating, price, modelMinCost])
 
-// 🔄 При смене модели — сбрасываем кэш
-useEffect(() => {
-  lastPriceRef.current = null
-}, [selectedModelSlug])
+  useEffect(() => {
+    lastPriceRef.current = null
+  }, [selectedModelSlug])
 
-// Что показывать:
-// 1. Если конфиг не готов → minCost модели
-// 2. Если идёт пересчёт, но есть кэш → кэш (НЕ сбрасываем на minCost)
-// 3. Если есть свежий price → его
-// 4. Иначе → minCost
-const displayedCost = (() => {
-  if (!isConfigReady) return modelMinCost
-  if (price && !isCalculating) return price.costInTokens ?? modelMinCost
-  if (lastPriceRef.current) return lastPriceRef.current.cost
-  return modelMinCost
-})()
+  const displayedCost = (() => {
+    if (!isConfigReady) return modelMinCost
+    if (price && !isCalculating) return price.costInTokens ?? modelMinCost
+    if (lastPriceRef.current) return lastPriceRef.current.cost
+    return modelMinCost
+  })()
 
-const matchedLabel = (() => {
-  if (!isConfigReady) return undefined
-  if (price && !isCalculating) return price.matchedRule?.label
-  if (lastPriceRef.current) return lastPriceRef.current.label
-  return undefined
-})()
+  const matchedLabel = (() => {
+    if (!isConfigReady) return undefined
+    if (price && !isCalculating) return price.matchedRule?.label
+    if (lastPriceRef.current) return lastPriceRef.current.label
+    return undefined
+  })()
 
-const isFallbackPrice = (() => {
-  if (!isConfigReady) return true
-  if (price && !isCalculating) return price.fallback ?? true
-  if (lastPriceRef.current) return lastPriceRef.current.fallback
-  return true
-})()
+  const isFallbackPrice = (() => {
+    if (!isConfigReady) return true
+    if (price && !isCalculating) return price.fallback ?? true
+    if (lastPriceRef.current) return lastPriceRef.current.fallback
+    return true
+  })()
 
-// Спиннер показываем ТОЛЬКО когда:
-// - первый раз грузим (конфиг ещё не готов)
-// - ИЛИ нет вообще никакой цены к показу
-const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
+  const showPriceLoader =
+    !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
 
-  // 🔄 Sync initialModel когда модели подгрузились (только один раз)
+  // 🆕 Логика "от": показываем префикс пока конфиг не готов
+  // ИЛИ если модель имеет варианты цены и точная цена ещё не определена (fallback)
+  const showFromPrefix = !isConfigReady || (hasPriceVariants && isFallbackPrice)
+
+  // Sync initialModel
   useEffect(() => {
     if (initialAppliedRef.current) return
     if (!initialModel || imageModels.length === 0) return
@@ -264,7 +258,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
 
     if (match) {
       if (match.slug !== selectedModelSlug) {
-        setSyncedSlug(null) // 🔒 заморозить цену
+        setSyncedSlug(null)
         setSelectedModelSlug(match.slug)
       }
       initialAppliedRef.current = true
@@ -287,7 +281,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
     }
   }, [webApp, onBack, showSettings, showModelPicker])
 
-  // 🎯 Батч-сброс настроек когда пришёл uiConfig для актуальной модели
+  // Батч-сброс настроек когда пришёл uiConfig
   useEffect(() => {
     if (!uiConfig) return
 
@@ -311,7 +305,6 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
     setNegativePrompt('')
     setInputImages([])
 
-    // ✅ помечаем что для этого slug настройки актуальны → можно считать цену
     setSyncedSlug(selectedModelSlug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig])
@@ -446,13 +439,6 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
     inputImages, caps, requiresInputImage, haptic, hapticNotification, generate,
   ])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleGenerate()
-    }
-  }
-
   const insertExample = () => {
     setInput(examplePrompts[Math.floor(Math.random() * examplePrompts.length)])
     haptic('light')
@@ -465,11 +451,40 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
 
   const formatCost = (n: number) => (n % 1 === 0 ? n : n.toFixed(2))
 
-  // 🆕 helper для безопасной смены модели
   const switchModel = (newSlug: string) => {
     if (newSlug === selectedModelSlug) return
-    setSyncedSlug(null) // 🔒 заморозить цену до прихода нового конфига
+    setSyncedSlug(null)
     setSelectedModelSlug(newSlug)
+  }
+
+  // 🆕 Собираем активные бейджики для строки настроек
+  const activeBadges = useMemo(() => {
+    const badges: { key: string; label: string; accent?: boolean }[] = []
+    if (caps.modes.length > 0 && mode) {
+      badges.push({ key: 'mode', label: MODE_LABELS[mode] || mode, accent: true })
+    }
+    if (aspectRatio) {
+      badges.push({ key: 'ar', label: aspectRatio })
+    }
+    if (caps.resolutions.length > 0 && resolution) {
+      badges.push({ key: 'res', label: resolution })
+    }
+    if (caps.qualities.length > 0 && quality) {
+      badges.push({ key: 'q', label: QUALITY_LABELS[quality] || quality })
+    }
+    if (isImg2ImgModel) {
+      badges.push({
+        key: 'img2img',
+        label: inputImages.length > 0 ? `${inputImages.length} фото` : 'img2img',
+        accent: inputImages.length > 0,
+      })
+    }
+    return badges
+  }, [caps, mode, aspectRatio, resolution, quality, isImg2ImgModel, inputImages.length])
+
+  // 🆕 Извлечение стоимости генерации для отображения возле результата
+  const getGenCost = (gen: any): number | undefined => {
+    return gen.tokensUsed ?? gen.cost ?? gen.costInTokens ?? gen.tokensCost
   }
 
   // ─────────────────────────────────────────────────────────
@@ -490,196 +505,102 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
         className="
         fs-page__bar
           shrink-0 relative z-40
-          flex flex-col gap-1.5
-          px-4 pt-2.5 pb-1.5
+          flex items-center gap-2
+          px-4 pt-2.5 pb-2.5
           bg-[rgba(8,8,10,0.95)]
           backdrop-blur-[24px] [-webkit-backdrop-filter:blur(24px)]
           border-b border-white/[0.04]
         "
       >
-        <div className="flex items-center gap-2">
-          <button
-            className="
-              flex-1 min-w-0
-              inline-flex items-center gap-1.5
-              py-[7px] px-3.5
-              rounded-[var(--radius-xs)]
-              border border-[var(--border-glass)]
-              bg-[var(--bg-glass)]
-              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-              text-white text-[13px] font-semibold
-              cursor-pointer transition-all duration-200
-              active:scale-[0.97]
-              font-[inherit]
-            "
-            onClick={() => {
-              setShowModelPicker(!showModelPicker)
-              haptic('light')
-            }}
+        {/* Шестерёнка — открывает настройки */}
+        <button
+          className="
+            w-9 h-9 rounded-[9px]
+            border border-[var(--border-glass)]
+            bg-[var(--bg-glass)]
+            backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+            flex items-center justify-center
+            cursor-pointer transition-all duration-150
+            shrink-0 [-webkit-tap-highlight-color:transparent]
+            text-[var(--gray-400)]
+            active:scale-[0.9] active:text-[var(--accent-yellow)]
+          "
+          onClick={() => {
+            setShowSettings(true)
+            haptic('light')
+          }}
+        >
+          <Settings size={16} />
+        </button>
+
+                {/* Центр: модель (тап → выбор модели) + бейджики */}
+        <button
+          className="
+            flex-1 min-w-0
+            flex items-center gap-2
+            py-[7px] px-3
+            rounded-[var(--radius-xs)]
+            border border-[var(--border-glass)]
+            bg-[var(--bg-glass)]
+            backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+            cursor-pointer transition-all duration-200
+            active:scale-[0.98]
+            font-[inherit]
+          "
+          onClick={() => {
+            setShowModelPicker(!showModelPicker)
+            haptic('light')
+          }}
+        >
+          <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
+
+          {/* Название модели */}
+          <span className="text-white text-[13px] font-semibold truncate shrink-0 max-w-[40%]">
+            {currentModel?.name ?? selectedModelSlug}
+          </span>
+
+          {/* Бейджики выбранных параметров */}
+          <div className="flex items-center gap-1 overflow-x-auto min-w-0 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {activeBadges.map((b) => (
+              <span
+                key={b.key}
+                className={`
+                  shrink-0 py-[2px] px-2 rounded-[6px]
+                  text-[10px] font-medium leading-none
+                  border
+                  ${b.accent
+                    ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.25)] text-[var(--accent-yellow)]'
+                    : 'bg-white/[0.04] border-white/[0.06] text-[var(--gray-400)]'
+                  }
+                `}
+              >
+                {b.label}
+              </span>
+            ))}
+          </div>
+
+          {/* Цена */}
+          <span
+            className={`
+              text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
+              transition-opacity duration-200
+              ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
+              ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
+            `}
           >
-            <ImageIcon size={14} className="text-[var(--gray-500)] shrink-0" />
-            <span className="truncate">{currentModel?.name ?? selectedModelSlug}</span>
+            {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+            {showFromPrefix && <span className="text-white/35">от</span>}
+            {formatCost(displayedCost)} 🔥
+          </span>
 
-            <span
-  className={`
-    text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
-    transition-opacity duration-200
-    ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
-    ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
-  `}
->
-  {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-  {formatCost(displayedCost)} 🔥
-</span>
-
-            <ChevronDown
-              size={14}
-              className={`
-                text-[var(--gray-500)] transition-transform duration-200 shrink-0
-                ${showModelPicker ? 'rotate-180' : ''}
-              `}
-            />
-          </button>
-
-          <button
-            className="
-              w-9 h-9 rounded-[9px]
-              border border-[var(--border-glass)]
-              bg-[var(--bg-glass)]
-              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-              flex items-center justify-center
-              cursor-pointer transition-all duration-150
-              shrink-0 [-webkit-tap-highlight-color:transparent]
-              text-[var(--gray-500)]
-              active:scale-[0.9] active:text-[var(--accent-yellow)]
-            "
-            onClick={() => {
-              setShowSettings(true)
-              haptic('light')
-            }}
-          >
-            <Settings size={16} />
-          </button>
-        </div>
-
-        {/* Чипы */}
-        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
-          {caps.modes.length > 0 && mode && (
-            <button
-              className="
-                shrink-0 py-1 px-2.5
-                rounded-[var(--radius-xs)]
-                border border-[rgba(250,204,21,0.25)]
-                bg-[rgba(250,204,21,0.08)]
-                text-[var(--accent-yellow)] text-[11px] font-medium
-                cursor-pointer transition-all duration-150
-                active:scale-[0.95]
-                inline-flex items-center gap-1
-              "
-              onClick={() => {
-                setShowSettings(true)
-                haptic('light')
-              }}
-            >
-              <Sparkles size={10} />
-              {MODE_LABELS[mode] || mode}
-            </button>
-          )}
-
-          <button
-            className="
-              shrink-0 py-1 px-2.5
-              rounded-[var(--radius-xs)]
-              border border-[var(--border-glass)]
-              bg-[var(--bg-glass)]
-              text-[var(--gray-400)] text-[11px] font-medium
-              cursor-pointer transition-all duration-150
-              active:scale-[0.95] active:bg-[var(--bg-card-hover)]
-            "
-            onClick={() => {
-              setShowSettings(true)
-              haptic('light')
-            }}
-          >
-            {aspectRatio}
-          </button>
-
-                    {caps.resolutions.length > 0 && resolution && (
-            <button
-              className="
-                shrink-0 py-1 px-2.5
-                rounded-[var(--radius-xs)]
-                border border-[var(--border-glass)]
-                bg-[var(--bg-glass)]
-                text-[var(--gray-400)] text-[11px] font-medium
-                cursor-pointer transition-all duration-150
-                active:scale-[0.95] active:bg-[var(--bg-card-hover)]
-              "
-              onClick={() => {
-                setShowSettings(true)
-                haptic('light')
-              }}
-            >
-              {resolution}
-            </button>
-          )}
-
-          {caps.qualities.length > 0 && quality && (
-            <button
-              className="
-                shrink-0 py-1 px-2.5
-                rounded-[var(--radius-xs)]
-                border border-[var(--border-glass)]
-                bg-[var(--bg-glass)]
-                text-[var(--gray-400)] text-[11px] font-medium
-                cursor-pointer transition-all duration-150
-                active:scale-[0.95] active:bg-[var(--bg-card-hover)]
-              "
-              onClick={() => {
-                setShowSettings(true)
-                haptic('light')
-              }}
-            >
-              {QUALITY_LABELS[quality] || quality}
-            </button>
-          )}
-
-          {isImg2ImgModel && (
-            <button
-              className={`
-                shrink-0 py-1 px-2.5
-                rounded-[var(--radius-xs)]
-                border text-[11px] font-medium
-                cursor-pointer transition-all duration-150
-                active:scale-[0.95]
-                ${inputImages.length > 0
-                  ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-                  : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
-                }
-              `}
-              onClick={() => {
-                setShowSettings(true)
-                haptic('light')
-              }}
-            >
-              {inputImages.length > 0 ? `${inputImages.length} фото` : 'img2img'}
-            </button>
-          )}
-
-          {matchedLabel && !isFallbackPrice && (
-            <span
-              className="
-                shrink-0 py-1 px-2.5
-                rounded-[var(--radius-xs)]
-                bg-[rgba(250,204,21,0.06)]
-                text-[var(--accent-yellow)]/70 text-[10px] font-medium
-                ml-auto
-              "
-            >
-              {matchedLabel}
-            </span>
-          )}
-        </div>
+          <ChevronDown
+            size={14}
+            className={`
+              text-[var(--gray-500)] transition-transform duration-200 shrink-0
+              ${showModelPicker ? 'rotate-180' : ''}
+            `}
+          />
+        </button>
 
         {/* Model dropdown */}
         {showModelPicker && (
@@ -723,8 +644,9 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
+                  {/* В списке всегда "от" — это минимальная стоимость */}
                   <span className="text-[11px] text-white/40">
-                    {formatCost(m.cost)} 🔥
+                    от {formatCost(m.cost)} 🔥
                   </span>
                   {selectedModelSlug === m.slug && (
                     <Check size={14} className="text-[var(--accent-yellow)]" />
@@ -738,13 +660,13 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
 
       {/* ── Results ── */}
       <div
-  ref={messagesContainerRef}
-  className="
-    fs-page__scroll
-    flex-1 min-h-0 overflow-y-auto
-    overscroll-contain [-webkit-overflow-scrolling:touch]
-  "
->
+        ref={messagesContainerRef}
+        className="
+          fs-page__scroll
+          flex-1 min-h-0 overflow-y-auto
+          overscroll-contain [-webkit-overflow-scrolling:touch]
+        "
+      >
         <div className="flex flex-col gap-3.5 px-4 py-3">
           {imageGenerations.length === 0 && !isGenerating && (
             <div className="flex flex-col items-center justify-center gap-2.5 px-6 py-[60px] text-center fade-in fade-in--2">
@@ -817,39 +739,51 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
             </div>
           )}
 
-          {imageGenerations.map((gen: any) => (
-            <div
-              key={gen.id}
-              className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]"
-              ref={resultsRef}
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className="
-                    text-[11px] font-semibold
-                    py-1 px-2
-                    rounded-[6px]
-                    bg-white/[0.04] border border-white/[0.06]
-                    text-[var(--gray-500)]
-                  "
-                >
-                  {gen.model}
-                </span>
-                <span className="text-[12px] text-[var(--gray-300)] flex-1 min-w-0 truncate">
-                  {gen.prompt}
-                </span>
-              </div>
+          {imageGenerations.map((gen: any) => {
+            const genCost = getGenCost(gen)
+            return (
+              <div
+                key={gen.id}
+                className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]"
+                ref={resultsRef}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="
+                      text-[11px] font-semibold
+                      py-1 px-2
+                      rounded-[6px]
+                      bg-white/[0.04] border border-white/[0.06]
+                      text-[var(--gray-500)]
+                    "
+                  >
+                    {gen.model}
+                  </span>
+                  <span className="text-[12px] text-[var(--gray-300)] flex-1 min-w-0 truncate">
+                    {gen.prompt}
+                  </span>
+                </div>
 
-              <MediaResult
-                generation={gen}
-                onRetry={() => {
-                  setInput(gen.prompt)
-                  inputRef.current?.focus()
-                  haptic('light')
-                }}
-              />
-            </div>
-          ))}
+                <MediaResult
+                  generation={gen}
+                  onRetry={() => {
+                    setInput(gen.prompt)
+                    inputRef.current?.focus()
+                    haptic('light')
+                  }}
+                />
+
+                {/* 🆕 Затрачено спичек — как в текстовых моделях */}
+                {gen.status === 'completed' && genCost != null && (
+                  <div className="flex items-center px-0.5">
+                    <span className="text-[10px] text-white/30">
+                      {formatCost(genCost)} 🔥 затрачено
+                    </span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
           {isGenerating && (
             <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
@@ -907,19 +841,21 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
 
       {/* ── Settings sheet ── */}
       {showSettings && (
-  <>
-    <div
-      className="gen-settings-overlay"
-      onClick={() => setShowSettings(false)}
-    />
-    <div className="gen-settings-sheet">
+        <>
+          <div
+            className="gen-settings-overlay"
+            onClick={() => setShowSettings(false)}
+          />
+          <div className="gen-settings-sheet">
             <div className="sticky top-0 pt-2.5 pb-1 flex justify-center bg-[var(--bg-glass-heavy)]">
               <div className="w-10 h-1 rounded-full bg-white/15" />
             </div>
 
             <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.04]">
               <div className="flex flex-col gap-0.5">
-                <div className="text-[15px] font-semibold text-white">Настройки</div>
+                <div className="text-[15px] font-semibold text-white">
+                  {currentModel?.name ?? 'Настройки'}
+                </div>
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
                   <span
@@ -932,6 +868,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
                     `}
                   >
                     {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+                    {showFromPrefix && <span className="text-white/35">от</span>}
                     {formatCost(displayedCost)} 🔥
                   </span>
                   {matchedLabel && !isFallbackPrice && (
@@ -1185,7 +1122,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
                         setSeed(e.target.value ? parseInt(e.target.value, 10) : undefined)
                       }
                     />
-                    <button
+                                        <button
                       className="
                         shrink-0 w-[42px] h-[42px]
                         rounded-[var(--radius-sm)]
@@ -1196,7 +1133,7 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
                         cursor-pointer transition-all duration-150
                         active:scale-[0.92] active:text-[var(--accent-yellow)]
                       "
-                                            onClick={randomSeed}
+                      onClick={randomSeed}
                     >
                       <Shuffle size={16} />
                     </button>
@@ -1372,7 +1309,6 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            // onKeyDown={handleKeyDown}
             rows={1}
             disabled={isGenerating}
           />
@@ -1405,4 +1341,3 @@ const showPriceLoader = !isConfigReady || (isCalculating && !lastPriceRef.curren
     </div>
   )
 }
-                    
