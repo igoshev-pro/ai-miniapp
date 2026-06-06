@@ -49,7 +49,8 @@ const EXAMPLES = [
   'Футуристический город с летающими машинами, ночь, неон',
 ]
 
-/* ─── Fallback caps (если бэк не отдал uiConfig) ─── */
+/* ─── Fallback caps (если бэк не отдал uiConfig) ───
+   ⚠️ Синхронизировано с РЕАЛЬНЫМИ slug бэкенд-каталога. */
 
 interface FallbackCaps {
   aspectRatios: string[]
@@ -64,25 +65,52 @@ interface FallbackCaps {
 }
 
 const FALLBACK: Record<string, FallbackCaps> = {
-  'sora-2':              { aspectRatios: ['landscape','portrait'], durations: [10,15], qualities: [], resolutions: [], modes: [], supportsImageInput: false, maxInputImages: 0, supportsSound: false, supportsRemoveWatermark: true },
-  'sora-2-img2vid':      { aspectRatios: ['landscape','portrait'], durations: [10,15], qualities: [], resolutions: [], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: false, supportsRemoveWatermark: true },
-  'kling-3.0':           { aspectRatios: ['16:9','9:16','1:1'], durations: [3,5,7,10,15], qualities: ['720p','1080p'], resolutions: [], modes: [], supportsImageInput: false, maxInputImages: 0, supportsSound: true,  supportsRemoveWatermark: false },
-  'kling-3.0-img2vid':   { aspectRatios: ['16:9','9:16','1:1'], durations: [3,5,7,10,15], qualities: ['720p','1080p'], resolutions: [], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: true,  supportsRemoveWatermark: false },
-  'kling-3.0-motion':    { aspectRatios: [], durations: [], qualities: ['720p','1080p'], resolutions: [], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: false, supportsRemoveWatermark: false },
-  'runway':              { aspectRatios: ['16:9','9:16','1:1','4:3','3:4'], durations: [5,10], qualities: ['720p','1080p'], resolutions: [], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: false, supportsRemoveWatermark: false },
-  'hailuo-2.3-standard': { aspectRatios: [], durations: [6,10], qualities: [], resolutions: [], modes: [], supportsImageInput: false, maxInputImages: 0, supportsSound: false, supportsRemoveWatermark: false },
-  'hailuo-2.3-pro':      { aspectRatios: [], durations: [6,10], qualities: [], resolutions: ['768P','1080P'], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: false, supportsRemoveWatermark: false },
-  'veo-3.1-fast':        { aspectRatios: ['16:9','9:16'], durations: [4,6,8], qualities: ['720p','1080p','4k'], resolutions: [], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: false, supportsRemoveWatermark: false },
-  'veo-3.1-pro':         { aspectRatios: ['16:9','9:16'], durations: [4,6,8], qualities: ['720p','1080p','4k'], resolutions: [], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: false, supportsRemoveWatermark: false },
-  'sora-2-pro':          { aspectRatios: ['16:9','9:16'], durations: [4,8,12], qualities: ['720p','1080p'], resolutions: [], modes: [], supportsImageInput: true,  maxInputImages: 1, supportsSound: false, supportsRemoveWatermark: false },
+  // Veo: разрешение влияет на цену (720p=15/75, 4k=45.3/112). API duration 4/6/8 (на цену не влияет).
+  'veo-3.1-fast': {
+    aspectRatios: ['16:9', '9:16'], durations: [], qualities: ['720p', '1080p', '4k'],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: true, supportsRemoveWatermark: false,
+  },
+  'veo-3.1-pro': {
+    aspectRatios: ['16:9', '9:16'], durations: [], qualities: ['720p', '1080p', '4k'],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 2,
+    supportsSound: true, supportsRemoveWatermark: false,
+  },
+  // Sora 2 Pro: quality влияет на цену (720p=86, 1080p=143). duration 4/8/12 не влияет.
+  'sora-2-pro': {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], qualities: ['720p', '1080p'],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false,
+  },
+  // Kling 2.5 turbo (kie): duration '5'/'10' влияет на цену. aspect_ratio 16:9/9:16/1:1.
+  'kling-2.5-turbo-pro': {
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], qualities: [],
+    resolutions: [], modes: [], supportsImageInput: false, maxInputImages: 0,
+    supportsSound: false, supportsRemoveWatermark: false,
+  },
+  'kling-2.5-turbo-pro-img2video': {
+    aspectRatios: [], durations: [5, 10], qualities: [],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false,
+  },
+  // WAN 2.5 (kie): resolution 720p/1080p + duration '5'/'10' влияют на цену.
+  'wan-2.5': {
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], qualities: [],
+    resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false,
+  },
 }
 
 const DEFAULT_FALLBACK: FallbackCaps = {
-  aspectRatios: ['16:9','9:16','1:1'], durations: [5,10],
+  aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
   qualities: [], resolutions: [], modes: [],
   supportsImageInput: false, maxInputImages: 0,
   supportsSound: false, supportsRemoveWatermark: false,
 }
+
+/* ─── Какие slug используют evolink (Veo/Sora) — для них разрешение
+       нужно дублировать в resolution (см. buildVideoBody маппит resolution→quality) ─── */
+const EVOLINK_VIDEO_SLUGS = new Set(['veo-3.1-fast', 'veo-3.1-pro', 'sora-2-pro'])
 
 /* ─── Helpers ─── */
 
@@ -199,16 +227,21 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       durations:    durBackend.length ? durBackend : fb.durations,
       qualities:    qBackend.length   ? qBackend   : fb.qualities,
       resolutions:  rBackend.length   ? rBackend   : fb.resolutions,
-      modes:        modeBackend.length? modeBackend: fb.modes,
+      modes:        modeBackend.length ? modeBackend : fb.modes,
       supportsImageInput: inputCap.acceptsImages === true || fb.supportsImageInput,
       maxInputImages: inputCap.maxInputImages ?? fb.maxInputImages,
-      supportsSound: hasParam(uiConfig, 'sound') || fb.supportsSound,
-      supportsRemoveWatermark: hasParam(uiConfig, 'removeWatermark') || fb.supportsRemoveWatermark,
+      // 🆕 поддержка sound И generateAudio (Veo)
+      supportsSound:
+        hasParam(uiConfig, 'sound') ||
+        hasParam(uiConfig, 'generateAudio') ||
+        fb.supportsSound,
+      supportsRemoveWatermark:
+        hasParam(uiConfig, 'removeWatermark') || fb.supportsRemoveWatermark,
     }
   }, [uiConfig, slug])
 
   const isI2V = caps.supportsImageInput && caps.maxInputImages > 0
-  const requiresInputImage = slug.includes('img2vid') || slug === 'kling-3.0-motion'
+  const requiresInputImage = slug.includes('img2vid') || slug.includes('img2video') || slug === 'kling-3.0-motion'
 
   /* ── Price calculator ── */
 
@@ -292,23 +325,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       initialAppliedRef.current = true
     }
   }, [initialModel, videoModels, slug])
-
-  /* ── Telegram back button ── */
-
-  // useEffect(() => {
-  //   if (!webApp?.BackButton) return
-  //   webApp.BackButton.show()
-  //   const h = () => {
-  //     if (showSettings) { setShowSettings(false); return }
-  //     if (showModelPicker) { setShowModelPicker(false); return }
-  //     onBack?.()
-  //   }
-  //   webApp.BackButton.onClick(h)
-  //   return () => {
-  //     webApp.BackButton.offClick(h)
-  //     webApp.BackButton.hide()
-  //   }
-  // }, [webApp, onBack, showSettings, showModelPicker])
 
   /* ── Batch reset when caps changed (по slug) ── */
 
@@ -411,12 +427,40 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setGenerating(true)
 
     const s: Record<string, unknown> = {}
-    if (caps.durations.length && duration !== undefined) s.duration = duration
-    if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
-    if (caps.qualities.length && quality) s.quality = quality
-    if (caps.resolutions.length && resolution) s.resolution = resolution
+
+    // ── duration: kie-модели (kling/wan) ждут строку, evolink (veo/sora) — число ──
+    if (caps.durations.length && duration !== undefined) {
+      const isKie = slug.startsWith('kling') || slug.startsWith('wan')
+      s.duration = isKie ? String(duration) : duration
+    }
+
+        if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
+
+    // ── Разрешение/качество ──
+    // Veo/Sora (evolink): buildVideoBody маппит request.resolution → body.quality.
+    //   Поэтому для evolink дублируем выбранное значение И в quality, И в resolution —
+    //   что бы ни читал бэк, значение дойдёт.
+    // Kie-модели (wan): используют resolution напрямую.
+    if (caps.qualities.length && quality) {
+      s.quality = quality
+      if (EVOLINK_VIDEO_SLUGS.has(slug)) {
+        s.resolution = quality // дублируем для evolink buildVideoBody
+      }
+    }
+    if (caps.resolutions.length && resolution) {
+      s.resolution = resolution
+    }
+
     if (caps.modes.length && mode) s.mode = mode
-    if (caps.supportsSound) s.sound = sound
+
+    // ── Звук: Veo ждёт generateAudio, остальные — sound ──
+    if (caps.supportsSound) {
+      s.sound = sound
+      if (slug.startsWith('veo')) {
+        s.generateAudio = sound
+      }
+    }
+
     if (caps.supportsRemoveWatermark) s.removeWatermark = removeWatermark
     if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
 
@@ -455,7 +499,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const hasResults = vidGens.length > 0
 
-   /* ─── Render ─── */
+  /* ─── Render ─── */
 
   return (
     <div
@@ -957,7 +1001,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         </>
       )}
 
-      {/* Скрытый file input */}
+            {/* Скрытый file input */}
       <input
         ref={fileRef}
         type="file"
@@ -1039,7 +1083,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             </button>
           )}
 
-                    <textarea
+          <textarea
             ref={inputRef}
             className="
               flex-1 min-w-0 block align-middle
@@ -1061,7 +1105,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            // onKeyDown={onKey}
+            onKeyDown={onKey}
             rows={1}
             disabled={generating}
           />
