@@ -383,6 +383,18 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
   const showPriceLoader =
     !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
+
+  // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
+  const hasPriceVariants = useMemo(() => {
+    if (!uiConfig?.uiParameters) return false
+    return uiConfig.uiParameters.some(
+      (p) => p.affectsPrice && (p.options?.length ?? 0) > 1,
+    )
+  }, [uiConfig])
+
+  // 🆕 Логика "от"
+  const showFromPrefix = !isConfigReady || (hasPriceVariants && isFallbackPrice)
+
   /* ── Sync initial model ── */
 
   useEffect(() => {
@@ -475,7 +487,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     setSimilarity(75)
     setSpeed(100)
 
-    // SFX
+        // SFX
     setLoop(false)
     setPromptInfluence(30)
 
@@ -701,37 +713,42 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     }
   })()
 
-  /* ── Quick params chips ── */
-  const quickParams: { label: string; active?: boolean }[] = (() => {
-    const out: { label: string; active?: boolean }[] = []
+  /* ── 🆕 Активные бейджики для строки модели (как в Image) ── */
+  const activeBadges = useMemo(() => {
+    const out: { key: string; label: string; active?: boolean }[] = []
     if (caps.type === 'suno') {
-      if (caps.supportsDuration) out.push({ label: `${duration} сек` })
-      if (customMode) out.push({ label: 'Custom', active: true })
-      if (instrumental) out.push({ label: 'Инструментал', active: true })
-      if (style.trim()) out.push({ label: style.trim(), active: true })
+      if (caps.supportsDuration) out.push({ key: 'dur', label: `${duration} сек` })
+      if (customMode) out.push({ key: 'custom', label: 'Custom', active: true })
+      if (instrumental) out.push({ key: 'instr', label: 'Инструментал', active: true })
+      if (style.trim()) out.push({ key: 'style', label: style.trim(), active: true })
     }
     if (caps.type === 'elevenlabs-tts') {
-      out.push({ label: voiceId })
-      out.push({ label: caps.languages.find((l) => l.code === language)?.label || language })
+      out.push({ key: 'voice', label: voiceId })
+      out.push({ key: 'lang', label: caps.languages.find((l) => l.code === language)?.label || language })
     }
     if (caps.type === 'elevenlabs-dialogue') {
       const lines = input.split('\n').filter((l) => l.trim() && l.includes(':')).length
-      out.push({ label: `${lines} реплик` })
-      out.push({ label: caps.languages.find((l) => l.code === language)?.label || language })
+      out.push({ key: 'lines', label: `${lines} реплик` })
+      out.push({ key: 'lang', label: caps.languages.find((l) => l.code === language)?.label || language })
     }
     if (caps.type === 'elevenlabs-sfx') {
-      if (caps.supportsDuration) out.push({ label: `${duration} сек` })
-      if (loop) out.push({ label: 'Зацикл.', active: true })
+      if (caps.supportsDuration) out.push({ key: 'dur', label: `${duration} сек` })
+      if (loop) out.push({ key: 'loop', label: 'Зацикл.', active: true })
     }
     if (caps.supportsAudioInput) {
-      out.push({ label: audioUrl ? '🎵 Аудио' : 'Нужен файл', active: !!audioUrl })
+      out.push({ key: 'audio', label: audioUrl ? '🎵 Аудио' : 'Нужен файл', active: !!audioUrl })
     }
     return out
-  })()
+  }, [caps, duration, customMode, instrumental, style, voiceId, language, loop, audioUrl, input])
 
   /* ── Helpers ── */
 
   const formatCost = (n: number) => (n % 1 === 0 ? n : n.toFixed(2))
+
+  // 🆕 Извлечение стоимости генерации (как в Image)
+  const getGenCost = (gen: any): number | undefined => {
+    return gen.tokensUsed ?? gen.cost ?? gen.costInTokens ?? gen.tokensCost
+  }
 
   const switchModel = (newSlug: string) => {
     if (newSlug === slug) return
@@ -779,7 +796,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
           fs-page__bar
           shrink-0 relative z-40
           flex items-center gap-2
-          px-4 pt-2.5 pb-1.5
+          px-4 pt-2.5 pb-2.5
           bg-[rgba(8,8,10,0.95)]
           backdrop-blur-[24px] [-webkit-backdrop-filter:blur(24px)]
           border-b border-white/[0.04]
@@ -788,15 +805,14 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
         <button
           className="
             flex-1 min-w-0
-            inline-flex items-center gap-1.5
-            py-[7px] px-3.5
+            flex items-center gap-2
+            py-[7px] px-3
             rounded-[var(--radius-xs)]
             border border-[var(--border-glass)]
             bg-[var(--bg-glass)]
             backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-            text-white text-[13px] font-semibold
             cursor-pointer transition-all duration-200
-            active:scale-[0.97]
+            active:scale-[0.98]
             font-[inherit]
           "
           onClick={() => {
@@ -805,17 +821,44 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
           }}
         >
           <Music size={14} className="text-[var(--gray-500)] shrink-0" />
-          <span className="truncate">{currentModel?.name ?? slug}</span>
 
+          <span className="text-white text-[13px] font-semibold truncate shrink-0 max-w-[42%]">
+            {currentModel?.name ?? slug}
+          </span>
+
+          <div className="flex-1 min-w-0" />
+
+          {/* Бейджики выбранных параметров — прижаты вправо, рядом с ценой */}
+          <div className="flex items-center gap-1 overflow-x-auto min-w-0 shrink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-end">
+            {activeBadges.map((b) => (
+              <span
+                key={b.key}
+                className={`
+                  shrink-0 py-[2px] px-2 rounded-[6px]
+                  text-[10px] font-medium leading-none
+                  border
+                  ${b.active
+                    ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.25)] text-[var(--accent-yellow)]'
+                    : 'bg-white/[0.04] border-white/[0.06] text-[var(--gray-400)]'
+                  }
+                `}
+              >
+                {b.label}
+              </span>
+            ))}
+          </div>
+
+          {/* Цена — справа, рядом с бейджиками */}
           <span
             className={`
-              text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
+              text-[11px] shrink-0 inline-flex items-center gap-1
               transition-opacity duration-200
               ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
               ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
             `}
           >
             {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+            {showFromPrefix && <span className="text-white/35">от</span>}
             {formatCost(displayedCost)} 🔥
           </span>
 
@@ -890,7 +933,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-[11px] text-white/40">
-                    {formatCost(m.cost)} 🔥
+                    от {formatCost(m.cost)} 🔥
                   </span>
                   {slug === m.slug && <Check size={14} className="text-[var(--accent-yellow)]" />}
                 </div>
@@ -899,44 +942,6 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
           </div>
         )}
       </div>
-
-      {/* ── Quick params chips ── */}
-      {(quickParams.length > 0 || (matchedLabel && !isFallbackPrice)) && (
-        <div className="shrink-0 px-4 pt-2 pb-1 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {quickParams.map((p, i) => (
-            <button
-              key={i}
-              onClick={() => { setShowSettings(true); haptic('light') }}
-              className={`
-                shrink-0 inline-flex items-center
-                px-2.5 py-[3px] rounded-md
-                border text-[11px] font-medium whitespace-nowrap
-                cursor-pointer transition-all active:scale-[0.96]
-                ${p.active
-                  ? 'border-amber-400/30 bg-amber-400/[.08] text-amber-400'
-                  : 'border-white/[0.07] bg-white/[0.04] text-white/35'
-                }
-              `}
-            >
-              {p.label}
-            </button>
-          ))}
-
-          {matchedLabel && !isFallbackPrice && (
-            <span
-              className="
-                shrink-0 py-1 px-2.5
-                rounded-md
-                bg-[rgba(250,204,21,0.06)]
-                text-[var(--accent-yellow)]/70 text-[10px] font-medium
-                ml-auto
-              "
-            >
-              {matchedLabel}
-            </span>
-          )}
-        </div>
-      )}
 
       {/* ── Results ── */}
       <div
@@ -974,27 +979,38 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             </div>
           )}
 
-          {audioGens.map((gen: any) => (
-            <div key={gen.id} className="animate-[fadeIn_0.3s_ease-out]">
-              <div className="text-[13px] text-white/45 mb-2 leading-[1.4] break-words">
-                <span className="inline-block text-[10px] font-semibold bg-white/[0.06] px-2 py-0.5 rounded mr-1.5 text-white/50 align-middle">
-                  {gen.model}
-                </span>
-                {gen.prompt}
+          {audioGens.map((gen: any) => {
+            const genCost = getGenCost(gen)
+            return (
+              <div key={gen.id} className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
+                <div className="text-[13px] text-white/45 leading-[1.4] break-words">
+                  <span className="inline-block text-[10px] font-semibold bg-white/[0.06] px-2 py-0.5 rounded mr-1.5 text-white/50 align-middle">
+                    {gen.model}
+                  </span>
+                  {gen.prompt}
+                </div>
+                <MediaResult
+                  generation={gen}
+                  onRetry={() =>
+                    generate({
+                      type: 'audio',
+                      model: gen.modelSlug,
+                      prompt: gen.prompt,
+                      settings: gen.settings,
+                    })
+                  }
+                />
+
+                {gen.status === 'completed' && genCost != null && (
+                  <div className="flex items-center px-0.5">
+                    <span className="text-[10px] text-white/30">
+                      {formatCost(genCost)} 🔥 затрачено
+                    </span>
+                  </div>
+                )}
               </div>
-              <MediaResult
-                generation={gen}
-                onRetry={() =>
-                  generate({
-                    type: 'audio',
-                    model: gen.modelSlug,
-                    prompt: gen.prompt,
-                    settings: gen.settings,
-                  })
-                }
-              />
-            </div>
-          ))}
+            )
+          })}
 
           {isGenerating && (
             <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
@@ -1016,7 +1032,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                   relative overflow-hidden
                 "
               >
-                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
+                                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
                 <Loader2 size={36} className="text-[var(--accent-yellow)] animate-spin relative z-10" strokeWidth={1.5} />
                 <div className="text-[13px] font-medium text-white/70 relative z-10">
                   {caps.type === 'suno' ? 'Создаём музыку...' :
@@ -1203,7 +1219,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.04]">
               <div className="flex flex-col gap-0.5">
                 <div className="text-[15px] font-semibold text-white flex items-center gap-1.5">
-                  <Music size={14} /> Настройки · {currentModel?.name}
+                  <Music size={14} /> {currentModel?.name ?? 'Настройки'}
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
@@ -1214,6 +1230,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                     `}
                   >
                     {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+                    {showFromPrefix && <span className="text-white/35">от</span>}
                     {formatCost(displayedCost)} 🔥
                   </span>
                   {matchedLabel && !isFallbackPrice && (
