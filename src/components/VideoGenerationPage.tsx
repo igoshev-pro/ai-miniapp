@@ -309,21 +309,39 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   /* ── Sync initial model ── */
 
-  useEffect(() => {
+    useEffect(() => {
     if (initialAppliedRef.current) return
-    if (!initialModel || videoModels.length === 0) return
+    if (videoModels.length === 0) return // ждём загрузки моделей
 
-    const norm = initialModel.toLowerCase().trim()
-    const match = videoModels.find(
-      (m: any) => m.slug?.toLowerCase() === norm || m.name?.toLowerCase() === norm,
-    )
-    if (match) {
-      if (match.slug !== slug) {
-        setSyncedSlug(null)
-        setSlug(match.slug)
+    // 1) Если задана начальная модель — ищем точное совпадение
+    if (initialModel) {
+      const norm = initialModel.toLowerCase().trim()
+      const match = videoModels.find(
+        (m: any) => m.slug?.toLowerCase() === norm || m.name?.toLowerCase() === norm,
+      )
+      if (match) {
+        if (match.slug !== slug) {
+          setSyncedSlug(null)
+          setSlug(match.slug)
+        }
+        initialAppliedRef.current = true
+        return
       }
-      initialAppliedRef.current = true
+      // ещё не нашли — ждём догрузки
+      return
     }
+
+    // 2) initialModel нет — фиксируем первую реальную модель из каталога,
+    //    если текущий slug отсутствует в списке (был хардкод-fallback)
+    const slugExists = videoModels.some((m: any) => m.slug === slug)
+    if (!slugExists) {
+      const first = videoModels[0]
+      if (first) {
+        setSyncedSlug(null)
+        setSlug(first.slug)
+      }
+    }
+    initialAppliedRef.current = true
   }, [initialModel, videoModels, slug])
 
   /* ── Batch reset when caps changed (по slug) ── */

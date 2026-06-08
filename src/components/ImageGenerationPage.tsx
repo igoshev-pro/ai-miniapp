@@ -259,24 +259,36 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   // 🆕 Логика "от"
   const showFromPrefix = !isConfigReady || (hasPriceVariants && isFallbackPrice)
 
-  // Sync initialModel
+  // Sync slug когда модели догрузились
   useEffect(() => {
     if (initialAppliedRef.current) return
-    if (!initialModel || imageModels.length === 0) return
+    if (imageModels.length === 0) return
 
-    const norm = initialModel.toLowerCase().trim()
-    const match = imageModels.find((m: any) =>
-      m.slug?.toLowerCase() === norm ||
-      m.name?.toLowerCase() === norm,
-    )
-
-    if (match) {
-      if (match.slug !== selectedModelSlug) {
-        setSyncedSlug(null)
-        setSelectedModelSlug(match.slug)
+    if (initialModel) {
+      const norm = initialModel.toLowerCase().trim()
+      const match = imageModels.find((m: any) =>
+        m.slug?.toLowerCase() === norm || m.name?.toLowerCase() === norm,
+      )
+      if (match) {
+        if (match.slug !== selectedModelSlug) {
+          setSyncedSlug(null)
+          setSelectedModelSlug(match.slug)
+        }
+        initialAppliedRef.current = true
+        return
       }
-      initialAppliedRef.current = true
+      return
     }
+
+    const slugExists = imageModels.some((m: any) => m.slug === selectedModelSlug)
+    if (!slugExists) {
+      const first = imageModels[0]
+      if (first) {
+        setSyncedSlug(null)
+        setSelectedModelSlug(first.slug)
+      }
+    }
+    initialAppliedRef.current = true
   }, [initialModel, imageModels, selectedModelSlug])
 
   // Telegram BackButton
@@ -562,7 +574,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             {currentModel?.name ?? selectedModelSlug}
           </span>
 
-                    <div className="flex-1 min-w-0" />
+          <div className="flex-1 min-w-0" />
 
           {/* Бейджики выбранных параметров — прижаты вправо, рядом с ценой */}
           <div className="flex items-center gap-1 overflow-x-auto min-w-0 shrink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-end">
@@ -926,9 +938,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                     </span>
                   </div>
                   <div
-                    className={`grid gap-1.5 ${
-                      caps.versions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
-                    }`}
+                    className={`grid gap-1.5 ${caps.versions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+                      }`}
                   >
                     {caps.versions.map((v) => (
                       <button
@@ -963,13 +974,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                     </span>
                   </div>
                   <div
-                    className={`grid gap-1.5 ${
-                      caps.modes.length === 2
+                    className={`grid gap-1.5 ${caps.modes.length === 2
                         ? 'grid-cols-2'
                         : caps.modes.length === 3
                           ? 'grid-cols-3'
                           : 'grid-cols-2'
-                    }`}
+                      }`}
                   >
                     {caps.modes.map((m) => (
                       <button
@@ -1145,7 +1155,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 </div>
               )}
 
-                            {/* Seed */}
+              {/* Seed */}
               {caps.supportsSeed && (
                 <div className="flex flex-col gap-2">
                   <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">

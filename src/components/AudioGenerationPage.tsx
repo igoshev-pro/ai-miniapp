@@ -50,20 +50,20 @@ interface AudioCaps {
 /* ─── Constants ─── */
 
 const ELEVENLABS_VOICES = [
-  'Aria','Roger','Sarah','Laura','Charlie','George','Callum','River',
-  'Lily','Alice','Jessica','Daniel','Charlotte','Chris','Brian',
-  'Matilda','Will','Liam','Bill',
+  'Aria', 'Roger', 'Sarah', 'Laura', 'Charlie', 'George', 'Callum', 'River',
+  'Lily', 'Alice', 'Jessica', 'Daniel', 'Charlotte', 'Chris', 'Brian',
+  'Matilda', 'Will', 'Liam', 'Bill',
 ]
 
 const DEFAULT_VOICE = 'Aria'
 
 const LANGUAGES = [
-  { code:'ru', label:'Русский' }, { code:'en', label:'English' },
-  { code:'es', label:'Español' }, { code:'fr', label:'Français' },
-  { code:'de', label:'Deutsch' }, { code:'it', label:'Italiano' },
-  { code:'pt', label:'Português' }, { code:'pl', label:'Polski' },
-  { code:'hi', label:'हिन्दी' }, { code:'ja', label:'日本語' },
-  { code:'ko', label:'한국어' }, { code:'zh', label:'中文' },
+  { code: 'ru', label: 'Русский' }, { code: 'en', label: 'English' },
+  { code: 'es', label: 'Español' }, { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' }, { code: 'it', label: 'Italiano' },
+  { code: 'pt', label: 'Português' }, { code: 'pl', label: 'Polski' },
+  { code: 'hi', label: 'हिन्दी' }, { code: 'ja', label: '日本語' },
+  { code: 'ko', label: '한국어' }, { code: 'zh', label: '中文' },
 ]
 
 const EXAMPLES: Record<string, string[]> = {
@@ -94,56 +94,56 @@ const EXAMPLES: Record<string, string[]> = {
 
 const FALLBACK_BY_TYPE: Record<AudioType, AudioCaps> = {
   suno: {
-    type:'suno', supportsCustomMode:true, supportsInstrumental:true, supportsStyle:true,
-    supportsDuration:true, durationRange:[5,300], durationStep:5,
-    supportsVoice:false, voices:[], supportsLanguage:false, languages:[],
-    supportsStability:false, supportsSimilarity:false,
-    supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
+    type: 'suno', supportsCustomMode: true, supportsInstrumental: true, supportsStyle: true,
+    supportsDuration: true, durationRange: [5, 300], durationStep: 5,
+    supportsVoice: false, voices: [], supportsLanguage: false, languages: [],
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
   'elevenlabs-tts': {
-    type:'elevenlabs-tts', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
-    supportsDuration:false, durationRange:[0,0], durationStep:0,
-    supportsVoice:true, voices:ELEVENLABS_VOICES,
-    supportsLanguage:true, languages:LANGUAGES,
-    supportsStability:true, supportsSimilarity:true,
-    supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:true,
+    type: 'elevenlabs-tts', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
+    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: true, voices: ELEVENLABS_VOICES,
+    supportsLanguage: true, languages: LANGUAGES,
+    supportsStability: true, supportsSimilarity: true,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: true,
   },
   'elevenlabs-dialogue': {
-    type:'elevenlabs-dialogue', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
-    supportsDuration:false, durationRange:[0,0], durationStep:0,
-    supportsVoice:false, voices:[],
-    supportsLanguage:true, languages:LANGUAGES,
-    supportsStability:true, supportsSimilarity:false,
-    supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
+    type: 'elevenlabs-dialogue', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
+    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: false, voices: [],
+    supportsLanguage: true, languages: LANGUAGES,
+    supportsStability: true, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
   'elevenlabs-sfx': {
-    type:'elevenlabs-sfx', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
-    supportsDuration:true, durationRange:[1,30], durationStep:1,
-    supportsVoice:false, voices:[], supportsLanguage:false, languages:[],
-    supportsStability:false, supportsSimilarity:false,
-    supportsAudioInput:false, supportsLoop:true, supportsPromptInfluence:true, supportsSpeed:false,
+    type: 'elevenlabs-sfx', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
+    supportsDuration: true, durationRange: [1, 30], durationStep: 1,
+    supportsVoice: false, voices: [], supportsLanguage: false, languages: [],
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: true, supportsPromptInfluence: true, supportsSpeed: false,
   },
   'elevenlabs-isolation': {
-    type:'elevenlabs-isolation', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
-    supportsDuration:false, durationRange:[0,0], durationStep:0,
-    supportsVoice:false, voices:[], supportsLanguage:false, languages:[],
-    supportsStability:false, supportsSimilarity:false,
-    supportsAudioInput:true, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
+    type: 'elevenlabs-isolation', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
+    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: false, voices: [], supportsLanguage: false, languages: [],
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
   'elevenlabs-stt': {
-    type:'elevenlabs-stt', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
-    supportsDuration:false, durationRange:[0,0], durationStep:0,
-    supportsVoice:false, voices:[],
-    supportsLanguage:true, languages:LANGUAGES,
-    supportsStability:false, supportsSimilarity:false,
-    supportsAudioInput:true, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
+    type: 'elevenlabs-stt', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
+    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: false, voices: [],
+    supportsLanguage: true, languages: LANGUAGES,
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
   generic: {
-    type:'generic', supportsCustomMode:false, supportsInstrumental:false, supportsStyle:false,
-    supportsDuration:false, durationRange:[0,0], durationStep:0,
-    supportsVoice:false, voices:[], supportsLanguage:false, languages:[],
-    supportsStability:false, supportsSimilarity:false,
-    supportsAudioInput:false, supportsLoop:false, supportsPromptInfluence:false, supportsSpeed:false,
+    type: 'generic', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
+    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: false, voices: [], supportsLanguage: false, languages: [],
+    supportsStability: false, supportsSimilarity: false,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
 }
 
@@ -267,9 +267,9 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
     const languagesMerged = languagesBackend.length
       ? languagesBackend.map((code) => ({
-          code,
-          label: LANGUAGES.find((l) => l.code === code)?.label || code,
-        }))
+        code,
+        label: LANGUAGES.find((l) => l.code === code)?.label || code,
+      }))
       : fb.languages
 
     // durationRange из бэка, если задан
@@ -383,23 +383,35 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
   const showPriceLoader =
     !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
-      /* ── Sync initial model ── */
+  /* ── Sync initial model ── */
 
   useEffect(() => {
     if (initialAppliedRef.current) return
-    if (!initialModel || audioModels.length === 0) return
+    if (audioModels.length === 0) return
 
-    const norm = initialModel.toLowerCase().trim()
-    const match = audioModels.find(
-      (m: any) => m.slug?.toLowerCase() === norm || m.name?.toLowerCase() === norm,
-    )
-    if (match) {
-      if (match.slug !== slug) {
-        setSyncedSlug(null)
-        setSlug(match.slug)
+    if (initialModel) {
+      const norm = initialModel.toLowerCase().trim()
+      const match = audioModels.find(
+        (m: any) => m.slug?.toLowerCase() === norm || m.name?.toLowerCase() === norm,
+      )
+      if (match) {
+        if (match.slug !== slug) {
+          setSyncedSlug(null)
+          setSlug(match.slug)
+        }
+        initialAppliedRef.current = true
+        return
       }
-      initialAppliedRef.current = true
+      return
     }
+
+    // initialModel нет — фиксируем первую модель если текущий slug пустой/отсутствует
+    const slugExists = slug && audioModels.some((m: any) => m.slug === slug)
+    if (!slugExists) {
+      setSyncedSlug(null)
+      setSlug(audioModels[0].slug)
+    }
+    initialAppliedRef.current = true
   }, [initialModel, audioModels, slug])
 
   // Если slug пуст — взять первый доступный
@@ -605,14 +617,14 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       finalPrompt = caps.type === 'elevenlabs-isolation' ? 'Audio isolation' : 'Speech to text'
     }
 
-    const ok = await generate({ type:'audio', model:slug, prompt:finalPrompt, settings })
+    const ok = await generate({ type: 'audio', model: slug, prompt: finalPrompt, settings })
 
     setIsGenerating(false)
     if (ok) {
       setInput('')
       setAudioUrl('')
       hapticNotification('success')
-      setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior:'smooth' }), 200)
+      setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
   }, [
     input, audioUrl, balance, displayedCost, slug, caps,
@@ -693,23 +705,23 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   const quickParams: { label: string; active?: boolean }[] = (() => {
     const out: { label: string; active?: boolean }[] = []
     if (caps.type === 'suno') {
-      if (caps.supportsDuration) out.push({ label:`${duration} сек` })
-      if (customMode) out.push({ label:'Custom', active:true })
-      if (instrumental) out.push({ label:'Инструментал', active:true })
-      if (style.trim()) out.push({ label:style.trim(), active:true })
+      if (caps.supportsDuration) out.push({ label: `${duration} сек` })
+      if (customMode) out.push({ label: 'Custom', active: true })
+      if (instrumental) out.push({ label: 'Инструментал', active: true })
+      if (style.trim()) out.push({ label: style.trim(), active: true })
     }
     if (caps.type === 'elevenlabs-tts') {
-      out.push({ label:voiceId })
+      out.push({ label: voiceId })
       out.push({ label: caps.languages.find((l) => l.code === language)?.label || language })
     }
     if (caps.type === 'elevenlabs-dialogue') {
       const lines = input.split('\n').filter((l) => l.trim() && l.includes(':')).length
-      out.push({ label:`${lines} реплик` })
+      out.push({ label: `${lines} реплик` })
       out.push({ label: caps.languages.find((l) => l.code === language)?.label || language })
     }
     if (caps.type === 'elevenlabs-sfx') {
-      if (caps.supportsDuration) out.push({ label:`${duration} сек` })
-      if (loop) out.push({ label:'Зацикл.', active:true })
+      if (caps.supportsDuration) out.push({ label: `${duration} сек` })
+      if (loop) out.push({ label: 'Зацикл.', active: true })
     }
     if (caps.supportsAudioInput) {
       out.push({ label: audioUrl ? '🎵 Аудио' : 'Нужен файл', active: !!audioUrl })
@@ -962,7 +974,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             </div>
           )}
 
-                    {audioGens.map((gen: any) => (
+          {audioGens.map((gen: any) => (
             <div key={gen.id} className="animate-[fadeIn_0.3s_ease-out]">
               <div className="text-[13px] text-white/45 mb-2 leading-[1.4] break-words">
                 <span className="inline-block text-[10px] font-semibold bg-white/[0.06] px-2 py-0.5 rounded mr-1.5 text-white/50 align-middle">
@@ -1008,9 +1020,9 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                 <Loader2 size={36} className="text-[var(--accent-yellow)] animate-spin relative z-10" strokeWidth={1.5} />
                 <div className="text-[13px] font-medium text-white/70 relative z-10">
                   {caps.type === 'suno' ? 'Создаём музыку...' :
-                   caps.type === 'elevenlabs-stt' ? 'Распознаём речь...' :
-                   caps.type === 'elevenlabs-isolation' ? 'Очищаем аудио...' :
-                   'Генерируем аудио...'}
+                    caps.type === 'elevenlabs-stt' ? 'Распознаём речь...' :
+                      caps.type === 'elevenlabs-isolation' ? 'Очищаем аудио...' :
+                        'Генерируем аудио...'}
                 </div>
                 <div className="text-[11px] text-white/40 relative z-10">
                   {caps.type === 'suno' ? 'Обычно 30–120 секунд' : 'Обычно до 30 секунд'}
@@ -1587,7 +1599,7 @@ function Slider({
           {value}{unit && ` ${unit}`}
         </span>
       </label>
-           {hint && <span className="text-[11px] text-white/35 -mt-1">{hint}</span>}
+      {hint && <span className="text-[11px] text-white/35 -mt-1">{hint}</span>}
       <input
         type="range"
         min={min}
