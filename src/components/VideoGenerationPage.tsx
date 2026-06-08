@@ -307,9 +307,20 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const showPriceLoader =
     !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
 
+  // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
+  const hasPriceVariants = useMemo(() => {
+    if (!uiConfig?.uiParameters) return false
+    return uiConfig.uiParameters.some(
+      (p) => p.affectsPrice && (p.options?.length ?? 0) > 1,
+    )
+  }, [uiConfig])
+
+  // 🆕 Логика "от"
+  const showFromPrefix = !isConfigReady || (hasPriceVariants && isFallbackPrice)
+
   /* ── Sync initial model ── */
 
-    useEffect(() => {
+  useEffect(() => {
     if (initialAppliedRef.current) return
     if (videoModels.length === 0) return // ждём загрузки моделей
 
@@ -452,7 +463,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       s.duration = isKie ? String(duration) : duration
     }
 
-        if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
+    if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
 
     // ── Разрешение/качество ──
     // Veo/Sora (evolink): buildVideoBody маппит request.resolution → body.quality.
@@ -479,7 +490,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }
     }
 
-    if (caps.supportsRemoveWatermark) s.removeWatermark = removeWatermark
+        if (caps.supportsRemoveWatermark) s.removeWatermark = removeWatermark
     if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
 
     const ok = await generate({ type: 'video', model: slug, prompt, settings: s })
@@ -517,6 +528,42 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const hasResults = vidGens.length > 0
 
+  // 🆕 Собираем активные бейджики для строки модели (как в ImageGenerationPage)
+  const activeBadges = useMemo(() => {
+    const badges: { key: string; label: string; accent?: boolean }[] = []
+    if (caps.modes.length > 0 && mode) {
+      badges.push({ key: 'mode', label: MODE_L[mode] || mode, accent: true })
+    }
+    if (caps.durations.length > 0 && duration !== undefined) {
+      badges.push({ key: 'dur', label: `${duration} сек` })
+    }
+    if (caps.aspectRatios.length > 0 && aspectRatio) {
+      badges.push({ key: 'ar', label: AR_L[aspectRatio] || aspectRatio })
+    }
+    if (caps.qualities.length > 0 && quality) {
+      badges.push({ key: 'q', label: Q_L[quality] || quality })
+    }
+    if (caps.resolutions.length > 0 && resolution) {
+      badges.push({ key: 'res', label: resolution })
+    }
+    if (caps.supportsSound) {
+      badges.push({ key: 'sound', label: sound ? '🔊' : '🔇', accent: sound })
+    }
+    if (isI2V) {
+      badges.push({
+        key: 'img2vid',
+        label: imgUrl ? '📸 Фото' : 'img2vid',
+        accent: !!imgUrl,
+      })
+    }
+    return badges
+  }, [caps, mode, duration, aspectRatio, quality, resolution, sound, isI2V, imgUrl])
+
+  // 🆕 Извлечение стоимости генерации (как в ImageGenerationPage)
+  const getGenCost = (gen: any): number | undefined => {
+    return gen.tokensUsed ?? gen.cost ?? gen.costInTokens ?? gen.tokensCost
+  }
+
   /* ─── Render ─── */
 
   return (
@@ -533,155 +580,102 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         className="
           fs-page__bar
           shrink-0 relative z-40
-          flex flex-col gap-1.5
-          px-4 pt-2.5 pb-1.5
+          flex items-center gap-2
+          px-4 pt-2.5 pb-2.5
           bg-[rgba(8,8,10,0.95)]
           backdrop-blur-[24px] [-webkit-backdrop-filter:blur(24px)]
           border-b border-white/[0.04]
         "
       >
-        <div className="flex items-center gap-2">
-          <button
-            className="
-              flex-1 min-w-0
-              inline-flex items-center gap-1.5
-              py-[7px] px-3.5
-              rounded-[var(--radius-xs)]
-              border border-[var(--border-glass)]
-              bg-[var(--bg-glass)]
-              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-              text-white text-[13px] font-semibold
-              cursor-pointer transition-all duration-200
-              active:scale-[0.97]
-              font-[inherit]
-            "
-            onClick={() => {
-              setShowModelPicker(!showModelPicker)
-              haptic('light')
-            }}
+        <button
+          className="
+            flex-1 min-w-0
+            flex items-center gap-2
+            py-[7px] px-3
+            rounded-[var(--radius-xs)]
+            border border-[var(--border-glass)]
+            bg-[var(--bg-glass)]
+            backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+            cursor-pointer transition-all duration-200
+            active:scale-[0.98]
+            font-[inherit]
+          "
+          onClick={() => {
+            setShowModelPicker(!showModelPicker)
+            haptic('light')
+          }}
+        >
+          <Video size={14} className="text-[var(--gray-500)] shrink-0" />
+
+          <span className="text-white text-[13px] font-semibold truncate shrink-0 max-w-[42%]">
+            {model?.name ?? slug}
+          </span>
+
+          <div className="flex-1 min-w-0" />
+
+          {/* Бейджики выбранных параметров — прижаты вправо, рядом с ценой */}
+          <div className="flex items-center gap-1 overflow-x-auto min-w-0 shrink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-end">
+            {activeBadges.map((b) => (
+              <span
+                key={b.key}
+                className={`
+                  shrink-0 py-[2px] px-2 rounded-[6px]
+                  text-[10px] font-medium leading-none
+                  border
+                  ${b.accent
+                    ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.25)] text-[var(--accent-yellow)]'
+                    : 'bg-white/[0.04] border-white/[0.06] text-[var(--gray-400)]'
+                  }
+                `}
+              >
+                {b.label}
+              </span>
+            ))}
+          </div>
+
+          {/* Цена — справа, рядом с бейджиками */}
+          <span
+            className={`
+              text-[11px] shrink-0 inline-flex items-center gap-1
+              transition-opacity duration-200
+              ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
+              ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
+            `}
           >
-            <Video size={14} className="text-[var(--gray-500)] shrink-0" />
-            <span className="truncate">{model?.name ?? slug}</span>
+            {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+            {showFromPrefix && <span className="text-white/35">от</span>}
+            {formatCost(displayedCost)} 🔥
+          </span>
 
-            <span
-              className={`
-                text-[11px] ml-auto shrink-0 inline-flex items-center gap-1
-                transition-opacity duration-200
-                ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
-                ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
-              `}
-            >
-              {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-              {formatCost(displayedCost)} 🔥
-            </span>
+          <ChevronDown
+            size={14}
+            className={`
+              text-[var(--gray-500)] transition-transform duration-200 shrink-0
+              ${showModelPicker ? 'rotate-180' : ''}
+            `}
+          />
+        </button>
 
-            <ChevronDown
-              size={14}
-              className={`
-                text-[var(--gray-500)] transition-transform duration-200 shrink-0
-                ${showModelPicker ? 'rotate-180' : ''}
-              `}
-            />
-          </button>
-
-          <button
-            className="
-              w-9 h-9 rounded-[9px]
-              border border-[var(--border-glass)]
-              bg-[var(--bg-glass)]
-              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
-              flex items-center justify-center
-              cursor-pointer transition-all duration-150
-              shrink-0 [-webkit-tap-highlight-color:transparent]
-              text-[var(--gray-500)]
-              active:scale-[0.9] active:text-[var(--accent-yellow)]
-            "
-            onClick={() => {
-              setShowSettings(true)
-              haptic('light')
-            }}
-          >
-            <Settings size={16} />
-          </button>
-        </div>
-
-        {/* Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
-          {caps.modes.length > 0 && mode && (
-            <button
-              className="
-                shrink-0 py-1 px-2.5
-                rounded-[var(--radius-xs)]
-                border border-[rgba(250,204,21,0.25)]
-                bg-[rgba(250,204,21,0.08)]
-                text-[var(--accent-yellow)] text-[11px] font-medium
-                cursor-pointer transition-all duration-150
-                active:scale-[0.95]
-                inline-flex items-center gap-1
-              "
-              onClick={() => { setShowSettings(true); haptic('light') }}
-            >
-              <Sparkles size={10} />
-              {MODE_L[mode] || mode}
-            </button>
-          )}
-
-          {caps.durations.length > 0 && duration !== undefined && (
-            <Chip onClick={() => { setShowSettings(true); haptic('light') }}>
-              {duration} сек
-            </Chip>
-          )}
-
-          {caps.aspectRatios.length > 0 && aspectRatio && (
-            <Chip onClick={() => { setShowSettings(true); haptic('light') }}>
-              {AR_L[aspectRatio] || aspectRatio}
-            </Chip>
-          )}
-
-          {caps.qualities.length > 0 && quality && (
-            <Chip onClick={() => { setShowSettings(true); haptic('light') }}>
-              {Q_L[quality] || quality}
-            </Chip>
-          )}
-
-          {caps.resolutions.length > 0 && resolution && (
-            <Chip onClick={() => { setShowSettings(true); haptic('light') }}>
-              {resolution}
-            </Chip>
-          )}
-
-          {caps.supportsSound && (
-            <Chip
-              active={sound}
-              onClick={() => { setShowSettings(true); haptic('light') }}
-            >
-              {sound ? '🔊 Звук' : '🔇 Без звука'}
-            </Chip>
-          )}
-
-          {isI2V && (
-            <Chip
-              active={!!imgUrl}
-              onClick={() => { setShowSettings(true); haptic('light') }}
-            >
-              {imgUrl ? '📸 Фото' : 'img2vid'}
-            </Chip>
-          )}
-
-          {matchedLabel && !isFallbackPrice && (
-            <span
-              className="
-                shrink-0 py-1 px-2.5
-                rounded-[var(--radius-xs)]
-                bg-[rgba(250,204,21,0.06)]
-                text-[var(--accent-yellow)]/70 text-[10px] font-medium
-                ml-auto
-              "
-            >
-              {matchedLabel}
-            </span>
-          )}
-        </div>
+        {/* Шестерёнка — справа, открывает настройки */}
+        <button
+          className="
+            w-9 h-9 rounded-[9px]
+            border border-[var(--border-glass)]
+            bg-[var(--bg-glass)]
+            backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+            flex items-center justify-center
+            cursor-pointer transition-all duration-150
+            shrink-0 [-webkit-tap-highlight-color:transparent]
+            text-[var(--gray-400)]
+            active:scale-[0.9] active:text-[var(--accent-yellow)]
+          "
+          onClick={() => {
+            setShowSettings(true)
+            haptic('light')
+          }}
+        >
+          <Settings size={16} />
+        </button>
 
         {/* Model dropdown */}
         {showModelPicker && (
@@ -726,7 +720,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-[11px] text-white/40">
-                    {formatCost(m.cost)} 🔥
+                    от {formatCost(m.cost)} 🔥
                   </span>
                   {slug === m.slug && <Check size={14} className="text-[var(--accent-yellow)]" />}
                 </div>
@@ -772,27 +766,38 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             </div>
           )}
 
-          {vidGens.map((gen: any) => (
-            <div key={gen.id} className="animate-[fadeIn_0.3s_ease-out]">
-              <div className="text-[13px] text-white/45 mb-2 leading-[1.4] break-words">
-                <span className="inline-block text-[10px] font-semibold bg-white/[0.06] px-2 py-0.5 rounded mr-1.5 text-white/50 align-middle">
-                  {gen.model}
-                </span>
-                {gen.prompt}
+          {vidGens.map((gen: any) => {
+            const genCost = getGenCost(gen)
+            return (
+              <div key={gen.id} className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
+                <div className="text-[13px] text-white/45 leading-[1.4] break-words">
+                  <span className="inline-block text-[10px] font-semibold bg-white/[0.06] px-2 py-0.5 rounded mr-1.5 text-white/50 align-middle">
+                    {gen.model}
+                  </span>
+                  {gen.prompt}
+                </div>
+                <MediaResult
+                  generation={gen}
+                  onRetry={() =>
+                    generate({
+                      type: 'video',
+                      model: gen.modelSlug,
+                      prompt: gen.prompt,
+                      settings: gen.settings,
+                    })
+                  }
+                />
+
+                {gen.status === 'completed' && genCost != null && (
+                  <div className="flex items-center px-0.5">
+                    <span className="text-[10px] text-white/30">
+                      {formatCost(genCost)} 🔥 затрачено
+                    </span>
+                  </div>
+                )}
               </div>
-              <MediaResult
-                generation={gen}
-                onRetry={() =>
-                  generate({
-                    type: 'video',
-                    model: gen.modelSlug,
-                    prompt: gen.prompt,
-                    settings: gen.settings,
-                  })
-                }
-              />
-            </div>
-          ))}
+            )
+          })}
 
           {generating && (
             <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
@@ -844,7 +849,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
             <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.04]">
               <div className="flex flex-col gap-0.5">
-                <div className="text-[15px] font-semibold text-white">Настройки</div>
+                <div className="text-[15px] font-semibold text-white">
+                  {model?.name ?? 'Настройки'}
+                </div>
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
                   <span
@@ -854,6 +861,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     `}
                   >
                     {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+                    {showFromPrefix && <span className="text-white/35">от</span>}
                     {formatCost(displayedCost)} 🔥
                   </span>
                   {matchedLabel && !isFallbackPrice && (
@@ -1019,7 +1027,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         </>
       )}
 
-            {/* Скрытый file input */}
+      {/* Скрытый file input */}
       <input
         ref={fileRef}
         type="file"
@@ -1032,7 +1040,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         }}
       />
 
-      {/* ── Input area ── */}
+            {/* ── Input area ── */}
       <div
         className="
           fs-page__input
@@ -1160,35 +1168,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 /* ─────────────────────────────────────────────────────────────
    Helper components
    ───────────────────────────────────────────────────────────── */
-
-function Chip({
-  active,
-  children,
-  onClick,
-}: {
-  active?: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      className={`
-        shrink-0 py-1 px-2.5
-        rounded-[var(--radius-xs)]
-        border text-[11px] font-medium
-        cursor-pointer transition-all duration-150
-        active:scale-[0.95]
-        ${active
-          ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
-        }
-      `}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
-}
 
 function Field({
   label,
