@@ -91,6 +91,22 @@ export function useGeneration() {
     if (refunded) toast.info('Спички возвращены на баланс')
   }, [])
 
+  // ─── Обновление баланса после завершения/возврата ───
+  const refreshBalanceFromServer = useCallback(async () => {
+    try {
+      const { data } = await apiClient.get<{
+        success: boolean
+        data: { tokenBalance: number; bonusTokens: number }
+      }>(ENDPOINTS.USER_ME)
+      useUserStore.getState().updateBalance(
+        data.data.tokenBalance,
+        data.data.bonusTokens,
+      )
+    } catch (err) {
+      console.warn('[Generation] balance refresh failed:', err)
+    }
+  }, [])
+
 
   // ─── Загрузка истории ───────────────────────────
   useEffect(() => {
@@ -169,6 +185,7 @@ export function useGeneration() {
       })
 
       showCompletedToast(data.generationId)
+      refreshBalanceFromServer()
     }
 
     const handleFailed = (data: GenerationFailedEvent) => {
@@ -184,6 +201,7 @@ export function useGeneration() {
       })
 
       showFailedToast(data.generationId, data.errorMessage, data.refunded)
+      if (data.refunded) refreshBalanceFromServer()
     }
 
     socket.on(WS_EVENTS.STATUS, handleStatus)
@@ -198,7 +216,7 @@ export function useGeneration() {
       socket.off(WS_EVENTS.FAILED, handleFailed)
       wsSetup.current = false
     }
-  }, [token, showCompletedToast, showFailedToast]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, showCompletedToast, showFailedToast, refreshBalanceFromServer]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ─── Polling ────────────────────────────────────────────
@@ -243,11 +261,13 @@ export function useGeneration() {
 
           if (d.status === 'completed') {
             showCompletedToast(generationId)
+            refreshBalanceFromServer()
             pollingTimers.current.delete(generationId)
             return
           }
           if (d.status === 'failed') {
             showFailedToast(generationId, d.errorMessage)
+            refreshBalanceFromServer()
             pollingTimers.current.delete(generationId)
             return
           }
@@ -267,7 +287,7 @@ export function useGeneration() {
       const timer = setTimeout(poll, 3000)
       pollingTimers.current.set(generationId, timer)
     },
-    [showCompletedToast, showFailedToast],
+    [showCompletedToast, showFailedToast, refreshBalanceFromServer],
   )
 
 
