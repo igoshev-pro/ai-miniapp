@@ -12,7 +12,7 @@ interface Props {
 const navItems = [
   { id: 'feed',      icon: Newspaper, label: 'Лента' },
   { id: 'favorites', icon: Star,      label: 'Избранное' },
-  { id: 'create',    icon: Plus,      label: '' },
+  { id: 'create',    icon: Plus,      label: 'Новый чат' },
   { id: 'models',    icon: Layers,    label: 'Модели' },
   { id: 'profile',   icon: User,      label: 'Профиль' },
 ]
@@ -36,8 +36,9 @@ export function BottomNav({ active, onChange }: Props) {
               }}
             >
               <div className="bottom-nav__create">
-                <Plus size={24} strokeWidth={2.5} />
+                <Plus size={22} strokeWidth={2.5} />
               </div>
+              <span className="bottom-nav__create-label">Новый чат</span>
             </button>
           )
         }
