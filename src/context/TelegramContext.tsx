@@ -84,12 +84,12 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const wa = getWebApp()
     if (wa) {
-      // Проверяем реальный запуск из Telegram Mini App:
-      // telegram-web-app.js создаёт объект даже в обычном браузере,
-      // но initData будет пустой строкой вне Telegram
       const isRealTelegram = !!wa.initData && wa.initData.length > 0
 
       if (isRealTelegram) {
+        // 🆕 Форсируем мобильный layout (CSS overrides через body.tg-app)
+        document.body.classList.add('tg-app')
+
         wa.ready()
         wa.expand()
 
@@ -102,7 +102,6 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
 
         wa.enableClosingConfirmation()
 
-        // Считаем safe area
         applySafeArea(wa)
 
         if (wa.onEvent) {
@@ -118,11 +117,13 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         setWebApp(wa)
         setIsTelegram(true)
       } else {
-        // WebApp объект есть, но initData пуст — мы в обычном браузере
+        // WebApp объект есть, но initData пуст — обычный браузер
+        document.body.classList.remove('tg-app') // 🆕
         setWebApp(null)
         setIsTelegram(false)
       }
     } else {
+      document.body.classList.remove('tg-app') // 🆕
       setWebApp(null)
       setIsTelegram(false)
     }
@@ -166,7 +167,6 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   const showBackButton = useCallback(
     (callback: () => void) => {
       if (webApp?.BackButton) {
-        // снимаем возможный прошлый handler, чтобы они не накапливались
         try { webApp.BackButton.offClick(callback) } catch { }
         webApp.BackButton.onClick(callback)
         webApp.BackButton.show()
@@ -221,7 +221,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
     sendData: (data: string) => webApp?.sendData(data),
   }
 
-  return (
+    return (
     <TelegramContext.Provider value={value}>
       {children}
     </TelegramContext.Provider>

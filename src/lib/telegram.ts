@@ -148,3 +148,13 @@ export function getUserDisplayName(user: TelegramUser | null | undefined): strin
   const parts = [user.first_name, user.last_name].filter(Boolean)
   return parts.join(' ') || 'Гость'
 }
+
+/**
+ * 🆕 Свежий initData для повторной авторизации при 401 в Mini App.
+ * Возвращает null если приложение запущено в обычном браузере.
+ */
+export function getInitData(): string | null {
+  const wa = getWebApp()
+  if (wa?.initData && wa.initData.length > 0) return wa.initData
+  return null
+}

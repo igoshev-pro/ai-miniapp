@@ -26,16 +26,9 @@ export interface TelegramWidgetData {
 
 const REFERRAL_STORAGE_KEY = 'pending_referral_code'
 
-/**
- * Извлекает реферальный код из всех возможных источников:
- *  1. Telegram WebApp start_param (когда юзер открыл бот по ссылке ?start=ref_XXX)
- *  2. URL query (?ref=XXX или ?referral=XXX) — для браузера
- *  3. localStorage (фолбэк, если первая попытка авторизации упала)
- */
 function extractReferralCode(webApp: any): string | undefined {
   let referralCode: string | undefined
 
-  // 1. Telegram WebApp start_param
   const startParam: string | undefined = webApp?.initDataUnsafe?.start_param
   if (startParam) {
     if (process.env.NODE_ENV === 'development') {
@@ -46,7 +39,6 @@ function extractReferralCode(webApp: any): string | undefined {
       : startParam
   }
 
-  // 2. URL query params (для браузерной версии)
   if (!referralCode && typeof window !== 'undefined') {
     try {
       const urlParams = new URLSearchParams(window.location.search)
@@ -62,7 +54,6 @@ function extractReferralCode(webApp: any): string | undefined {
     }
   }
 
-  // 3. localStorage fallback
   if (!referralCode && typeof window !== 'undefined') {
     try {
       const saved = localStorage.getItem(REFERRAL_STORAGE_KEY)
@@ -104,7 +95,6 @@ export function useAuth() {
   const { setUser } = useUserStore()
   const attempted = useRef(false)
 
-  // Ждём гидрацию persist storage перед принятием решения об авторизации
   const [hydrated, setHydrated] = useState(
     () => useAuthStore.persist?.hasHydrated() ?? true,
   )
@@ -131,7 +121,6 @@ export function useAuth() {
 
     const initData = webApp?.initData
 
-    // Нет initData — не в Telegram, ждём логин через виджет
     if (!initData) {
       if (process.env.NODE_ENV === 'development') {
         console.warn(
@@ -142,14 +131,12 @@ export function useAuth() {
       return
     }
 
-    // Извлекаем реферальный код
     const referralCode = extractReferralCode(webApp)
 
     if (process.env.NODE_ENV === 'development' && referralCode) {
       console.log('[Auth] Sending auth with referralCode:', referralCode)
     }
 
-    // Exchange initData → JWT
     apiClient
       .post<AuthApiResponse>(ENDPOINTS.AUTH_TELEGRAM, {
         initData,
@@ -160,16 +147,19 @@ export function useAuth() {
         setToken(jwt)
         setUser(user)
         clearPendingReferral()
-        // setReady() уже вызван внутри setToken
       })
       .catch((err) => {
         console.error('[Auth] Failed:', err)
-        toast.error('Не удалось авторизоваться')
+        // 🆕 503 — временный сбой БД/auth, НЕ показываем ошибку логина
+        if (err?.isServiceUnavailable) {
+          toast.error('Сервис временно недоступен, попробуйте позже')
+        } else {
+          toast.error('Не удалось авторизоваться')
+        }
         setReady()
       })
   }, [isReady, hydrated, token, webApp, setToken, setUser, setReady])
 
-  // Login via Telegram Login Widget (для браузера)
   const loginWithWidget = useCallback(
     async (widgetData: TelegramWidgetData, referralCode?: string) => {
       try {
@@ -190,6 +180,7 @@ export function useAuth() {
       } catch (err: any) {
         console.error('[Auth] Widget login failed:', err)
         const message =
+          err?.message ||
           err?.response?.data?.message ||
           'Не удалось авторизоваться через Telegram'
         toast.error(message)

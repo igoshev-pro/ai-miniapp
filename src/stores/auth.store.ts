@@ -22,13 +22,27 @@ export const useAuthStore = create<AuthState>()(
 
       setReady: () => set({ isReady: true }),
 
-      clearToken: () => set({ token: null }),
+      clearToken: () => {
+        // 🆕 рвём WS со старым токеном (ленивый импорт против циклов)
+        try {
+          import('@/lib/ws/socket').then((m) => m.disconnectSocket?.())
+        } catch {}
+
+        // 🆕 чистим профиль пользователя
+        try {
+          import('@/stores/user.store').then((m) =>
+            m.useUserStore.getState().clear?.(),
+          )
+        } catch {}
+
+        set({ token: null, isReady: true })
+      },
     }),
     {
       name: 'spichki-auth',
       storage: createJSONStorage(() => localStorage),
-      // Сохраняем только token. isReady должно сбрасываться при каждой загрузке,
-      // потому что мы каждый раз заново проходим init-flow.
+      // Сохраняем только token. isReady сбрасывается при каждой загрузке,
+      // т.к. каждый раз заново проходим init-flow.
       partialize: (state) => ({ token: state.token }),
     },
   ),

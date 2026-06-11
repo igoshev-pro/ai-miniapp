@@ -2,7 +2,10 @@
 
 import { io, Socket } from 'socket.io-client'
 
-const WS_URL = 'https://spichki.tw1.ru'
+// 🆕 URL из env, fallback на прод
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'https://spichki.tw1.ru'
+
+const IS_DEV = process.env.NODE_ENV === 'development'
 
 let socket: Socket | null = null
 let pendingSubscriptions: Set<string> = new Set()
@@ -31,11 +34,12 @@ export function connectSocket(token: string): Socket {
     listenersRegistered = true
 
     s.on('connect', () => {
-      console.log('[WS] Connected to /generation, socketId:', s.id)
+      if (IS_DEV) console.log('[WS] Connected to /generation, socketId:', s.id)
 
-      // Отправляем все отложенные подписки
       if (pendingSubscriptions.size > 0) {
-        console.log('[WS] Sending pending subscriptions:', [...pendingSubscriptions])
+        if (IS_DEV) {
+          console.log('[WS] Sending pending subscriptions:', [...pendingSubscriptions])
+        }
         pendingSubscriptions.forEach((generationId) => {
           s.emit('generation:subscribe', { generationId })
         })
@@ -43,17 +47,20 @@ export function connectSocket(token: string): Socket {
     })
 
     s.on('disconnect', (reason) => {
-      console.log('[WS] Disconnected:', reason)
+      if (IS_DEV) console.log('[WS] Disconnected:', reason)
     })
 
     s.on('connect_error', (err) => {
+      // ошибки коннекта оставляем всегда — это важно для диагностики прода
       console.error('[WS] Connection error:', err.message)
     })
 
-    // Логируем ВСЕ входящие события для отладки
-    s.onAny((event, ...args) => {
-      console.log('[WS] Event received:', event, args)
-    })
+    // Логируем ВСЕ входящие события только в dev
+    if (IS_DEV) {
+      s.onAny((event, ...args) => {
+        console.log('[WS] Event received:', event, args)
+      })
+    }
   }
 
   if (!s.connected) {
@@ -81,10 +88,12 @@ export function subscribeToGeneration(generationId: string) {
 
   const s = getSocket()
   if (s.connected) {
-    console.log('[WS] Subscribing to:', generationId)
+    if (IS_DEV) console.log('[WS] Subscribing to:', generationId)
     s.emit('generation:subscribe', { generationId })
   } else {
-    console.log('[WS] Socket not connected, queued subscription for:', generationId)
+    if (IS_DEV) {
+      console.log('[WS] Socket not connected, queued subscription for:', generationId)
+    }
   }
 }
 
