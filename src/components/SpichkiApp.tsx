@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useAuth, useModels, useUser } from '@/hooks'
+import { useModels, useUser } from '@/hooks'
 import { useAuthStore } from '@/stores'
 import { StickyHeader } from './StickyHeader'
 import { Background } from './Background'
@@ -25,7 +25,10 @@ import ReferralPage from './ReferralPage'
 import { FavoritesPage } from './FavoritesPage'
 import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
-import { TelegramLoginButton } from './auth/TelegramLoginButton'
+// 🆕 Вместо Telegram Login Widget — вход через бота (без запроса телефона)
+import { BotLoginButton } from './auth/BotLoginButton'
+// 🆕 Запускаем авто-авторизацию Mini App (initData) внутри Telegram
+import { useAuth } from '@/hooks'
 
 type Page =
   | 'home'
@@ -45,12 +48,14 @@ type Page =
 
 export function SpichkiApp() {
   const { isReady, isTelegram, webApp } = useTelegram()
-  const { isReady: authReady, loginWithWidget } = useAuth()
+  // useAuth по-прежнему нужен: он выполняет авто-авторизацию через initData
+  // внутри Telegram Mini App и восстановление токена из persist.
+  const { isReady: authReady } = useAuth()
   const token = useAuthStore((s) => s.token)
   const { refetch: refetchUser } = useUser()
   const { loadModels } = useModels()
 
-    // Ждём гидрацию persist-стора (иначе при F5 в браузере токен ещё null
+  // Ждём гидрацию persist-стора (иначе при F5 в браузере токен ещё null
   // в момент первого рендера → мигнёт экран логина)
   const [hydrated, setHydrated] = useState(
     () => useAuthStore.persist?.hasHydrated() ?? true,
@@ -210,7 +215,9 @@ export function SpichkiApp() {
   // Теперь BackButton управляется ТОЛЬКО здесь, в одном месте.
   // ─────────────────────────────────────────────────────────────
   const goBackRef = useRef(goBack)
-  useEffect(() => { goBackRef.current = goBack }, [goBack])
+  useEffect(() => {
+    goBackRef.current = goBack
+  }, [goBack])
 
   useEffect(() => {
     const bb = webApp?.BackButton
@@ -251,9 +258,42 @@ export function SpichkiApp() {
     )
   }
 
-  // 2) Не в Telegram + нет JWT → экран логина через Telegram Login Widget
+  // 2) Не в Telegram + нет JWT → экран логина через бота (deep-link auth_<code>).
+  //    Телефон НЕ запрашивается — открывается бот, пользователь жмёт «Старт».
   if (!isTelegram && !token) {
-    return <TelegramLoginButton onAuth={loginWithWidget} />
+    return (
+      <div className="app-loading">
+        <div className="app-loading__logo">🔥</div>
+        <div className="app-loading__text">SPICHKI AI</div>
+        <p
+          style={{
+            marginTop: 12,
+            marginBottom: 24,
+            fontSize: 14,
+            color: 'rgba(255,255,255,0.6)',
+            textAlign: 'center',
+            maxWidth: 280,
+          }}
+        >
+          Войди через Telegram, чтобы продолжить
+        </p>
+
+        <BotLoginButton />
+
+        <p
+          style={{
+            marginTop: 20,
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.4)',
+            textAlign: 'center',
+            maxWidth: 280,
+          }}
+        >
+          Откроется бот в Telegram. Нажми «Старт» — и вернёшься сюда
+          авторизованным. Номер телефона не требуется.
+        </p>
+      </div>
+    )
   }
 
   // 3) Авторизован — основное приложение
@@ -355,4 +395,3 @@ export function SpichkiApp() {
     </div>
   )
 }
-    
