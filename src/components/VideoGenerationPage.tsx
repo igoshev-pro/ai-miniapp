@@ -76,19 +76,19 @@ interface FallbackCaps {
 
 const FALLBACK: Record<string, FallbackCaps> = {
   // ─── Veo 3.1 (KIE) — slug точно как в каталоге бэка ───
-     veo3_lite: {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p'],
+  veo3_lite: {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 3,
     supportsSound: true, supportsRemoveWatermark: false,
   },
   veo3_fast: {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p'],
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 3,
     supportsSound: true, supportsRemoveWatermark: false,
   },
   veo3: {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p'],
-    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 3,
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 2,
     supportsSound: true, supportsRemoveWatermark: false,
   },
   // ─── Sora 2 ───
@@ -669,12 +669,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     const badges: { key: string; label: string; accent?: boolean }[] = []
 
     // 🆕 Veo режим
-    // if (isVeo) {
-    //   const modeLabel =
-    //     veoMode === 'text' ? '✍️ Текст' :
-    //     veoMode === 'frames' ? '🎞 Кадры' : '🖼 Референс'
-    //   badges.push({ key: 'veomode', label: modeLabel, accent: veoMode !== 'text' })
-    // }
+    if (isVeo) {
+      const modeLabel =
+        veoMode === 'text' ? '✍️ Текст' :
+        veoMode === 'frames' ? '🎞 Кадры' : '🖼 Референс'
+      badges.push({ key: 'veomode', label: modeLabel, accent: veoMode !== 'text' })
+    }
 
     if (caps.modes.length > 0 && mode) {
       badges.push({ key: 'mode', label: MODE_L[mode] || mode, accent: true })
@@ -1067,7 +1067,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
             <div className="flex flex-col gap-5 p-5">
               {/* 🆕 Veo mode (дубль таба в настройках) */}
-              {/* {isVeo && (
+              {isVeo && (
                 <Field label={<><Sparkles size={12} /> Режим Veo</>}>
                   <Grid cols={3}>
                     <OptBtn active={veoMode === 'text'} onClick={() => { setVeoMode('text'); haptic('light') }}>Текст</OptBtn>
@@ -1075,7 +1075,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     <OptBtn active={veoMode === 'reference'} onClick={() => { setVeoMode('reference'); haptic('light') }}>Референс</OptBtn>
                   </Grid>
                 </Field>
-              )} */}
+              )}
 
                             {/* Mode */}
               {caps.modes.length > 0 && (
