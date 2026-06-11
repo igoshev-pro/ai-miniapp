@@ -2003,7 +2003,7 @@ button,
 }
 
 body.tg-app .toast-container {
-  top: calc(var(--header-height) + var(--tg-top, 0px) + 8px);
+  top: calc(var(--header-height) + var(--safe-area-top, 0px) + 8px) !important;
 }
 
 .toast {
@@ -4397,11 +4397,10 @@ body.tg-app .toast-container {
 /* ═══════════════ TELEGRAM APP ═══════════════ */
 
 body.tg-app {
-  padding-top: calc(var(--header-height) + var(--tg-top)) !important;
+  padding-top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
 }
-
 body.tg-app .sticky-header {
-  top: var(--tg-top) !important;
+  top: 0 !important;
 }
 
 /* ── Кнопка избранного в чате ── */
@@ -6714,12 +6713,11 @@ body.tg-app .sticky-header {
 /* Telegram Mini App всегда использует мобильный layout */
 
 body.tg-app {
-  padding-top: calc(var(--header-height) + var(--tg-top)) !important;
+  padding-top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
   padding-bottom: calc(84px + var(--safe-bottom)) !important;
 }
-
 body.tg-app .sticky-header {
-  top: var(--tg-top) !important;
+  top: 0 !important;
   display: flex !important;
   max-width: none !important;
   border-left: none !important;

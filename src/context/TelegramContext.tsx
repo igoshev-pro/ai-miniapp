@@ -66,7 +66,7 @@ const TelegramContext = createContext<TelegramContextValue>({
 function applySafeArea(wa: WebApp) {
   const safeTop = wa.safeAreaInset?.top ?? 0
   const contentTop = wa.contentSafeAreaInset?.top ?? 0
-  const total = safeTop + contentTop
+  const total = Math.max(safeTop, contentTop)
 
   const platform = (wa.platform || '').toLowerCase()
   const isPhone = platform.includes('ios') || platform.includes('android')
@@ -74,6 +74,7 @@ function applySafeArea(wa: WebApp) {
   const offset = Math.max(total, minOffset)
 
   document.documentElement.style.setProperty('--safe-area-top', offset + 'px')
+  // НЕ трогаем --tg-top
 }
 
 export function TelegramProvider({ children }: { children: ReactNode }) {
