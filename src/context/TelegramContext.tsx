@@ -74,6 +74,9 @@ function applySafeArea(wa: WebApp) {
   const offset = Math.max(total, minOffset)
 
   document.documentElement.style.setProperty('--safe-area-top', offset + 'px')
+  // 🆕 синхронизируем tg-top, чтобы body.tg-app и .sticky-header
+  //    использовали то же значение, что и контент
+  document.documentElement.style.setProperty('--tg-top', offset + 'px')
 }
 
 export function TelegramProvider({ children }: { children: ReactNode }) {
