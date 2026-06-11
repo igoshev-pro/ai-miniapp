@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, Send, Check, X, Video, Settings, Wand2,
   Clock, Maximize2, Zap, Loader2, Upload, Image as ImageIcon,
-  Sparkles, Layers, Volume2, ShieldOff,
+  Sparkles, Layers, Volume2, ShieldOff, Type, Film, Images,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -21,12 +21,22 @@ interface Props {
   onBack?: () => void
 }
 
+/* ─── Veo modes ─── */
+
+type VeoMode = 'text' | 'frames' | 'reference'
+
+const VEO_MODE_TO_GENERATION_TYPE: Record<VeoMode, string> = {
+  text: 'TEXT_2_VIDEO',
+  frames: 'FIRST_AND_LAST_FRAMES_2_VIDEO',
+  reference: 'REFERENCE_2_VIDEO',
+}
+
 /* ─── UI labels ─── */
 
 const AR_L: Record<string, string> = {
   landscape: '🖥 Пейзаж', portrait: '📱 Портрет',
   '16:9': '16:9', '9:16': '9:16', '1:1': '1:1',
-  '4:3': '4:3', '3:4': '3:4', '21:9': '21:9',
+  '4:3': '4:3', '3:4': '3:4', '21:9': '21:9', Auto: 'Авто',
 }
 
 const Q_L: Record<string, string> = {
@@ -65,36 +75,59 @@ interface FallbackCaps {
 }
 
 const FALLBACK: Record<string, FallbackCaps> = {
-  // Veo: разрешение влияет на цену (720p=15/75, 4k=45.3/112). API duration 4/6/8 (на цену не влияет).
-  'veo-3.1-fast': {
-    aspectRatios: ['16:9', '9:16'], durations: [], qualities: ['720p', '1080p', '4k'],
-    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
+  // ─── Veo 3.1 (KIE) — slug точно как в каталоге бэка ───
+  veo3_lite: {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 3,
     supportsSound: true, supportsRemoveWatermark: false,
   },
-  'veo-3.1-pro': {
-    aspectRatios: ['16:9', '9:16'], durations: [], qualities: ['720p', '1080p', '4k'],
+  veo3_fast: {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 3,
+    supportsSound: true, supportsRemoveWatermark: false,
+  },
+  veo3: {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 2,
     supportsSound: true, supportsRemoveWatermark: false,
   },
-  // Sora 2 Pro: quality влияет на цену (720p=86, 1080p=143). duration 4/8/12 не влияет.
+  // ─── Sora 2 ───
+  'sora-2': {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], qualities: [],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false,
+  },
   'sora-2-pro': {
     aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], qualities: ['720p', '1080p'],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
   },
-  // Kling 2.5 turbo (kie): duration '5'/'10' влияет на цену. aspect_ratio 16:9/9:16/1:1.
-  'kling-2.5-turbo-pro': {
-    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], qualities: [],
-    resolutions: [], modes: [], supportsImageInput: false, maxInputImages: 0,
+  // ─── Kling 3.0 (KIE) ───
+  'kling-3.0': {
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10, 15], qualities: [],
+    resolutions: [], modes: ['std', 'pro'], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: true, supportsRemoveWatermark: false,
+  },
+  // ─── Runway ───
+  runway: {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10], qualities: [],
+    resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
   },
-  'kling-2.5-turbo-pro-img2video': {
-    aspectRatios: [], durations: [5, 10], qualities: [],
+  // ─── Hailuo 02 ───
+  'hailuo-02': {
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [6, 10], qualities: [],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
   },
-  // WAN 2.5 (kie): resolution 720p/1080p + duration '5'/'10' влияют на цену.
-  'wan-2.5': {
+  // ─── Wan 2.7 (KIE) ───
+  'wan-2.7': {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10], qualities: [],
+    resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,
+    supportsSound: true, supportsRemoveWatermark: false,
+  },
+  // ─── Seedance ───
+  'seedance-1.5-pro': {
     aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], qualities: [],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
@@ -108,11 +141,11 @@ const DEFAULT_FALLBACK: FallbackCaps = {
   supportsSound: false, supportsRemoveWatermark: false,
 }
 
-/* ─── Какие slug используют evolink (Veo/Sora) — для них разрешение
-       нужно дублировать в resolution (см. buildVideoBody маппит resolution→quality) ─── */
-const EVOLINK_VIDEO_SLUGS = new Set(['veo-3.1-fast', 'veo-3.1-pro', 'sora-2-pro'])
-
 /* ─── Helpers ─── */
+
+function isVeoSlug(slug: string): boolean {
+  return slug.startsWith('veo')
+}
 
 function getParamOptions(config: ModelUIConfig | null, key: string): string[] {
   if (!config?.uiParameters) return []
@@ -162,7 +195,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       )
       if (byExact) return byExact.slug
     }
-    return videoModels[0]?.slug ?? 'veo-3.1-fast'
+    return videoModels[0]?.slug ?? 'veo3_fast'
   }, [initialModel, videoModels])
 
   const [slug, setSlug] = useState<string>(() => resolveInitialSlug())
@@ -178,8 +211,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [mode, setMode] = useState<string | undefined>(undefined)
   const [sound, setSound] = useState(false)
   const [removeWatermark, setRemoveWatermark] = useState(true)
+
+  // single image (для не-Veo моделей: kling/wan/sora/runway/hailuo)
   const [imgUrl, setImgUrl] = useState('')
+
+  // 🆕 Veo: режим + кадры + референсы
+  const [veoMode, setVeoMode] = useState<VeoMode>('text')
+  const [startFrame, setStartFrame] = useState('')
+  const [endFrame, setEndFrame] = useState('')
+  const [refImages, setRefImages] = useState<string[]>([])
+
   const [uploading, setUploading] = useState(false)
+  // куда загружать: 'single' | 'start' | 'end' | 'ref'
+  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref'>('single')
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
@@ -191,6 +235,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const model = videoModels.find((m: any) => m.slug === slug)
   const modelMinCost = model?.cost || 15
+
+  const isVeo = isVeoSlug(slug)
 
   /* ── UI config from backend ── */
 
@@ -230,7 +276,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       modes:        modeBackend.length ? modeBackend : fb.modes,
       supportsImageInput: inputCap.acceptsImages === true || fb.supportsImageInput,
       maxInputImages: inputCap.maxInputImages ?? fb.maxInputImages,
-      // 🆕 поддержка sound И generateAudio (Veo)
       supportsSound:
         hasParam(uiConfig, 'sound') ||
         hasParam(uiConfig, 'generateAudio') ||
@@ -240,23 +285,43 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [uiConfig, slug])
 
-  const isI2V = caps.supportsImageInput && caps.maxInputImages > 0
-  const requiresInputImage = slug.includes('img2vid') || slug.includes('img2video') || slug === 'kling-3.0-motion'
+  // Для НЕ-Veo: одиночное изображение
+  const isI2V = !isVeo && caps.supportsImageInput && caps.maxInputImages > 0
+  const requiresInputImage =
+    !isVeo &&
+    (slug.includes('img2vid') || slug.includes('img2video') || slug === 'kling-3.0-motion')
+
+  // Veo: в режиме reference duration фиксируется на 8
+  const veoForcesDuration8 = isVeo && veoMode === 'reference'
 
   /* ── Price calculator ── */
 
   const priceParams = useMemo(() => {
     const p: Record<string, any> = {}
     if (caps.modes.length > 0 && mode) p.mode = mode
-    if (caps.durations.length > 0 && duration !== undefined) p.duration = duration
+    if (caps.durations.length > 0 && duration !== undefined) {
+      p.duration = veoForcesDuration8 ? 8 : duration
+    }
     if (caps.aspectRatios.length > 0 && aspectRatio) p.aspectRatio = aspectRatio
     if (caps.qualities.length > 0 && quality) p.quality = quality
     if (caps.resolutions.length > 0 && resolution) p.resolution = resolution
     if (caps.supportsSound) p.sound = sound
     if (caps.supportsRemoveWatermark) p.removeWatermark = removeWatermark
-    if (imgUrl) p.hasInputImage = true
+
+    // hasInputImage для расчёта цены
+    if (isVeo) {
+      const hasImg =
+        (veoMode === 'frames' && !!startFrame) ||
+        (veoMode === 'reference' && refImages.length > 0)
+      if (hasImg) p.hasInputImage = true
+    } else if (imgUrl) {
+      p.hasInputImage = true
+    }
     return p
-  }, [mode, duration, aspectRatio, quality, resolution, sound, removeWatermark, imgUrl, caps])
+  }, [
+    mode, duration, aspectRatio, quality, resolution, sound, removeWatermark,
+    imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
+  ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
     enabled: !!uiConfig && syncedSlug === slug,
@@ -307,7 +372,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const showPriceLoader =
     !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
 
-  // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
   const hasPriceVariants = useMemo(() => {
     if (!uiConfig?.uiParameters) return false
     return uiConfig.uiParameters.some(
@@ -315,16 +379,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     )
   }, [uiConfig])
 
-  // 🆕 Логика "от"
   const showFromPrefix = !isConfigReady || (hasPriceVariants && isFallbackPrice)
 
   /* ── Sync initial model ── */
 
   useEffect(() => {
     if (initialAppliedRef.current) return
-    if (videoModels.length === 0) return // ждём загрузки моделей
+    if (videoModels.length === 0) return
 
-    // 1) Если задана начальная модель — ищем точное совпадение
     if (initialModel) {
       const norm = initialModel.toLowerCase().trim()
       const match = videoModels.find(
@@ -338,12 +400,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         initialAppliedRef.current = true
         return
       }
-      // ещё не нашли — ждём догрузки
       return
     }
 
-    // 2) initialModel нет — фиксируем первую реальную модель из каталога,
-    //    если текущий slug отсутствует в списке (был хардкод-fallback)
     const slugExists = videoModels.some((m: any) => m.slug === slug)
     if (!slugExists) {
       const first = videoModels[0]
@@ -374,9 +433,20 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setRemoveWatermark(true)
     setImgUrl('')
 
+    // 🆕 сброс Veo-специфики
+    setVeoMode('text')
+    setStartFrame('')
+    setEndFrame('')
+    setRefImages([])
+
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig, slug])
+
+  // 🆕 При переключении в reference — форсим duration=8
+  useEffect(() => {
+    if (veoForcesDuration8) setDuration(8)
+  }, [veoForcesDuration8])
 
   /* ── Misc ── */
 
@@ -385,14 +455,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     [generations],
   )
 
-  // textarea autosize
   useEffect(() => {
     if (!inputRef.current) return
     inputRef.current.style.height = 'auto'
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px'
   }, [input])
 
-  // autoscroll
   useEffect(() => {
     const el = resultsContainerRef.current
     if (!el) return
@@ -425,7 +493,23 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         const d = await r.json()
         const url = d.data?.url || d.url
         if (!url) throw new Error('No URL')
-        setImgUrl(url)
+
+                // распределяем по целевому слоту
+        const target = uploadTarget.current
+        if (target === 'single') {
+          setImgUrl(url)
+        } else if (target === 'start') {
+          setStartFrame(url)
+        } else if (target === 'end') {
+          setEndFrame(url)
+        } else if (target === 'ref') {
+          setRefImages((prev) => {
+            const max = caps.maxInputImages || 3
+            if (prev.length >= max) return prev
+            return [...prev, url]
+          })
+        }
+
         haptic('light')
         toast.success('Изображение загружено')
       } catch (e: any) {
@@ -434,18 +518,55 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         setUploading(false)
       }
     },
-    [haptic],
+    [haptic, caps.maxInputImages],
   )
+
+  const triggerUpload = useCallback(
+    (target: 'single' | 'start' | 'end' | 'ref') => {
+      uploadTarget.current = target
+      fileRef.current?.click()
+    },
+    [],
+  )
+
+  /* ── Telegram BackButton ── */
+
+  useEffect(() => {
+    if (!webApp?.BackButton) return
+    webApp.BackButton.show()
+    const handler = () => {
+      if (showSettings) { setShowSettings(false); return }
+      if (showModelPicker) { setShowModelPicker(false); return }
+      onBack?.()
+    }
+    webApp.BackButton.onClick(handler)
+    return () => {
+      webApp.BackButton.offClick(handler)
+      webApp.BackButton.hide()
+    }
+  }, [webApp, onBack, showSettings, showModelPicker])
 
   /* ── Generate ── */
 
   const doGen = useCallback(async () => {
     const prompt = input.trim()
     if (!prompt) return
-    if (requiresInputImage && !imgUrl) {
+
+    // ── Валидация входных изображений ──
+    if (isVeo) {
+      if (veoMode === 'frames' && !startFrame) {
+        toast.warning('Загрузите стартовый кадр')
+        return
+      }
+      if (veoMode === 'reference' && refImages.length === 0) {
+        toast.warning('Загрузите хотя бы одно референс-изображение')
+        return
+      }
+    } else if (requiresInputImage && !imgUrl) {
       toast.warning('Загрузите изображение для этой модели')
       return
     }
+
     if (balance < displayedCost) {
       toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
@@ -457,41 +578,47 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     const s: Record<string, unknown> = {}
 
-    // ── duration: kie-модели (kling/wan) ждут строку, evolink (veo/sora) — число ──
+    // ── duration: kie-модели (kling/wan) ждут строку, veo/sora — число ──
     if (caps.durations.length && duration !== undefined) {
-      const isKie = slug.startsWith('kling') || slug.startsWith('wan')
-      s.duration = isKie ? String(duration) : duration
+      const dur = veoForcesDuration8 ? 8 : duration
+      const isKieStr = slug.startsWith('kling') || slug.startsWith('wan')
+      s.duration = isKieStr ? String(dur) : dur
     }
 
     if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
 
     // ── Разрешение/качество ──
-    // Veo/Sora (evolink): buildVideoBody маппит request.resolution → body.quality.
-    //   Поэтому для evolink дублируем выбранное значение И в quality, И в resolution —
-    //   что бы ни читал бэк, значение дойдёт.
-    // Kie-модели (wan): используют resolution напрямую.
-    if (caps.qualities.length && quality) {
-      s.quality = quality
-      if (EVOLINK_VIDEO_SLUGS.has(slug)) {
-        s.resolution = quality // дублируем для evolink buildVideoBody
-      }
-    }
-    if (caps.resolutions.length && resolution) {
-      s.resolution = resolution
-    }
+    if (caps.qualities.length && quality) s.quality = quality
+    if (caps.resolutions.length && resolution) s.resolution = resolution
 
     if (caps.modes.length && mode) s.mode = mode
 
     // ── Звук: Veo ждёт generateAudio, остальные — sound ──
     if (caps.supportsSound) {
       s.sound = sound
-      if (slug.startsWith('veo')) {
-        s.generateAudio = sound
-      }
+      if (isVeo) s.generateAudio = sound
     }
 
-        if (caps.supportsRemoveWatermark) s.removeWatermark = removeWatermark
-    if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
+    if (caps.supportsRemoveWatermark) s.removeWatermark = removeWatermark
+
+    // ── Входные изображения ──
+    if (isVeo) {
+      // 🆕 явный режим Veo → generationType
+      s.generationType = VEO_MODE_TO_GENERATION_TYPE[veoMode]
+
+      if (veoMode === 'frames') {
+        // [start] или [start, end]
+        const frames = [startFrame, endFrame].filter(Boolean)
+        if (frames.length) s.imageUrls = frames
+      } else if (veoMode === 'reference') {
+        // 1-3 референса
+        if (refImages.length) s.referenceImages = refImages.slice(0, 3)
+      }
+      // text → ничего не шлём
+    } else {
+      // обычные i2v модели — одиночное изображение
+      if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
+    }
 
     const ok = await generate({ type: 'video', model: slug, prompt, settings: s })
     setGenerating(false)
@@ -504,6 +631,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     input, balance, displayedCost, slug, imgUrl,
     duration, aspectRatio, quality, resolution, mode, sound, removeWatermark,
     caps, requiresInputImage, haptic, hapticNotification, generate,
+    isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8,
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -528,14 +656,31 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const hasResults = vidGens.length > 0
 
-  // 🆕 Собираем активные бейджики для строки модели (как в ImageGenerationPage)
+  // Кнопка генерации заблокирована?
+  const genDisabled =
+    !input.trim() ||
+    generating ||
+    (isVeo && veoMode === 'frames' && !startFrame) ||
+    (isVeo && veoMode === 'reference' && refImages.length === 0) ||
+    (!isVeo && requiresInputImage && !imgUrl)
+
+  // Бейджики для строки модели
   const activeBadges = useMemo(() => {
     const badges: { key: string; label: string; accent?: boolean }[] = []
+
+    // 🆕 Veo режим
+    if (isVeo) {
+      const modeLabel =
+        veoMode === 'text' ? '✍️ Текст' :
+        veoMode === 'frames' ? '🎞 Кадры' : '🖼 Референс'
+      badges.push({ key: 'veomode', label: modeLabel, accent: veoMode !== 'text' })
+    }
+
     if (caps.modes.length > 0 && mode) {
       badges.push({ key: 'mode', label: MODE_L[mode] || mode, accent: true })
     }
     if (caps.durations.length > 0 && duration !== undefined) {
-      badges.push({ key: 'dur', label: `${duration} сек` })
+      badges.push({ key: 'dur', label: `${veoForcesDuration8 ? 8 : duration} сек` })
     }
     if (caps.aspectRatios.length > 0 && aspectRatio) {
       badges.push({ key: 'ar', label: AR_L[aspectRatio] || aspectRatio })
@@ -557,9 +702,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       })
     }
     return badges
-  }, [caps, mode, duration, aspectRatio, quality, resolution, sound, isI2V, imgUrl])
+  }, [
+    caps, mode, duration, aspectRatio, quality, resolution, sound, isI2V, imgUrl,
+    isVeo, veoMode, veoForcesDuration8,
+  ])
 
-  // 🆕 Извлечение стоимости генерации (как в ImageGenerationPage)
   const getGenCost = (gen: any): number | undefined => {
     return gen.tokensUsed ?? gen.cost ?? gen.costInTokens ?? gen.tokensCost
   }
@@ -613,7 +760,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
           <div className="flex-1 min-w-0" />
 
-          {/* Бейджики выбранных параметров — прижаты вправо, рядом с ценой */}
           <div className="flex items-center gap-1 overflow-x-auto min-w-0 shrink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-end">
             {activeBadges.map((b) => (
               <span
@@ -633,7 +779,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             ))}
           </div>
 
-          {/* Цена — справа, рядом с бейджиками */}
           <span
             className={`
               text-[11px] shrink-0 inline-flex items-center gap-1
@@ -656,7 +801,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           />
         </button>
 
-        {/* Шестерёнка — справа, открывает настройки */}
         <button
           className="
             w-9 h-9 rounded-[9px]
@@ -677,7 +821,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           <Settings size={16} />
         </button>
 
-        {/* Model dropdown */}
         {showModelPicker && (
           <div
             className="
@@ -715,7 +858,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   <span className="font-semibold truncate">{m.name}</span>
                   <span className="text-[11px] text-[var(--gray-600)] truncate">
                     {m.provider}
-                    {m.slug.includes('img') || m.slug.includes('motion') ? ' · img2vid' : ' · txt2vid'}
+                    {isVeoSlug(m.slug)
+                      ? ' · txt/img/ref'
+                      : (m.slug.includes('img') || m.slug.includes('motion'))
+                        ? ' · img2vid'
+                        : ' · txt2vid'}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -729,6 +876,37 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           </div>
         )}
       </div>
+
+      {/* 🆕 ── Veo mode tabs ── */}
+      {isVeo && (
+        <div
+          className="
+            shrink-0 flex items-center gap-1.5
+            px-4 py-2
+            bg-[rgba(8,8,10,0.9)]
+            border-b border-white/[0.04]
+          "
+        >
+          <VeoTab
+            active={veoMode === 'text'}
+            icon={<Type size={13} />}
+            label="Текст"
+            onClick={() => { setVeoMode('text'); haptic('light') }}
+          />
+          <VeoTab
+            active={veoMode === 'frames'}
+            icon={<Film size={13} />}
+            label="Кадры"
+            onClick={() => { setVeoMode('frames'); haptic('light') }}
+          />
+          <VeoTab
+            active={veoMode === 'reference'}
+            icon={<Images size={13} />}
+            label="Референс"
+            onClick={() => { setVeoMode('reference'); haptic('light') }}
+          />
+        </div>
+      )}
 
       {/* ── Results ── */}
       <div
@@ -747,7 +925,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               </div>
               <div className="text-[17px] font-semibold text-white/60">Генерация видео</div>
               <div className="text-[13px] text-white/30 max-w-[280px] leading-[1.5]">
-                Опишите сцену. Видео может генерироваться до 5 минут.
+                {isVeo && veoMode === 'frames'
+                  ? 'Загрузите кадры (старт и конец) — Veo создаст переход между ними.'
+                  : isVeo && veoMode === 'reference'
+                  ? 'Загрузите до 3 референсов (персонаж, стиль, локация) и опишите сцену.'
+                  : 'Опишите сцену. Видео может генерироваться до 5 минут.'}
               </div>
               <button
                 className="
@@ -884,7 +1066,18 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             </div>
 
             <div className="flex flex-col gap-5 p-5">
-              {/* Mode */}
+              {/* 🆕 Veo mode (дубль таба в настройках) */}
+              {isVeo && (
+                <Field label={<><Sparkles size={12} /> Режим Veo</>}>
+                  <Grid cols={3}>
+                    <OptBtn active={veoMode === 'text'} onClick={() => { setVeoMode('text'); haptic('light') }}>Текст</OptBtn>
+                    <OptBtn active={veoMode === 'frames'} onClick={() => { setVeoMode('frames'); haptic('light') }}>Кадры</OptBtn>
+                    <OptBtn active={veoMode === 'reference'} onClick={() => { setVeoMode('reference'); haptic('light') }}>Референс</OptBtn>
+                  </Grid>
+                </Field>
+              )}
+
+                            {/* Mode */}
               {caps.modes.length > 0 && (
                 <Field label={<><Sparkles size={12} /> Режим</>} priceHint>
                   <Grid cols={caps.modes.length === 2 ? 2 : caps.modes.length === 3 ? 3 : 2}>
@@ -900,13 +1093,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               {/* Duration */}
               {caps.durations.length > 0 && (
                 <Field label={<><Clock size={12} /> Длительность</>} priceHint>
-                  <Grid cols={caps.durations.length <= 3 ? caps.durations.length : 3}>
-                    {caps.durations.map((d) => (
-                      <OptBtn key={d} active={duration === d} onClick={() => { setDuration(d); haptic('light') }}>
-                        {d} сек
-                      </OptBtn>
-                    ))}
-                  </Grid>
+                  {veoForcesDuration8 ? (
+                    <div className="text-[12px] text-white/40 bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5">
+                      В режиме «Референс» длительность фиксирована — <b className="text-white/60">8 сек</b>
+                    </div>
+                  ) : (
+                    <Grid cols={caps.durations.length <= 3 ? caps.durations.length : 3}>
+                      {caps.durations.map((d) => (
+                        <OptBtn key={d} active={duration === d} onClick={() => { setDuration(d); haptic('light') }}>
+                          {d} сек
+                        </OptBtn>
+                      ))}
+                    </Grid>
+                  )}
                 </Field>
               )}
 
@@ -970,14 +1169,95 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Sora warning */}
-              {slug === 'sora-2-pro' && (
+              {(slug === 'sora-2-pro' || slug === 'sora-2') && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-[12px] text-white/60 leading-relaxed">
-                  ⚠️ Sora 2 Pro имеет строгую модерацию. Реальные люди на изображениях не поддерживаются.
+                  ⚠️ Sora 2 имеет строгую модерацию. Реальные люди на изображениях не поддерживаются.
                 </div>
               )}
 
-              {/* Image input */}
-              {caps.supportsImageInput && (
+              {/* ─── Veo: FRAMES (старт + конец) ─── */}
+              {isVeo && veoMode === 'frames' && (
+                <Field label={<><Film size={12} /> Кадры (старт → конец)</>}>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* Start frame */}
+                    <FrameSlot
+                      label="Старт"
+                      url={startFrame}
+                      uploading={uploading && uploadTarget.current === 'start'}
+                      onUpload={() => triggerUpload('start')}
+                      onRemove={() => setStartFrame('')}
+                    />
+                    {/* End frame (опционально) */}
+                    <FrameSlot
+                      label="Конец (опц.)"
+                      url={endFrame}
+                      uploading={uploading && uploadTarget.current === 'end'}
+                      onUpload={() => triggerUpload('end')}
+                      onRemove={() => setEndFrame('')}
+                    />
+                  </div>
+                  <div className="text-[10px] text-white/30 mt-1.5 leading-relaxed">
+                    Старт обязателен. Конец — опционально (Veo создаст плавный переход).
+                  </div>
+                </Field>
+              )}
+
+              {/* ─── Veo: REFERENCE (1-3 изображения) ─── */}
+              {isVeo && veoMode === 'reference' && (
+                <Field label={<><Images size={12} /> Референсы (1–{caps.maxInputImages || 3})</>}>
+                  <div className="grid grid-cols-3 gap-2">
+                    {refImages.map((url, idx) => (
+                      <div key={url + idx} className="relative aspect-square rounded-[10px]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt=""
+                          className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
+                        />
+                        <button
+                          className="
+                            absolute -top-1.5 -right-1.5
+                            w-5 h-5 rounded-full border-none
+                            bg-red-500 text-white
+                            flex items-center justify-center
+                            cursor-pointer z-[2]
+                          "
+                          onClick={() => setRefImages((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {refImages.length < (caps.maxInputImages || 3) && (
+                      <button
+                        className="
+                          aspect-square rounded-[10px]
+                          border-[1.5px] border-dashed border-white/[0.12]
+                          bg-white/[0.03] text-white/30
+                          flex flex-col items-center justify-center gap-1 text-[10px]
+                          cursor-pointer transition-all
+                          active:bg-white/[0.07] active:border-white/[0.22]
+                          disabled:opacity-50 disabled:cursor-not-allowed
+                        "
+                        onClick={() => triggerUpload('ref')}
+                        disabled={uploading}
+                      >
+                        {uploading && uploadTarget.current === 'ref'
+                          ? <Loader2 size={20} className="animate-spin" />
+                          : <Upload size={20} />}
+                        <span>Добавить</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-white/30 mt-1.5 leading-relaxed">
+                    Персонаж, стиль или локация. Veo перенесёт их в видео по вашему описанию.
+                  </div>
+                </Field>
+              )}
+
+              {/* ─── Обычные модели: одиночное входное изображение ─── */}
+              {!isVeo && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -1012,7 +1292,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           active:bg-white/[0.07] active:border-white/[0.22]
                           disabled:opacity-50 disabled:cursor-not-allowed
                         "
-                        onClick={() => fileRef.current?.click()}
+                        onClick={() => triggerUpload('single')}
                         disabled={uploading}
                       >
                         {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
@@ -1040,7 +1320,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         }}
       />
 
-            {/* ── Input area ── */}
+      {/* ── Input area ── */}
       <div
         className="
           fs-page__input
@@ -1052,53 +1332,84 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
       >
-        {imgUrl && (
-          <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
-            <div
-              className="
-                flex items-center gap-[5px]
-                py-1.5 px-2.5
-                rounded-[var(--radius-xs)]
-                bg-[var(--bg-glass)] border border-[var(--border-glass)]
-                text-[var(--gray-400)] text-[11px]
-                shrink-0
-              "
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imgUrl} alt="" className="w-5 h-5 rounded-[3px] object-cover block" />
-              <span>Изображение</span>
-              <button
-                className="
-                  w-4 h-4 rounded-[4px] border-none
-                  bg-white/[0.06] text-[var(--gray-500)]
-                  flex items-center justify-center
-                  cursor-pointer ml-0.5
-                  active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]
-                "
-                onClick={() => { setImgUrl(''); haptic('light') }}
-              >
-                <X size={10} />
-              </button>
+        {/* Превью прикреплённых изображений */}
+        {(() => {
+          // что показывать в чипах над инпутом
+          const chips: { url: string; label: string; onRemove: () => void }[] = []
+          if (isVeo) {
+            if (veoMode === 'frames') {
+              if (startFrame) chips.push({ url: startFrame, label: 'Старт', onRemove: () => setStartFrame('') })
+              if (endFrame) chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
+            } else if (veoMode === 'reference') {
+              refImages.forEach((url, idx) =>
+                chips.push({ url, label: `Реф ${idx + 1}`, onRemove: () => setRefImages((p) => p.filter((_, i) => i !== idx)) }),
+              )
+            }
+          } else if (imgUrl) {
+            chips.push({ url: imgUrl, label: 'Изображение', onRemove: () => setImgUrl('') })
+          }
+
+          if (chips.length === 0) return null
+
+          return (
+            <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
+              {chips.map((c, i) => (
+                <div
+                  key={c.url + i}
+                  className="
+                    flex items-center gap-[5px]
+                    py-1.5 px-2.5
+                    rounded-[var(--radius-xs)]
+                    bg-[var(--bg-glass)] border border-[var(--border-glass)]
+                    text-[var(--gray-400)] text-[11px]
+                    shrink-0
+                  "
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={c.url} alt="" className="w-5 h-5 rounded-[3px] object-cover block" />
+                  <span>{c.label}</span>
+                  <button
+                    className="
+                      w-4 h-4 rounded-[4px] border-none
+                      bg-white/[0.06] text-[var(--gray-500)]
+                      flex items-center justify-center
+                      cursor-pointer ml-0.5
+                      active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]
+                    "
+                    onClick={() => { c.onRemove(); haptic('light') }}
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         <div className="flex items-center gap-2">
-          {caps.supportsImageInput && (
+          {/* Кнопка загрузки (быстрый доступ) */}
+          {((isVeo && veoMode !== 'text') || (!isVeo && caps.supportsImageInput)) && (
             <button
               className={`
                 w-[38px] h-[38px] rounded-[10px] border-none
                 flex items-center justify-center
                 cursor-pointer transition-all duration-150
                 shrink-0 self-center
-                ${imgUrl
-                  ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
-                  : 'bg-white/[0.04] text-[var(--gray-500)]'
+                ${
+                  (isVeo && veoMode === 'frames' && startFrame) ||
+                  (isVeo && veoMode === 'reference' && refImages.length > 0) ||
+                  (!isVeo && imgUrl)
+                    ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                    : 'bg-white/[0.04] text-[var(--gray-500)]'
                 }
                 active:scale-[0.92]
                 disabled:opacity-50 disabled:cursor-default
               `}
-              onClick={() => fileRef.current?.click()}
+              onClick={() => {
+                if (isVeo && veoMode === 'frames') triggerUpload(startFrame ? 'end' : 'start')
+                else if (isVeo && veoMode === 'reference') triggerUpload('ref')
+                else triggerUpload('single')
+              }}
               disabled={uploading}
             >
               {uploading ? (
@@ -1125,7 +1436,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               focus:border-[rgba(250,204,21,0.2)]
             "
             placeholder={
-              requiresInputImage
+              isVeo && veoMode === 'frames'
+                ? 'Опишите движение между кадрами...'
+                : isVeo && veoMode === 'reference'
+                ? 'Опишите сцену с референсами...'
+                : requiresInputImage
                 ? 'Загрузите фото и опишите видео...'
                 : 'Опишите видео...'
             }
@@ -1147,11 +1462,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               disabled:cursor-default disabled:opacity-50
             "
             onClick={doGen}
-            disabled={
-              !input.trim() ||
-              generating ||
-              (requiresInputImage && !imgUrl)
-            }
+            disabled={genDisabled}
           >
             {generating ? (
               <Loader2 size={18} className="animate-spin" />
@@ -1168,6 +1479,98 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 /* ─────────────────────────────────────────────────────────────
    Helper components
    ───────────────────────────────────────────────────────────── */
+
+function VeoTab({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      className={`
+        flex-1 flex items-center justify-center gap-1.5
+        py-2 px-2 rounded-[var(--radius-xs)]
+        text-[12px] font-medium
+        border transition-all duration-150
+        cursor-pointer [-webkit-tap-highlight-color:transparent]
+        active:scale-[0.97]
+        ${active
+          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+          : 'bg-white/[0.03] border-white/[0.06] text-[var(--gray-400)]'
+        }
+      `}
+      onClick={onClick}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
+function FrameSlot({
+  label,
+  url,
+  uploading,
+  onUpload,
+  onRemove,
+}: {
+  label: string
+  url: string
+  uploading: boolean
+  onUpload: () => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] text-white/40 font-medium">{label}</span>
+      {url ? (
+        <div className="relative aspect-video rounded-[10px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt=""
+            className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
+          />
+          <button
+            className="
+              absolute -top-1.5 -right-1.5
+              w-5 h-5 rounded-full border-none
+              bg-red-500 text-white
+              flex items-center justify-center
+              cursor-pointer z-[2]
+            "
+            onClick={onRemove}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <button
+          className="
+            aspect-video rounded-[10px]
+            border-[1.5px] border-dashed border-white/[0.12]
+            bg-white/[0.03] text-white/30
+            flex flex-col items-center justify-center gap-1 text-[10px]
+            cursor-pointer transition-all
+            active:bg-white/[0.07] active:border-white/[0.22]
+            disabled:opacity-50 disabled:cursor-not-allowed
+          "
+          onClick={onUpload}
+          disabled={uploading}
+        >
+          {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+          <span>{uploading ? '...' : 'Загрузить'}</span>
+        </button>
+      )}
+    </div>
+  )
+}
 
 function Field({
   label,

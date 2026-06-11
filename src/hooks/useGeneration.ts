@@ -353,6 +353,15 @@ export function useGeneration() {
         if (s.imageUrls && (s.imageUrls as string[]).length > 0) {
           body.imageUrls = s.imageUrls
         }
+        // 🆕 Veo: референс-изображения (REFERENCE_2_VIDEO)
+        if (s.referenceImages && (s.referenceImages as string[]).length > 0) {
+          body.referenceImages = s.referenceImages
+        }
+        // 🆕 Veo: явный режим генерации
+        if (s.generationType) body.generationType = s.generationType
+        // 🆕 Veo: watermark текст
+        if (s.watermark) body.watermark = s.watermark
+        
         if (s.style) body.style = s.style
         if (s.mode) body.mode = s.mode
 
