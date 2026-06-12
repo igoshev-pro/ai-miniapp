@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, Send, Check, X, Video, Settings, Wand2,
   Clock, Maximize2, Zap, Loader2, Upload, Image as ImageIcon,
-  Sparkles, Layers, Volume2, ShieldOff, Type, Film, Images,
+  Sparkles, Layers, Volume2, ShieldOff, Film, Images,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -29,6 +29,18 @@ const VEO_MODE_TO_GENERATION_TYPE: Record<VeoMode, string> = {
   text: 'TEXT_2_VIDEO',
   frames: 'FIRST_AND_LAST_FRAMES_2_VIDEO',
   reference: 'REFERENCE_2_VIDEO',
+}
+
+/* ─── Какие Veo-модели поддерживают режим "Референс" ─── */
+
+const VEO_REFERENCE_SUPPORT: Record<string, boolean> = {
+  veo3_lite: true,
+  veo3_fast: true,
+  veo3: false, // Quality — без референса
+}
+
+function veoSupportsReference(slug: string): boolean {
+  return VEO_REFERENCE_SUPPORT[slug] ?? true
 }
 
 /* ─── UI labels ─── */
@@ -237,6 +249,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const modelMinCost = model?.cost || 15
 
   const isVeo = isVeoSlug(slug)
+  const supportsReference = isVeo && veoSupportsReference(slug)
 
   /* ── UI config from backend ── */
 
@@ -285,6 +298,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [uiConfig, slug])
 
+  // лимит фото для режима "Референс"
+  const veoMaxRefImages = caps.maxInputImages || 3
+
   // Для НЕ-Veo: одиночное изображение
   const isI2V = !isVeo && caps.supportsImageInput && caps.maxInputImages > 0
   const requiresInputImage =
@@ -293,6 +309,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   // Veo: в режиме reference duration фиксируется на 8
   const veoForcesDuration8 = isVeo && veoMode === 'reference'
+
+  // если режим reference, но модель его не поддерживает — сбросить в text
+  useEffect(() => {
+    if (isVeo && veoMode === 'reference' && !supportsReference) {
+      setVeoMode('text')
+    }
+  }, [isVeo, veoMode, supportsReference])
 
   /* ── Price calculator ── */
 
@@ -467,7 +490,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight
   }, [vidGens.length])
 
-  /* ── Upload ── */
+    /* ── Upload ── */
 
   const upload = useCallback(
     async (file: File) => {
@@ -494,7 +517,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         const url = d.data?.url || d.url
         if (!url) throw new Error('No URL')
 
-                // распределяем по целевому слоту
+        // распределяем по целевому слоту
         const target = uploadTarget.current
         if (target === 'single') {
           setImgUrl(url)
@@ -603,14 +626,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     // ── Входные изображения ──
     if (isVeo) {
-      // 🆕 явный режим Veo → generationType
-      s.generationType = VEO_MODE_TO_GENERATION_TYPE[veoMode]
+      // защита: если модель не поддерживает reference — принудительно text
+      const safeMode: VeoMode =
+        veoMode === 'reference' && !supportsReference ? 'text' : veoMode
 
-      if (veoMode === 'frames') {
+      s.generationType = VEO_MODE_TO_GENERATION_TYPE[safeMode]
+
+      if (safeMode === 'frames') {
         // [start] или [start, end]
         const frames = [startFrame, endFrame].filter(Boolean)
         if (frames.length) s.imageUrls = frames
-      } else if (veoMode === 'reference') {
+      } else if (safeMode === 'reference') {
         // 1-3 референса
         if (refImages.length) s.referenceImages = refImages.slice(0, 3)
       }
@@ -631,7 +657,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     input, balance, displayedCost, slug, imgUrl,
     duration, aspectRatio, quality, resolution, mode, sound, removeWatermark,
     caps, requiresInputImage, haptic, hapticNotification, generate,
-    isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8,
+    isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -668,7 +694,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const activeBadges = useMemo(() => {
     const badges: { key: string; label: string; accent?: boolean }[] = []
 
-    // 🆕 Veo режим
+    // 🆕 Veo режим (бейдж сверху — табы перенесены в настройки)
     if (isVeo) {
       const modeLabel =
         veoMode === 'text' ? '✍️ Текст' :
@@ -859,7 +885,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   <span className="text-[11px] text-[var(--gray-600)] truncate">
                     {m.provider}
                     {isVeoSlug(m.slug)
-                      ? ' · txt/img/ref'
+                      ? (veoSupportsReference(m.slug) ? ' · txt/img/ref' : ' · txt/img')
                       : (m.slug.includes('img') || m.slug.includes('motion'))
                         ? ' · img2vid'
                         : ' · txt2vid'}
@@ -876,37 +902,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           </div>
         )}
       </div>
-
-      {/* 🆕 ── Veo mode tabs ── */}
-      {isVeo && (
-        <div
-          className="
-            shrink-0 flex items-center gap-1.5
-            px-4 py-2
-            bg-[rgba(8,8,10,0.9)]
-            border-b border-white/[0.04]
-          "
-        >
-          <VeoTab
-            active={veoMode === 'text'}
-            icon={<Type size={13} />}
-            label="Текст"
-            onClick={() => { setVeoMode('text'); haptic('light') }}
-          />
-          <VeoTab
-            active={veoMode === 'frames'}
-            icon={<Film size={13} />}
-            label="Кадры"
-            onClick={() => { setVeoMode('frames'); haptic('light') }}
-          />
-          <VeoTab
-            active={veoMode === 'reference'}
-            icon={<Images size={13} />}
-            label="Референс"
-            onClick={() => { setVeoMode('reference'); haptic('light') }}
-          />
-        </div>
-      )}
 
       {/* ── Results ── */}
       <div
@@ -1065,19 +1060,21 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               </button>
             </div>
 
-            <div className="flex flex-col gap-5 p-5">
-              {/* 🆕 Veo mode (дубль таба в настройках) */}
+                        <div className="flex flex-col gap-5 p-5">
+              {/* 🆕 Veo mode (табы режима — только в настройках) */}
               {isVeo && (
                 <Field label={<><Sparkles size={12} /> Режим Veo</>}>
-                  <Grid cols={3}>
+                  <Grid cols={supportsReference ? 3 : 2}>
                     <OptBtn active={veoMode === 'text'} onClick={() => { setVeoMode('text'); haptic('light') }}>Текст</OptBtn>
                     <OptBtn active={veoMode === 'frames'} onClick={() => { setVeoMode('frames'); haptic('light') }}>Кадры</OptBtn>
-                    <OptBtn active={veoMode === 'reference'} onClick={() => { setVeoMode('reference'); haptic('light') }}>Референс</OptBtn>
+                    {supportsReference && (
+                      <OptBtn active={veoMode === 'reference'} onClick={() => { setVeoMode('reference'); haptic('light') }}>Референс</OptBtn>
+                    )}
                   </Grid>
                 </Field>
               )}
 
-                            {/* Mode */}
+              {/* Mode */}
               {caps.modes.length > 0 && (
                 <Field label={<><Sparkles size={12} /> Режим</>} priceHint>
                   <Grid cols={caps.modes.length === 2 ? 2 : caps.modes.length === 3 ? 3 : 2}>
@@ -1203,8 +1200,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Veo: REFERENCE (1-3 изображения) ─── */}
-              {isVeo && veoMode === 'reference' && (
-                <Field label={<><Images size={12} /> Референсы (1–{caps.maxInputImages || 3})</>}>
+              {isVeo && veoMode === 'reference' && supportsReference && (
+                <Field label={<><Images size={12} /> Референсы (1–{veoMaxRefImages})</>}>
                   <div className="grid grid-cols-3 gap-2">
                     {refImages.map((url, idx) => (
                       <div key={url + idx} className="relative aspect-square rounded-[10px]">
@@ -1229,7 +1226,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                       </div>
                     ))}
 
-                    {refImages.length < (caps.maxInputImages || 3) && (
+                    {refImages.length < veoMaxRefImages && (
                       <button
                         className="
                           aspect-square rounded-[10px]
@@ -1340,7 +1337,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             if (veoMode === 'frames') {
               if (startFrame) chips.push({ url: startFrame, label: 'Старт', onRemove: () => setStartFrame('') })
               if (endFrame) chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
-            } else if (veoMode === 'reference') {
+            } else if (veoMode === 'reference' && supportsReference) {
               refImages.forEach((url, idx) =>
                 chips.push({ url, label: `Реф ${idx + 1}`, onRemove: () => setRefImages((p) => p.filter((_, i) => i !== idx)) }),
               )
@@ -1479,39 +1476,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 /* ─────────────────────────────────────────────────────────────
    Helper components
    ───────────────────────────────────────────────────────────── */
-
-function VeoTab({
-  active,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean
-  icon: React.ReactNode
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      className={`
-        flex-1 flex items-center justify-center gap-1.5
-        py-2 px-2 rounded-[var(--radius-xs)]
-        text-[12px] font-medium
-        border transition-all duration-150
-        cursor-pointer [-webkit-tap-highlight-color:transparent]
-        active:scale-[0.97]
-        ${active
-          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-          : 'bg-white/[0.03] border-white/[0.06] text-[var(--gray-400)]'
-        }
-      `}
-      onClick={onClick}
-    >
-      {icon}
-      {label}
-    </button>
-  )
-}
 
 function FrameSlot({
   label,
