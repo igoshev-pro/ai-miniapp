@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, Send, Check, X, Video, Settings, Wand2,
-  Clock, Maximize2, Zap, Loader2, Upload, Image as ImageIcon,
-  Sparkles, Layers, Volume2, ShieldOff, Film, Images,
+  Clock, Maximize2, Loader2, Upload, Image as ImageIcon,
+  Sparkles, Layers, Volume2, VolumeX, ShieldOff, Film, Images,
+  Type, Rocket, Gauge, Crown,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -31,12 +32,10 @@ const VEO_MODE_TO_GENERATION_TYPE: Record<VeoMode, string> = {
   reference: 'REFERENCE_2_VIDEO',
 }
 
-/* ─── Какие Veo-модели поддерживают режим "Референс" ─── */
-
 const VEO_REFERENCE_SUPPORT: Record<string, boolean> = {
   veo3_lite: true,
   veo3_fast: true,
-  veo3: false, // Quality — без референса
+  veo3: false,
 }
 
 function veoSupportsReference(slug: string): boolean {
@@ -45,22 +44,44 @@ function veoSupportsReference(slug: string): boolean {
 
 /* ─── UI labels ─── */
 
-const AR_L: Record<string, string> = {
-  landscape: '🖥 Пейзаж', portrait: '📱 Портрет',
-  '16:9': '16:9', '9:16': '9:16', '1:1': '1:1',
-  '4:3': '4:3', '3:4': '3:4', '21:9': '21:9', Auto: 'Авто',
+type AROrient = 'landscape' | 'portrait' | 'square' | 'wide'
+
+const AR_META: Record<string, { label: string; orient: AROrient }> = {
+  landscape: { label: 'Пейзаж', orient: 'landscape' },
+  portrait: { label: 'Портрет', orient: 'portrait' },
+  '16:9': { label: '16:9', orient: 'landscape' },
+  '9:16': { label: '9:16', orient: 'portrait' },
+  '1:1': { label: '1:1', orient: 'square' },
+  '4:3': { label: '4:3', orient: 'landscape' },
+  '3:4': { label: '3:4', orient: 'portrait' },
+  '21:9': { label: '21:9', orient: 'wide' },
+  '3:2': { label: '3:2', orient: 'landscape' },
+  '2:3': { label: '2:3', orient: 'portrait' },
+  Auto: { label: 'Авто', orient: 'square' },
 }
 
-const Q_L: Record<string, string> = {
-  '720p': '720p', '1080p': '1080p HD', '4k': '4K Ultra',
-  '768P': '768P', '1080P': '1080P',
-  low: 'Low', medium: 'Medium', high: 'High', auto: 'Авто',
+const RES_META: Record<string, { label: string; sub?: string; tier: number }> = {
+  '720p': { label: '720p', sub: 'HD', tier: 1 },
+  '1080p': { label: '1080p', sub: 'Full HD', tier: 2 },
+  '1080P': { label: '1080p', sub: 'Full HD', tier: 2 },
+  '768P': { label: '768p', sub: 'SD', tier: 1 },
+  '4k': { label: '4K', sub: 'Ultra HD', tier: 3 },
+  '4К': { label: '4K', sub: 'Ultra HD', tier: 3 },
 }
 
-const MODE_L: Record<string, string> = {
-  std: 'Standard', standard: 'Standard',
-  pro: 'Pro', fast: 'Быстрый', turbo: 'Турбо',
-  relax: 'Relax',
+const MODE_META: Record<string, { label: string; icon: typeof Rocket }> = {
+  std: { label: 'Standard', icon: Gauge },
+  standard: { label: 'Standard', icon: Gauge },
+  pro: { label: 'Pro', icon: Crown },
+  fast: { label: 'Быстрый', icon: Rocket },
+  turbo: { label: 'Турбо', icon: Rocket },
+  relax: { label: 'Relax', icon: Gauge },
+}
+
+const VEO_MODE_META: Record<VeoMode, { label: string; icon: typeof Type }> = {
+  text: { label: 'Текст', icon: Type },
+  frames: { label: 'Кадры', icon: Film },
+  reference: { label: 'Референс', icon: Images },
 }
 
 const EXAMPLES = [
@@ -71,13 +92,11 @@ const EXAMPLES = [
   'Футуристический город с летающими машинами, ночь, неон',
 ]
 
-/* ─── Fallback caps (если бэк не отдал uiConfig) ───
-   ⚠️ Синхронизировано с РЕАЛЬНЫМИ slug бэкенд-каталога. */
+/* ─── Fallback caps ─── */
 
 interface FallbackCaps {
   aspectRatios: string[]
   durations: number[]
-  qualities: string[]
   resolutions: string[]
   modes: string[]
   supportsImageInput: boolean
@@ -87,60 +106,53 @@ interface FallbackCaps {
 }
 
 const FALLBACK: Record<string, FallbackCaps> = {
-  // ─── Veo 3.1 (KIE) — slug точно как в каталоге бэка ───
   veo3_lite: {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
-    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 3,
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8],
+    resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 3,
     supportsSound: true, supportsRemoveWatermark: false,
   },
   veo3_fast: {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
-    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 3,
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8],
+    resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 3,
     supportsSound: true, supportsRemoveWatermark: false,
   },
   veo3: {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], qualities: ['720p', '1080p', '4k'],
-    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 2,
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8],
+    resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 2,
     supportsSound: true, supportsRemoveWatermark: false,
   },
-  // ─── Sora 2 ───
   'sora-2': {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], qualities: [],
+    aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
   },
   'sora-2-pro': {
-    aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], qualities: ['720p', '1080p'],
-    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: false, supportsRemoveWatermark: false,
-  },
-  // ─── Kling 3.0 (KIE) ───
-  'kling-3.0': {
-    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10, 15], qualities: [],
-    resolutions: [], modes: ['std', 'pro'], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: true, supportsRemoveWatermark: false,
-  },
-  // ─── Runway ───
-  runway: {
-    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10], qualities: [],
+    aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
   },
-  // ─── Hailuo 02 ───
+  'kling-3.0': {
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10, 15],
+    resolutions: [], modes: ['std', 'pro'], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: true, supportsRemoveWatermark: false,
+  },
+  runway: {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10],
+    resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false,
+  },
   'hailuo-02': {
-    aspectRatios: ['16:9', '9:16', '1:1'], durations: [6, 10], qualities: [],
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [6, 10],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
   },
-  // ─── Wan 2.7 (KIE) ───
   'wan-2.7': {
-    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10], qualities: [],
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,
     supportsSound: true, supportsRemoveWatermark: false,
   },
-  // ─── Seedance ───
   'seedance-1.5-pro': {
-    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], qualities: [],
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false,
   },
@@ -148,7 +160,7 @@ const FALLBACK: Record<string, FallbackCaps> = {
 
 const DEFAULT_FALLBACK: FallbackCaps = {
   aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
-  qualities: [], resolutions: [], modes: [],
+  resolutions: [], modes: [],
   supportsImageInput: false, maxInputImages: 0,
   supportsSound: false, supportsRemoveWatermark: false,
 }
@@ -218,23 +230,20 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   // params
   const [duration, setDuration] = useState<number | undefined>(undefined)
   const [aspectRatio, setAspectRatio] = useState('16:9')
-  const [quality, setQuality] = useState('')
   const [resolution, setResolution] = useState('')
   const [mode, setMode] = useState<string | undefined>(undefined)
   const [sound, setSound] = useState(false)
   const [removeWatermark, setRemoveWatermark] = useState(true)
 
-  // single image (для не-Veo моделей: kling/wan/sora/runway/hailuo)
   const [imgUrl, setImgUrl] = useState('')
 
-  // 🆕 Veo: режим + кадры + референсы
+  // Veo
   const [veoMode, setVeoMode] = useState<VeoMode>('text')
   const [startFrame, setStartFrame] = useState('')
   const [endFrame, setEndFrame] = useState('')
   const [refImages, setRefImages] = useState<string[]>([])
 
   const [uploading, setUploading] = useState(false)
-  // куда загружать: 'single' | 'start' | 'end' | 'ref'
   const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref'>('single')
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
@@ -251,11 +260,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isVeo = isVeoSlug(slug)
   const supportsReference = isVeo && veoSupportsReference(slug)
 
-  /* ── UI config from backend ── */
+  /* ── UI config ── */
 
   const { config: uiConfig, isLoading: isLoadingConfig } = useModelUIConfig(slug)
 
-  /* ── Caps (бэк + fallback) ── */
+  /* ── Caps ── */
 
   const caps = useMemo(() => {
     const fb = FALLBACK[slug] || DEFAULT_FALLBACK
@@ -264,7 +273,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       return {
         aspectRatios: fb.aspectRatios,
         durations: fb.durations,
-        qualities: fb.qualities,
         resolutions: fb.resolutions,
         modes: fb.modes,
         supportsImageInput: fb.supportsImageInput,
@@ -276,7 +284,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     const arBackend = getParamOptions(uiConfig, 'aspectRatio')
     const durBackend = getNumericOptions(uiConfig, 'duration')
-    const qBackend = getParamOptions(uiConfig, 'quality')
     const rBackend = getParamOptions(uiConfig, 'resolution')
     const modeBackend = getParamOptions(uiConfig, 'mode')
     const inputCap = uiConfig.inputCapabilities || {}
@@ -284,7 +291,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     return {
       aspectRatios: arBackend.length ? arBackend : fb.aspectRatios,
       durations:    durBackend.length ? durBackend : fb.durations,
-      qualities:    qBackend.length   ? qBackend   : fb.qualities,
       resolutions:  rBackend.length   ? rBackend   : fb.resolutions,
       modes:        modeBackend.length ? modeBackend : fb.modes,
       supportsImageInput: inputCap.acceptsImages === true || fb.supportsImageInput,
@@ -298,19 +304,18 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [uiConfig, slug])
 
-  // лимит фото для режима "Референс"
-  const veoMaxRefImages = caps.maxInputImages || 3
+  const veoMaxRefImages = (() => {
+    const fbMax = FALLBACK[slug]?.maxInputImages
+    return fbMax && fbMax > 1 ? fbMax : (caps.maxInputImages > 1 ? caps.maxInputImages : 3)
+  })()
 
-  // Для НЕ-Veo: одиночное изображение
   const isI2V = !isVeo && caps.supportsImageInput && caps.maxInputImages > 0
   const requiresInputImage =
     !isVeo &&
     (slug.includes('img2vid') || slug.includes('img2video') || slug === 'kling-3.0-motion')
 
-  // Veo: в режиме reference duration фиксируется на 8
   const veoForcesDuration8 = isVeo && veoMode === 'reference'
 
-  // если режим reference, но модель его не поддерживает — сбросить в text
   useEffect(() => {
     if (isVeo && veoMode === 'reference' && !supportsReference) {
       setVeoMode('text')
@@ -326,12 +331,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       p.duration = veoForcesDuration8 ? 8 : duration
     }
     if (caps.aspectRatios.length > 0 && aspectRatio) p.aspectRatio = aspectRatio
-    if (caps.qualities.length > 0 && quality) p.quality = quality
     if (caps.resolutions.length > 0 && resolution) p.resolution = resolution
     if (caps.supportsSound) p.sound = sound
     if (caps.supportsRemoveWatermark) p.removeWatermark = removeWatermark
 
-    // hasInputImage для расчёта цены
     if (isVeo) {
       const hasImg =
         (veoMode === 'frames' && !!startFrame) ||
@@ -342,7 +345,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
     return p
   }, [
-    mode, duration, aspectRatio, quality, resolution, sound, removeWatermark,
+    mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
   ])
 
@@ -351,7 +354,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     debounceMs: 300,
   })
 
-  /* ── Cached price (без прыжков) ── */
+  /* ── Cached price ── */
 
   const lastPriceRef = useRef<{ cost: number; label?: string; fallback: boolean } | null>(null)
 
@@ -437,26 +440,23 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     initialAppliedRef.current = true
   }, [initialModel, videoModels, slug])
 
-  /* ── Batch reset when caps changed (по slug) ── */
+  /* ── Batch reset when caps changed ── */
 
   useEffect(() => {
     const defAr = getDefault(uiConfig, 'aspectRatio') ?? caps.aspectRatios[0] ?? '16:9'
     const defDurStr = getDefault(uiConfig, 'duration')
     const defDur = defDurStr ? Number(defDurStr) : caps.durations[0]
-    const defQ = getDefault(uiConfig, 'quality') ?? caps.qualities[0] ?? ''
     const defR = getDefault(uiConfig, 'resolution') ?? caps.resolutions[0] ?? ''
     const defMode = getDefault(uiConfig, 'mode') ?? caps.modes[0]
 
     setAspectRatio(defAr)
     setDuration(defDur)
-    setQuality(defQ)
     setResolution(defR)
     setMode(defMode)
     setSound(false)
     setRemoveWatermark(true)
     setImgUrl('')
 
-    // 🆕 сброс Veo-специфики
     setVeoMode('text')
     setStartFrame('')
     setEndFrame('')
@@ -466,7 +466,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig, slug])
 
-  // 🆕 При переключении в reference — форсим duration=8
   useEffect(() => {
     if (veoForcesDuration8) setDuration(8)
   }, [veoForcesDuration8])
@@ -490,7 +489,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight
   }, [vidGens.length])
 
-    /* ── Upload ── */
+  /* ── Upload ── */
 
   const upload = useCallback(
     async (file: File) => {
@@ -517,17 +516,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         const url = d.data?.url || d.url
         if (!url) throw new Error('No URL')
 
-        // распределяем по целевому слоту
         const target = uploadTarget.current
         if (target === 'single') {
           setImgUrl(url)
         } else if (target === 'start') {
           setStartFrame(url)
         } else if (target === 'end') {
-          setEndFrame(url)
+                    setEndFrame(url)
         } else if (target === 'ref') {
           setRefImages((prev) => {
-            const max = caps.maxInputImages || 3
+            const fbMax = FALLBACK[slug]?.maxInputImages
+            const max = fbMax && fbMax > 1 ? fbMax : (caps.maxInputImages > 1 ? caps.maxInputImages : 3)
             if (prev.length >= max) return prev
             return [...prev, url]
           })
@@ -541,7 +540,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         setUploading(false)
       }
     },
-    [haptic, caps.maxInputImages],
+    [haptic, caps.maxInputImages, slug],
   )
 
   const triggerUpload = useCallback(
@@ -575,7 +574,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     const prompt = input.trim()
     if (!prompt) return
 
-    // ── Валидация входных изображений ──
     if (isVeo) {
       if (veoMode === 'frames' && !startFrame) {
         toast.warning('Загрузите стартовый кадр')
@@ -601,7 +599,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     const s: Record<string, unknown> = {}
 
-    // ── duration: kie-модели (kling/wan) ждут строку, veo/sora — число ──
     if (caps.durations.length && duration !== undefined) {
       const dur = veoForcesDuration8 ? 8 : duration
       const isKieStr = slug.startsWith('kling') || slug.startsWith('wan')
@@ -610,13 +607,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
 
-    // ── Разрешение/качество ──
-    if (caps.qualities.length && quality) s.quality = quality
+    // ── Разрешение ──
     if (caps.resolutions.length && resolution) s.resolution = resolution
 
     if (caps.modes.length && mode) s.mode = mode
 
-    // ── Звук: Veo ждёт generateAudio, остальные — sound ──
     if (caps.supportsSound) {
       s.sound = sound
       if (isVeo) s.generateAudio = sound
@@ -624,25 +619,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     if (caps.supportsRemoveWatermark) s.removeWatermark = removeWatermark
 
-    // ── Входные изображения ──
     if (isVeo) {
-      // защита: если модель не поддерживает reference — принудительно text
       const safeMode: VeoMode =
         veoMode === 'reference' && !supportsReference ? 'text' : veoMode
 
       s.generationType = VEO_MODE_TO_GENERATION_TYPE[safeMode]
 
       if (safeMode === 'frames') {
-        // [start] или [start, end]
         const frames = [startFrame, endFrame].filter(Boolean)
         if (frames.length) s.imageUrls = frames
       } else if (safeMode === 'reference') {
-        // 1-3 референса
-        if (refImages.length) s.referenceImages = refImages.slice(0, 3)
+        if (refImages.length) s.referenceImages = refImages.slice(0, veoMaxRefImages)
       }
-      // text → ничего не шлём
     } else {
-      // обычные i2v модели — одиночное изображение
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
     }
 
@@ -655,9 +644,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [
     input, balance, displayedCost, slug, imgUrl,
-    duration, aspectRatio, quality, resolution, mode, sound, removeWatermark,
+    duration, aspectRatio, resolution, mode, sound, removeWatermark,
     caps, requiresInputImage, haptic, hapticNotification, generate,
     isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
+    veoMaxRefImages,
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -682,7 +672,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const hasResults = vidGens.length > 0
 
-  // Кнопка генерации заблокирована?
   const genDisabled =
     !input.trim() ||
     generating ||
@@ -690,32 +679,26 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     (isVeo && veoMode === 'reference' && refImages.length === 0) ||
     (!isVeo && requiresInputImage && !imgUrl)
 
-  // Бейджики для строки модели
+  /* ── Badges ── */
+
   const activeBadges = useMemo(() => {
     const badges: { key: string; label: string; accent?: boolean }[] = []
 
-    // 🆕 Veo режим (бейдж сверху — табы перенесены в настройки)
     if (isVeo) {
-      const modeLabel =
-        veoMode === 'text' ? '✍️ Текст' :
-        veoMode === 'frames' ? '🎞 Кадры' : '🖼 Референс'
-      badges.push({ key: 'veomode', label: modeLabel, accent: veoMode !== 'text' })
+      const m = VEO_MODE_META[veoMode]
+      badges.push({ key: 'veomode', label: m.label, accent: veoMode !== 'text' })
     }
-
     if (caps.modes.length > 0 && mode) {
-      badges.push({ key: 'mode', label: MODE_L[mode] || mode, accent: true })
+      badges.push({ key: 'mode', label: MODE_META[mode]?.label || mode, accent: true })
     }
     if (caps.durations.length > 0 && duration !== undefined) {
       badges.push({ key: 'dur', label: `${veoForcesDuration8 ? 8 : duration} сек` })
     }
     if (caps.aspectRatios.length > 0 && aspectRatio) {
-      badges.push({ key: 'ar', label: AR_L[aspectRatio] || aspectRatio })
-    }
-    if (caps.qualities.length > 0 && quality) {
-      badges.push({ key: 'q', label: Q_L[quality] || quality })
+      badges.push({ key: 'ar', label: AR_META[aspectRatio]?.label || aspectRatio })
     }
     if (caps.resolutions.length > 0 && resolution) {
-      badges.push({ key: 'res', label: resolution })
+      badges.push({ key: 'res', label: RES_META[resolution]?.label || resolution })
     }
     if (caps.supportsSound) {
       badges.push({ key: 'sound', label: sound ? '🔊' : '🔇', accent: sound })
@@ -729,7 +712,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
     return badges
   }, [
-    caps, mode, duration, aspectRatio, quality, resolution, sound, isI2V, imgUrl,
+    caps, mode, duration, aspectRatio, resolution, sound, isI2V, imgUrl,
     isVeo, veoMode, veoForcesDuration8,
   ])
 
@@ -1060,16 +1043,24 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               </button>
             </div>
 
-                        <div className="flex flex-col gap-5 p-5">
-              {/* 🆕 Veo mode (табы режима — только в настройках) */}
+            <div className="flex flex-col gap-5 p-5">
+              {/* Veo mode */}
               {isVeo && (
                 <Field label={<><Sparkles size={12} /> Режим Veo</>}>
                   <Grid cols={supportsReference ? 3 : 2}>
-                    <OptBtn active={veoMode === 'text'} onClick={() => { setVeoMode('text'); haptic('light') }}>Текст</OptBtn>
-                    <OptBtn active={veoMode === 'frames'} onClick={() => { setVeoMode('frames'); haptic('light') }}>Кадры</OptBtn>
-                    {supportsReference && (
-                      <OptBtn active={veoMode === 'reference'} onClick={() => { setVeoMode('reference'); haptic('light') }}>Референс</OptBtn>
-                    )}
+                    {(['text', 'frames', ...(supportsReference ? ['reference'] : [])] as VeoMode[]).map((vm) => {
+                      const meta = VEO_MODE_META[vm]
+                      const Icon = meta.icon
+                      return (
+                        <IconOptBtn
+                          key={vm}
+                          active={veoMode === vm}
+                          icon={<Icon size={16} strokeWidth={2} />}
+                          label={meta.label}
+                          onClick={() => { setVeoMode(vm); haptic('light') }}
+                        />
+                      )
+                    })}
                   </Grid>
                 </Field>
               )}
@@ -1077,17 +1068,25 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               {/* Mode */}
               {caps.modes.length > 0 && (
                 <Field label={<><Sparkles size={12} /> Режим</>} priceHint>
-                  <Grid cols={caps.modes.length === 2 ? 2 : caps.modes.length === 3 ? 3 : 2}>
-                    {caps.modes.map((m) => (
-                      <OptBtn key={m} active={mode === m} onClick={() => { setMode(m); haptic('light') }}>
-                        {MODE_L[m] || m}
-                      </OptBtn>
-                    ))}
+                  <Grid cols={caps.modes.length <= 3 ? caps.modes.length : 2}>
+                    {caps.modes.map((m) => {
+                      const meta = MODE_META[m]
+                      const Icon = meta?.icon || Gauge
+                      return (
+                        <IconOptBtn
+                          key={m}
+                          active={mode === m}
+                          icon={<Icon size={16} strokeWidth={2} />}
+                          label={meta?.label || m}
+                          onClick={() => { setMode(m); haptic('light') }}
+                        />
+                      )
+                    })}
                   </Grid>
                 </Field>
               )}
 
-              {/* Duration */}
+              {/* Duration — slider */}
               {caps.durations.length > 0 && (
                 <Field label={<><Clock size={12} /> Длительность</>} priceHint>
                   {veoForcesDuration8 ? (
@@ -1095,39 +1094,31 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                       В режиме «Референс» длительность фиксирована — <b className="text-white/60">8 сек</b>
                     </div>
                   ) : (
-                    <Grid cols={caps.durations.length <= 3 ? caps.durations.length : 3}>
-                      {caps.durations.map((d) => (
-                        <OptBtn key={d} active={duration === d} onClick={() => { setDuration(d); haptic('light') }}>
-                          {d} сек
-                        </OptBtn>
-                      ))}
-                    </Grid>
+                    <DurationSlider
+                      values={caps.durations}
+                      value={duration ?? caps.durations[0]}
+                      onChange={(v) => { setDuration(v); haptic('light') }}
+                    />
                   )}
                 </Field>
               )}
 
-              {/* Aspect Ratio */}
+                            {/* Aspect Ratio */}
               {caps.aspectRatios.length > 0 && (
                 <Field label={<><Maximize2 size={12} /> Соотношение сторон</>}>
-                  <Grid cols={3}>
-                    {caps.aspectRatios.map((a) => (
-                      <OptBtn key={a} active={aspectRatio === a} onClick={() => { setAspectRatio(a); haptic('light') }}>
-                        {AR_L[a] || a}
-                      </OptBtn>
-                    ))}
-                  </Grid>
-                </Field>
-              )}
-
-              {/* Quality */}
-              {caps.qualities.length > 0 && (
-                <Field label={<><Zap size={12} /> Качество</>} priceHint>
-                  <Grid cols={caps.qualities.length <= 3 ? caps.qualities.length : 3}>
-                    {caps.qualities.map((q) => (
-                      <OptBtn key={q} active={quality === q} onClick={() => { setQuality(q); haptic('light') }}>
-                        {Q_L[q] || q}
-                      </OptBtn>
-                    ))}
+                  <Grid cols={caps.aspectRatios.length <= 3 ? caps.aspectRatios.length : 4}>
+                    {caps.aspectRatios.map((a) => {
+                      const meta = AR_META[a] || { label: a, orient: 'landscape' as AROrient }
+                      return (
+                        <AROptBtn
+                          key={a}
+                          active={aspectRatio === a}
+                          orient={meta.orient}
+                          label={meta.label}
+                          onClick={() => { setAspectRatio(a); haptic('light') }}
+                        />
+                      )
+                    })}
                   </Grid>
                 </Field>
               )}
@@ -1136,11 +1127,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               {caps.resolutions.length > 0 && (
                 <Field label={<><Layers size={12} /> Разрешение</>} priceHint>
                   <Grid cols={caps.resolutions.length <= 3 ? caps.resolutions.length : 3}>
-                    {caps.resolutions.map((r) => (
-                      <OptBtn key={r} active={resolution === r} onClick={() => { setResolution(r); haptic('light') }}>
-                        {r}
-                      </OptBtn>
-                    ))}
+                    {caps.resolutions.map((r) => {
+                      const meta = RES_META[r] || { label: r, tier: 1 }
+                      return (
+                        <ResOptBtn
+                          key={r}
+                          active={resolution === r}
+                          label={meta.label}
+                          sub={meta.sub}
+                          tier={meta.tier}
+                          onClick={() => { setResolution(r); haptic('light') }}
+                        />
+                      )
+                    })}
                   </Grid>
                 </Field>
               )}
@@ -1148,10 +1147,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               {/* Sound */}
               {caps.supportsSound && (
                 <Field label={<><Volume2 size={12} /> Звук</>}>
-                  <Grid cols={2}>
-                    <OptBtn active={sound} onClick={() => { setSound(true); haptic('light') }}>Включить</OptBtn>
-                    <OptBtn active={!sound} onClick={() => { setSound(false); haptic('light') }}>Выключить</OptBtn>
-                  </Grid>
+                  <ToggleRow
+                    active={sound}
+                    onLabel={<><Volume2 size={14} /> Включён</>}
+                    offLabel={<><VolumeX size={14} /> Выключен</>}
+                    onChange={(v) => { setSound(v); haptic('light') }}
+                  />
                 </Field>
               )}
 
@@ -1172,11 +1173,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </div>
               )}
 
-              {/* ─── Veo: FRAMES (старт + конец) ─── */}
+              {/* ─── Veo: FRAMES ─── */}
               {isVeo && veoMode === 'frames' && (
                 <Field label={<><Film size={12} /> Кадры (старт → конец)</>}>
                   <div className="grid grid-cols-2 gap-2.5">
-                    {/* Start frame */}
                     <FrameSlot
                       label="Старт"
                       url={startFrame}
@@ -1184,7 +1184,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                       onUpload={() => triggerUpload('start')}
                       onRemove={() => setStartFrame('')}
                     />
-                    {/* End frame (опционально) */}
                     <FrameSlot
                       label="Конец (опц.)"
                       url={endFrame}
@@ -1199,7 +1198,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* ─── Veo: REFERENCE (1-3 изображения) ─── */}
+              {/* ─── Veo: REFERENCE ─── */}
               {isVeo && veoMode === 'reference' && supportsReference && (
                 <Field label={<><Images size={12} /> Референсы (1–{veoMaxRefImages})</>}>
                   <div className="grid grid-cols-3 gap-2">
@@ -1253,7 +1252,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* ─── Обычные модели: одиночное входное изображение ─── */}
+              {/* ─── Обычные модели: одиночное изображение ─── */}
               {!isVeo && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
@@ -1331,7 +1330,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       >
         {/* Превью прикреплённых изображений */}
         {(() => {
-          // что показывать в чипах над инпутом
           const chips: { url: string; label: string; onRemove: () => void }[] = []
           if (isVeo) {
             if (veoMode === 'frames') {
@@ -1384,7 +1382,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         })()}
 
         <div className="flex items-center gap-2">
-          {/* Кнопка загрузки (быстрый доступ) */}
+          {/* Кнопка загрузки */}
           {((isVeo && veoMode !== 'text') || (!isVeo && caps.supportsImageInput)) && (
             <button
               className={`
@@ -1602,5 +1600,194 @@ function OptBtn({
     >
       {children}
     </button>
+  )
+}
+
+/* ─── Иконка + подпись (режимы) ─── */
+function IconOptBtn({ active, icon, label, onClick }: {
+  active: boolean; icon: React.ReactNode; label: string; onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center gap-1.5 py-2.5 px-2
+        rounded-[var(--radius-xs)] border text-[12px] font-medium
+        cursor-pointer transition-all duration-150 active:scale-[0.96]
+        ${active
+          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  )
+}
+
+/* ─── Aspect ratio (прямоугольник) ─── */
+function AROptBtn({ active, orient, label, onClick }: {
+  active: boolean; orient: AROrient; label: string; onClick: () => void
+}) {
+  const box =
+    orient === 'portrait' ? 'w-[16px] h-[24px]' :
+    orient === 'square'   ? 'w-[20px] h-[20px]' :
+    orient === 'wide'     ? 'w-[28px] h-[12px]' :
+                            'w-[26px] h-[16px]'
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center gap-1.5 py-2.5 px-2
+        rounded-[var(--radius-xs)] border text-[11px] font-medium
+        cursor-pointer transition-all duration-150 active:scale-[0.96]
+        ${active
+          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
+    >
+      <span className={`${box} rounded-[3px] border-[1.5px] transition-colors
+        ${active ? 'border-[var(--accent-yellow)]' : 'border-white/30'}`} />
+      <span>{label}</span>
+    </button>
+  )
+}
+
+/* ─── Resolution (с подписью и индикатором уровня) ─── */
+function ResOptBtn({ active, label, sub, tier, onClick }: {
+  active: boolean; label: string; sub?: string; tier: number; onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center gap-1 py-2.5 px-2
+        rounded-[var(--radius-xs)] border cursor-pointer
+        transition-all duration-150 active:scale-[0.96]
+        ${active
+          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
+    >
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3].map((i) => (
+          <span key={i} className={`w-1 rounded-full transition-all
+            ${i <= tier
+              ? (active ? 'bg-[var(--accent-yellow)]' : 'bg-white/40')
+              : 'bg-white/10'}`}
+            style={{ height: `${5 + i * 3}px` }} />
+        ))}
+      </div>
+      <span className="text-[12px] font-semibold leading-none">{label}</span>
+      {sub && <span className="text-[9px] text-white/40 leading-none">{sub}</span>}
+    </button>
+  )
+}
+
+/* ─── Sound toggle ─── */
+function ToggleRow({ active, onLabel, offLabel, onChange }: {
+  active: boolean
+  onLabel: React.ReactNode
+  offLabel: React.ReactNode
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      <button
+        onClick={() => onChange(true)}
+        className={`flex items-center justify-center gap-1.5 py-2 px-2.5
+          rounded-[var(--radius-xs)] border text-[12px] font-medium
+          cursor-pointer transition-all duration-150 active:scale-[0.96]
+                    ${active
+            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
+      >
+        {onLabel}
+      </button>
+      <button
+        onClick={() => onChange(false)}
+        className={`flex items-center justify-center gap-1.5 py-2 px-2.5
+          rounded-[var(--radius-xs)] border text-[12px] font-medium
+          cursor-pointer transition-all duration-150 active:scale-[0.96]
+          ${!active
+            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
+      >
+        {offLabel}
+      </button>
+    </div>
+  )
+}
+
+/* ─── Duration slider (универсальный под любой массив значений) ─── */
+function DurationSlider({ values, value, onChange }: {
+  values: number[]
+  value: number
+  onChange: (v: number) => void
+}) {
+  const sorted = useMemo(() => [...values].sort((a, b) => a - b), [values])
+  const max = sorted.length - 1
+  const idx = Math.max(0, sorted.indexOf(value) === -1 ? 0 : sorted.indexOf(value))
+  const pct = max === 0 ? 0 : (idx / max) * 100
+
+  return (
+    <div className="flex flex-col gap-2.5 px-1 pt-1">
+      <div className="flex items-baseline justify-center gap-1">
+        <span className="text-[var(--accent-yellow)] text-[20px] font-bold leading-none">
+          {sorted[idx]}
+        </span>
+        <span className="text-white/40 text-[12px]">секунд</span>
+      </div>
+
+      <div className="relative h-9 flex items-center">
+        {/* track */}
+        <div className="absolute left-0 right-0 h-1.5 rounded-full bg-white/[0.08]" />
+        {/* fill */}
+        <div
+          className="absolute left-0 h-1.5 rounded-full bg-[var(--accent-yellow)] transition-all duration-150"
+          style={{ width: `${pct}%` }}
+        />
+
+        {/* tick marks */}
+        <div className="absolute left-0 right-0 flex justify-between px-0 pointer-events-none">
+          {sorted.map((_, i) => (
+            <span
+              key={i}
+              className={`w-1.5 h-1.5 rounded-full transition-colors duration-150
+                ${i <= idx ? 'bg-[var(--accent-yellow)]' : 'bg-white/20'}`}
+            />
+          ))}
+        </div>
+
+        {/* thumb */}
+        <div
+          className="absolute w-5 h-5 rounded-full bg-[var(--accent-yellow)]
+            shadow-[0_0_0_4px_rgba(250,204,21,0.15)] -translate-x-1/2 transition-all duration-150
+            pointer-events-none"
+          style={{ left: `${pct}%` }}
+        />
+
+        {/* native range (прозрачный, ловит инпут) */}
+        <input
+          type="range"
+          min={0}
+          max={max}
+          step={1}
+          value={idx}
+          onChange={(e) => onChange(sorted[Number(e.target.value)])}
+          className="absolute left-0 right-0 w-full h-9 opacity-0 cursor-pointer m-0 p-0"
+          aria-label="Длительность"
+        />
+      </div>
+
+      {/* подписи значений под шкалой */}
+      <div className="flex justify-between px-0">
+        {sorted.map((v) => (
+          <button
+            key={v}
+            onClick={() => onChange(v)}
+            className={`text-[11px] font-medium tabular-nums transition-colors duration-150
+              cursor-pointer bg-transparent border-none p-0
+              ${v === sorted[idx] ? 'text-[var(--accent-yellow)]' : 'text-white/35'}`}
+          >
+            {v}с
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
