@@ -489,10 +489,28 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px'
   }, [input])
 
+    // Скролл к последнему при изменении списка
   useEffect(() => {
     const el = resultsContainerRef.current
     if (!el) return
     if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight
+  }, [vidGens.length])
+
+  // Скролл к последнему при первом открытии страницы
+  const didInitialScrollRef = useRef(false)
+  useEffect(() => {
+    if (didInitialScrollRef.current) return
+    if (vidGens.length === 0) return
+
+    // Ждём пока DOM отрисуется
+    const id = setTimeout(() => {
+      const el = resultsContainerRef.current
+      if (!el) return
+      el.scrollTop = el.scrollHeight
+      didInitialScrollRef.current = true
+    }, 100)
+
+    return () => clearTimeout(id)
   }, [vidGens.length])
 
   /* ── Upload ── */
