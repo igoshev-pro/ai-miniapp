@@ -1,3 +1,4 @@
+// src/hooks/useUser.ts
 'use client'
 
 import { useCallback } from 'react'
@@ -15,6 +16,7 @@ export function useUser() {
   const refetch = useCallback(async () => {
     try {
       const res = await apiClient.get<UserMeResponse>(ENDPOINTS.USER_ME)
+      // setUser пересчитывает totalBalance включая cashbackBalance
       setUser(res.data.data)
     } catch (e) {
       console.error('[useUser] refetch failed:', e)
@@ -24,7 +26,13 @@ export function useUser() {
   const refreshBalance = useCallback(async () => {
     try {
       const res = await apiClient.get<UserMeResponse>(ENDPOINTS.USER_ME)
-      updateBalance(res.data.data.tokenBalance, res.data.data.bonusTokens)
+      const d = res.data.data
+      // ✅ Передаём все три кошелька чтобы totalBalance был точным
+      updateBalance(
+        d.tokenBalance,
+        d.bonusTokens,
+        d.cashbackBalance ?? 0,
+      )
     } catch (e) {
       console.error('[useUser] balance refresh failed:', e)
     }
@@ -33,10 +41,17 @@ export function useUser() {
   return {
     user,
     isLoaded,
+    // totalBalance в сторе уже включает tokenBalance + bonusTokens + cashbackBalance
     balance: user?.totalBalance ?? 0,
     tokenBalance: user?.tokenBalance ?? 0,
     bonusTokens: user?.bonusTokens ?? 0,
-    subscription: user?.subscription ?? { plan: 'free' as const, expiresAt: null, isActive: false },
+    // ✅ Добавляем cashbackBalance для компонентов которые хотят показать отдельно
+    cashbackBalance: user?.cashbackBalance ?? 0,
+    subscription: user?.subscription ?? {
+      plan: 'free' as const,
+      expiresAt: null,
+      isActive: false,
+    },
     referralCode: user?.referralCode ?? '',
     refetch,
     refreshBalance,

@@ -677,20 +677,28 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           }
           store.addMessage(assistantMessage)
           store.resetStreaming()
-          if (data.tokensUsed) {
-            const userState = useUserStore.getState()
-            if (userState.user) {
-              const newBonus = Math.max(
-                0,
-                userState.user.bonusTokens - data.tokensUsed,
+          // ✅ Используем точные балансы с сервера
+          const userState = useUserStore.getState()
+          if (userState.user) {
+            if (
+              data.newTokenBalance !== undefined ||
+              data.newBonusTokens !== undefined ||
+              data.newCashbackBalance !== undefined
+            ) {
+              // Сервер вернул актуальные балансы — используем их напрямую
+              userState.updateBalance(
+                data.newTokenBalance ?? userState.user.tokenBalance,
+                data.newBonusTokens ?? userState.user.bonusTokens,
+                data.newCashbackBalance ?? userState.user.cashbackBalance,
               )
+            } else if (data.tokensUsed) {
+              // Fallback: сервер не вернул балансы — клиентский расчёт
+              // (не учитывает cashback-приоритет, но лучше чем ничего)
+              const newBonus = Math.max(0, userState.user.bonusTokens - data.tokensUsed)
               const usedFromBonus = userState.user.bonusTokens - newBonus
               const usedFromMain = data.tokensUsed - usedFromBonus
-              const newMain = Math.max(
-                0,
-                userState.user.tokenBalance - usedFromMain,
-              )
-              userState.updateBalance(newMain, newBonus)
+              const newMain = Math.max(0, userState.user.tokenBalance - usedFromMain)
+              userState.updateBalance(newMain, newBonus, userState.user.cashbackBalance)
             }
           }
           hapticNotification('success')

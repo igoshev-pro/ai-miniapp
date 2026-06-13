@@ -1,3 +1,5 @@
+// src/lib/api/sse.ts
+
 import { useAuthStore } from '@/stores/auth.store'
 
 /**
@@ -15,7 +17,14 @@ import { useAuthStore } from '@/stores/auth.store'
  *   data: {"content":"chunk"}
  *
  *   event: message_end
- *   data: {"messageId":"...","usage":{...},"tokensCost":3}
+ *   data: {
+ *     "messageId":"...",
+ *     "usage":{...},
+ *     "tokensCost":3,
+ *     "newTokenBalance":47,   ← актуальный баланс с сервера после списания
+ *     "newBonusTokens":0,
+ *     "newCashbackBalance":5
+ *   }
  *
  *   event: error
  *   data: {"message":"..."}
@@ -32,6 +41,12 @@ export interface SSECallbacks {
     messageId: string
     tokensUsed?: number
     usage?: Record<string, number>
+    // ✅ Актуальные балансы с сервера — присутствуют только при успешной генерации.
+    // Если undefined — сервер не смог прочитать баланс (редкий случай),
+    // фронт должен сделать отдельный запрос /users/me или пропустить обновление.
+    newTokenBalance?: number
+    newBonusTokens?: number
+    newCashbackBalance?: number
   }) => void
   onError: (error: string) => void
 }
@@ -48,7 +63,7 @@ export interface SSERequest {
   modelSlug: string
   content: string
   imageUrls?: string[]
-  attachments?: ChatAttachment[]   // 🆕
+  attachments?: ChatAttachment[]
   systemPrompt?: string
   temperature?: number
   maxTokens?: number
@@ -61,7 +76,8 @@ export function streamChat(
   const controller = new AbortController()
   const baseUrl =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
-  // ✅ Токен из Zustand-стора (persist)
+
+  // Токен из Zustand-стора (persist) — безопасно вызывать вне React
   const token = useAuthStore.getState().token
 
   fetch(`${baseUrl}/chat/stream`, {
@@ -121,6 +137,7 @@ export function streamChat(
           const trimmed = line.trim()
 
           if (!trimmed) {
+            // Пустая строка = конец SSE-события, сбрасываем тип
             currentEvent = ''
             continue
           }
@@ -156,6 +173,11 @@ export function streamChat(
                     messageId: data.messageId || messageId,
                     tokensUsed: data.tokensCost || data.usage?.totalTokens,
                     usage: data.usage,
+                    // ✅ Пробрасываем актуальные балансы с сервера.
+                    // Могут быть undefined если сервер не смог прочитать (сеть, БД).
+                    newTokenBalance: data.newTokenBalance,
+                    newBonusTokens: data.newBonusTokens,
+                    newCashbackBalance: data.newCashbackBalance,
                   })
                   return
 
@@ -167,7 +189,7 @@ export function streamChat(
                   return
 
                 default:
-                  // Fallback: legacy format
+                  // Fallback: legacy формат без named events
                   if (data.type === 'token') {
                     callbacks.onToken(data.content || '')
                   } else if (data.type === 'done') {
@@ -183,7 +205,7 @@ export function streamChat(
                   break
               }
             } catch {
-              // Некорректный JSON — пропускаем
+              // Некорректный JSON — пропускаем чанк
             }
           }
         }
