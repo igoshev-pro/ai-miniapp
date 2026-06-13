@@ -5,7 +5,7 @@ import {
   ChevronDown, Send, Check, X, Video, Settings, Wand2,
   Clock, Maximize2, Loader2, Upload, Image as ImageIcon,
   Sparkles, Layers, Volume2, VolumeX, ShieldOff, Film, Images,
-  Type, Rocket, Gauge, Crown,
+  Type, Rocket, Gauge, Crown, Scissors,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -103,58 +103,59 @@ interface FallbackCaps {
   maxInputImages: number
   supportsSound: boolean
   supportsRemoveWatermark: boolean
+  supportsResizeMode: boolean
 }
 
 const FALLBACK: Record<string, FallbackCaps> = {
   veo3_lite: {
     aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8],
     resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 3,
-    supportsSound: true, supportsRemoveWatermark: false,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   veo3_fast: {
     aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8],
     resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 3,
-    supportsSound: true, supportsRemoveWatermark: false,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   veo3: {
     aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8],
     resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 2,
-    supportsSound: true, supportsRemoveWatermark: false,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'sora-2': {
     aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: false, supportsRemoveWatermark: false,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: true,
   },
   'sora-2-pro': {
     aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: false, supportsRemoveWatermark: false,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: true,
   },
   'kling-3.0': {
     aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10, 15],
     resolutions: [], modes: ['std', 'pro'], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: true, supportsRemoveWatermark: false,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   runway: {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: false, supportsRemoveWatermark: false,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'hailuo-02': {
     aspectRatios: ['16:9', '9:16', '1:1'], durations: [6, 10],
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: false, supportsRemoveWatermark: false,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'wan-2.7': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,
-    supportsSound: true, supportsRemoveWatermark: false,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'seedance-1.5-pro': {
     aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: false, supportsRemoveWatermark: false,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
 }
 
@@ -162,7 +163,7 @@ const DEFAULT_FALLBACK: FallbackCaps = {
   aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
   resolutions: [], modes: [],
   supportsImageInput: false, maxInputImages: 0,
-  supportsSound: false, supportsRemoveWatermark: false,
+  supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
 }
 
 /* ─── Helpers ─── */
@@ -234,6 +235,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [mode, setMode] = useState<string | undefined>(undefined)
   const [sound, setSound] = useState(false)
   const [removeWatermark, setRemoveWatermark] = useState(true)
+  const [resizeMode, setResizeMode] = useState<'crop' | 'pad'>('crop')
 
   const [imgUrl, setImgUrl] = useState('')
 
@@ -279,6 +281,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         maxInputImages: fb.maxInputImages,
         supportsSound: fb.supportsSound,
         supportsRemoveWatermark: fb.supportsRemoveWatermark,
+        supportsResizeMode: fb.supportsResizeMode,
       }
     }
 
@@ -301,6 +304,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         fb.supportsSound,
       supportsRemoveWatermark:
         hasParam(uiConfig, 'removeWatermark') || fb.supportsRemoveWatermark,
+      // Показываем resizeMode ТОЛЬКО если параметр явно есть в uiParameters модели
+      supportsResizeMode: hasParam(uiConfig, 'resizeMode'),
     }
   }, [uiConfig, slug])
 
@@ -455,6 +460,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setMode(defMode)
     setSound(false)
     setRemoveWatermark(true)
+    setResizeMode('crop')
     setImgUrl('')
 
     setVeoMode('text')
@@ -522,7 +528,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         } else if (target === 'start') {
           setStartFrame(url)
         } else if (target === 'end') {
-                    setEndFrame(url)
+          setEndFrame(url)
         } else if (target === 'ref') {
           setRefImages((prev) => {
             const fbMax = FALLBACK[slug]?.maxInputImages
@@ -607,7 +613,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
 
-    // ── Разрешение ──
     if (caps.resolutions.length && resolution) s.resolution = resolution
 
     if (caps.modes.length && mode) s.mode = mode
@@ -633,6 +638,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
+      // resizeMode передаём только если модель поддерживает и есть изображение
+      if (caps.supportsResizeMode && imgUrl) s.resizeMode = resizeMode
     }
 
     const ok = await generate({ type: 'video', model: slug, prompt, settings: s })
@@ -644,7 +651,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [
     input, balance, displayedCost, slug, imgUrl,
-    duration, aspectRatio, resolution, mode, sound, removeWatermark,
+    duration, aspectRatio, resolution, mode, sound, removeWatermark, resizeMode,
     caps, requiresInputImage, haptic, hapticNotification, generate,
     isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
     veoMaxRefImages,
@@ -681,7 +688,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   /* ── Badges ── */
 
-  const activeBadges = useMemo(() => {
+    const activeBadges = useMemo(() => {
     const badges: { key: string; label: string; accent?: boolean }[] = []
 
     if (isVeo) {
@@ -710,10 +717,18 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         accent: !!imgUrl,
       })
     }
+    // Бейдж resizeMode — только если модель поддерживает и есть изображение
+    if (caps.supportsResizeMode && imgUrl) {
+      badges.push({
+        key: 'resize',
+        label: resizeMode === 'crop' ? '✂️ Crop' : '🔲 Pad',
+        accent: resizeMode === 'pad',
+      })
+    }
     return badges
   }, [
     caps, mode, duration, aspectRatio, resolution, sound, isI2V, imgUrl,
-    isVeo, veoMode, veoForcesDuration8,
+    isVeo, veoMode, veoForcesDuration8, resizeMode,
   ])
 
   const getGenCost = (gen: any): number | undefined => {
@@ -1044,6 +1059,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             </div>
 
             <div className="flex flex-col gap-5 p-5">
+
               {/* Veo mode */}
               {isVeo && (
                 <Field label={<><Sparkles size={12} /> Режим Veo</>}>
@@ -1086,7 +1102,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* Duration — slider */}
+              {/* Duration */}
               {caps.durations.length > 0 && (
                 <Field label={<><Clock size={12} /> Длительность</>} priceHint>
                   {veoForcesDuration8 ? (
@@ -1103,7 +1119,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-                            {/* Aspect Ratio */}
+              {/* Aspect Ratio */}
               {caps.aspectRatios.length > 0 && (
                 <Field label={<><Maximize2 size={12} /> Соотношение сторон</>}>
                   <Grid cols={caps.aspectRatios.length <= 3 ? caps.aspectRatios.length : 4}>
@@ -1298,6 +1314,30 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   </div>
                 </Field>
               )}
+
+              {/* ─── Resize Mode — только если модель поддерживает (есть в uiParameters) и загружено фото ─── */}
+              {caps.supportsResizeMode && imgUrl && (
+                <Field label={<><Scissors size={12} /> Вписывание фото</>}>
+                  <Grid cols={2}>
+                    <OptBtn
+                      active={resizeMode === 'crop'}
+                      onClick={() => { setResizeMode('crop'); haptic('light') }}
+                    >
+                      ✂️ Обрезать
+                    </OptBtn>
+                    <OptBtn
+                      active={resizeMode === 'pad'}
+                      onClick={() => { setResizeMode('pad'); haptic('light') }}
+                    >
+                      🔲 С полями
+                    </OptBtn>
+                  </Grid>
+                  <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                    Crop — обрезает края под формат. Pad — добавляет поля по бокам.
+                  </div>
+                </Field>
+              )}
+
             </div>
           </div>
         </>
@@ -1328,7 +1368,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
       >
-        {/* Превью прикреплённых изображений */}
+                {/* Превью прикреплённых изображений */}
         {(() => {
           const chips: { url: string; label: string; onRemove: () => void }[] = []
           if (isVeo) {
@@ -1692,7 +1732,7 @@ function ToggleRow({ active, onLabel, offLabel, onChange }: {
         className={`flex items-center justify-center gap-1.5 py-2 px-2.5
           rounded-[var(--radius-xs)] border text-[12px] font-medium
           cursor-pointer transition-all duration-150 active:scale-[0.96]
-                    ${active
+          ${active
             ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
             : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
       >
@@ -1713,7 +1753,7 @@ function ToggleRow({ active, onLabel, offLabel, onChange }: {
   )
 }
 
-/* ─── Duration slider (универсальный под любой массив значений) ─── */
+/* ─── Duration slider ─── */
 function DurationSlider({ values, value, onChange }: {
   values: number[]
   value: number
@@ -1761,7 +1801,7 @@ function DurationSlider({ values, value, onChange }: {
           style={{ left: `${pct}%` }}
         />
 
-        {/* native range (прозрачный, ловит инпут) */}
+        {/* native range */}
         <input
           type="range"
           min={0}
@@ -1774,7 +1814,7 @@ function DurationSlider({ values, value, onChange }: {
         />
       </div>
 
-      {/* подписи значений под шкалой */}
+      {/* подписи значений */}
       <div className="flex justify-between px-0">
         {sorted.map((v) => (
           <button
