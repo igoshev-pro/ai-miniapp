@@ -244,6 +244,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   const [audioUrl, setAudioUrl] = useState('')
   const [uploadingAudio, setUploadingAudio] = useState(false)
 
+  // 🆕 Extend (Suno)
+  const [extendTrack, setExtendTrack] = useState<{ id: string; audioId: string } | null>(null)
+  const [continueAt, setContinueAt] = useState<number | ''>('')
+
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -505,6 +509,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     setLoop(false)
     setPromptInfluence(30)
 
+    // 🆕 extend
+    setExtendTrack(null)
+    setContinueAt('')
+
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, uiConfig])
@@ -598,7 +606,8 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       toast.warning('Загрузите аудиофайл')
       return
     }
-    if (!caps.supportsAudioInput && !prompt) {
+    const isExtend = caps.type === 'suno' && !!extendTrack
+    if (!caps.supportsAudioInput && !prompt && !isExtend) {
       toast.warning('Введите текст')
       return
     }
@@ -625,6 +634,14 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
         settings.styleWeight = styleWeight / 100
         settings.weirdnessConstraint = weirdnessConstraint / 100
         settings.audioWeight = audioWeight / 100
+      }
+      // 🆕 extend
+      if (extendTrack) {
+        settings.operation = 'extend'
+        settings.audioId = extendTrack.audioId
+        if (continueAt !== '' && !isNaN(Number(continueAt))) {
+          settings.continueAt = Number(continueAt)
+        }
       }
     }
     if (caps.type === 'elevenlabs-tts') {
@@ -657,17 +674,36 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     if (ok) {
       setInput('')
       setAudioUrl('')
+      setExtendTrack(null)   // 🆕
+      setContinueAt('')      // 🆕
       hapticNotification('success')
       setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
   }, [
-    input, audioUrl, balance, displayedCost, slug, caps,
+    input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps,
     customMode, instrumental, style, duration,
     title, negativeTags, vocalGender, styleWeight, weirdnessConstraint, audioWeight,
     voiceId, language, stability, similarity, speed,
     loop, promptInfluence,
     haptic, hapticNotification, generate,
   ])
+
+    const startExtend = useCallback((gen: any) => {
+    const aid = Array.isArray(gen.audioIds) ? gen.audioIds[0] : gen.audioIds
+    if (!aid) { toast.error('Нет ID трека для продления'); return }
+    setExtendTrack({ id: gen.id, audioId: String(aid) })
+    setContinueAt('')
+    setInput('')
+    haptic('light')
+    setTimeout(() => inputRef.current?.focus(), 50)
+    toast.info('Режим продления. Можно дописать промпт/стиль (Custom Mode) или просто отправить.')
+  }, [haptic])
+
+  const cancelExtend = useCallback(() => {
+    setExtendTrack(null)
+    setContinueAt('')
+    haptic('light')
+  }, [haptic])
 
   const onKey = (e: React.KeyboardEvent) => {
     if (caps.type === 'elevenlabs-dialogue') return
@@ -684,7 +720,9 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   }
 
   const canSend = !isGenerating && (
-    caps.supportsAudioInput ? !!audioUrl : !!input.trim()
+    caps.supportsAudioInput
+      ? !!audioUrl
+      : (caps.type === 'suno' && !!extendTrack) || !!input.trim()
   )
 
   const placeholder = (() => {
@@ -1034,6 +1072,23 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                     </span>
                   </div>
                 )}
+
+                                {gen.status === 'completed' &&
+                  detectType(gen.modelSlug) === 'suno' &&
+                  (Array.isArray(gen.audioIds) ? gen.audioIds.length > 0 : !!gen.audioIds) && (
+                    <button
+                      onClick={() => startExtend(gen)}
+                      className="
+                        self-start flex items-center gap-1.5
+                        py-1.5 px-3 rounded-[8px]
+                        bg-[rgba(250,204,21,0.08)] border border-[rgba(250,204,21,0.25)]
+                        text-[var(--accent-yellow)] text-[11px] font-medium
+                        cursor-pointer transition-all active:scale-[0.96]
+                      "
+                    >
+                      <Clock size={12} /> Продлить трек
+                    </button>
+                  )}
               </div>
             )
           })}
@@ -1089,6 +1144,39 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
       >
+                {extendTrack && caps.type === 'suno' && (
+          <div className="flex items-center gap-2 py-2 px-3 rounded-[var(--radius-xs)] bg-[rgba(250,204,21,0.06)] border border-[rgba(250,204,21,0.2)]">
+            <Clock size={14} className="text-[var(--accent-yellow)] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] font-medium text-white/80">Продление трека</div>
+              <div className="text-[10px] text-white/40 truncate">
+                Простой режим — отправьте без текста. Для контроля включите Custom Mode.
+              </div>
+            </div>
+            {customMode && (
+              <input
+                type="number"
+                min={0}
+                placeholder="с сек"
+                value={continueAt}
+                onChange={(e) => setContinueAt(e.target.value === '' ? '' : Number(e.target.value))}
+                className="
+                  w-[68px] py-1 px-2 rounded-[8px]
+                  border border-white/[0.1] bg-white/[0.04]
+                  text-white text-[12px] outline-none
+                  focus:border-amber-400/30 font-[inherit]
+                "
+              />
+            )}
+            <button
+              onClick={cancelExtend}
+              className="w-6 h-6 rounded-[6px] bg-white/[0.06] text-white/50 flex items-center justify-center shrink-0 active:bg-red-500/20 active:text-red-400"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         {audioUrl && (
           <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
             <div

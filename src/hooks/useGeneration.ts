@@ -53,6 +53,7 @@ function mapBackendGeneration(g: any): Generation {
     progress: g.status === 'completed' ? 100 : g.progress || 0,
     resultUrl: g.resultUrls?.[0],
     resultUrls: g.resultUrls,
+    audioIds: g.metadata?.audioIds,   // 🆕 для extend
     tokensUsed: g.tokensCost,
     isFavorite: g.isFavorite,
     error: g.errorMessage,
@@ -396,7 +397,7 @@ export function useGeneration() {
         if (s.webSearch !== undefined) body.webSearch = s.webSearch
       }
 
-            if (request.type === 'audio') {
+      if (request.type === 'audio') {
         if (s.style) body.style = s.style
         if (s.duration) body.duration = s.duration
         if (s.instrumental !== undefined) body.instrumental = s.instrumental
@@ -419,6 +420,8 @@ export function useGeneration() {
         if (s.weirdnessConstraint !== undefined) body.weirdnessConstraint = s.weirdnessConstraint
         if (s.audioWeight !== undefined) body.audioWeight = s.audioWeight
         if (s.operation) body.operation = s.operation
+        if (s.audioId) body.audioId = s.audioId               // 🆕 extend
+        if (s.continueAt !== undefined) body.continueAt = s.continueAt // 🆕 extend
       }
 
       try {

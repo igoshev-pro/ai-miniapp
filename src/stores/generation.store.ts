@@ -13,6 +13,7 @@ export interface Generation {
   progress: number
   resultUrl?: string
   resultUrls?: string[]
+  audioIds?: any
   thumbnailUrl?: string
   error?: string
   tokensUsed?: number
