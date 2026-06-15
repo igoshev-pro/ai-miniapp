@@ -662,6 +662,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
+    if (isKling25 && endFrame && !imgUrl) {
+      toast.warning('Для конечного кадра нужен начальный')
+      return
+    }
+
     if (isKling && multiShots) {
       const validShots = shots.filter((sh) => sh.prompt.trim())
       if (validShots.length === 0) {
@@ -759,7 +764,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       s.cfgScale = cfgScale
       s.nsfwChecker = nsfwChecker
       // i2v: старт-кадр (imgUrl) + опц. конечный кадр (endFrame)
-      const frames = [imgUrl, endFrame].filter(Boolean)
+      const frames = imgUrl ? [imgUrl, endFrame].filter(Boolean) : []
       if (frames.length) s.imageUrls = frames
       // duration уже строкой через isKieStr (slug startsWith 'kling')
     } else {
@@ -1536,27 +1541,62 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     Качество видео — <b className="text-white/70 mx-1">1080p</b> (единственный вариант)
                   </div>
 
-                  {/* Кадры: старт (опц.) → конец (опц.) */}
-                  <Field label={<><Film size={12} /> Изображение → видео (опц.)</>}>
+                                    {/* Индикатор текущего режима */}
+                  <div
+                    className={`
+                      rounded-[var(--radius-xs)] px-3 py-2.5
+                      text-[12px] flex items-center gap-2 border transition-colors
+                      ${imgUrl
+                        ? 'bg-[rgba(250,204,21,0.06)] border-[rgba(250,204,21,0.2)] text-[var(--accent-yellow)]'
+                        : 'bg-white/[0.03] border-white/[0.06] text-white/50'
+                      }
+                    `}
+                  >
+                    {imgUrl ? (
+                      <>
+                        <ImageIcon size={14} />
+                        Режим: <b className="mx-0.5">Изображение → Видео</b>
+                      </>
+                    ) : (
+                      <>
+                        <Type size={14} />
+                        Режим: <b className="mx-0.5 text-white/70">Текст → Видео</b>
+                      </>
+                    )}
+                  </div>
+
+                                    {/* Кадры: начальный (обязателен для i2v) → конечный (опц.) */}
+                  <Field label={<><Film size={12} /> Оживить изображение (опц.)</>}>
                     <div className="grid grid-cols-2 gap-2.5">
                       <FrameSlot
-                        label="Старт (опц.)"
+                        label="Начальный кадр"
                         url={imgUrl}
                         uploading={uploading && uploadTarget.current === 'single'}
                         onUpload={() => triggerUpload('single')}
-                        onRemove={() => setImgUrl('')}
+                        onRemove={() => {
+                          setImgUrl('')
+                          // конечный кадр без начального не имеет смысла
+                          setEndFrame('')
+                        }}
                       />
                       <FrameSlot
-                        label="Конец (опц.)"
+                        label="Конечный кадр (опц.)"
                         url={endFrame}
                         uploading={uploading && uploadTarget.current === 'end'}
-                        onUpload={() => triggerUpload('end')}
+                        onUpload={() => {
+                          if (!imgUrl) {
+                            toast.warning('Сначала загрузите начальный кадр')
+                            return
+                          }
+                          triggerUpload('end')
+                        }}
                         onRemove={() => setEndFrame('')}
                       />
                     </div>
                     <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                      Без изображения — генерация по тексту. С изображением — оживление кадра.
-                      Конечный кадр опционален.
+                      <b className="text-white/50">Без кадров</b> — видео по тексту.{' '}
+                      <b className="text-white/50">С начальным кадром</b> — оживление изображения.
+                      Конечный кадр задаёт финал перехода (нужен начальный).
                     </div>
                   </Field>
 
@@ -1571,14 +1611,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* NSFW checker */}
-                  <Field label={<><ShieldOff size={12} /> Фильтр контента</>}>
+                                    {/* NSFW checker */}
+                  <Field label={<><ShieldOff size={12} /> Фильтр 18+ контента</>}>
                     <ToggleRow
                       active={nsfwChecker}
-                      onLabel={<><Check size={14} /> Включён</>}
-                      offLabel={<><X size={14} /> Выключен</>}
+                      onLabel={<>🛡️ Защита вкл</>}
+                      offLabel={<>⚠️ Без фильтра</>}
                       onChange={(v) => { setNsfwChecker(v); haptic('light') }}
                     />
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      Защита блокирует непристойный (18+) контент. Рекомендуем оставить включённой.
+                    </div>
                   </Field>
                 </>
               )}
