@@ -374,7 +374,7 @@ export function useGeneration() {
         if (s.promptOptimizer !== undefined) body.promptOptimizer = s.promptOptimizer
         if (s.waterMark !== undefined) body.waterMark = s.waterMark
 
-                // 🆕 Kling 3.0: multi-shots / elements
+        // 🆕 Kling 3.0: multi-shots / elements
         if (s.multiShots !== undefined) body.multiShots = s.multiShots
         if (s.multiPrompt && (s.multiPrompt as any[]).length > 0) {
           body.multiPrompt = s.multiPrompt
@@ -387,6 +387,13 @@ export function useGeneration() {
         if (s.cfgScale !== undefined) body.cfgScale = s.cfgScale
         if (s.nsfwChecker !== undefined) body.nsfwChecker = s.nsfwChecker
         if (s.negativePrompt) body.negativePrompt = s.negativePrompt
+
+        // 🆕 Seedance + 🔧 fix Motion Control (videoUrls/characterOrientation раньше не пробрасывались!)
+        if (s.videoUrls && (s.videoUrls as string[]).length > 0) body.videoUrls = s.videoUrls
+        if (s.audioUrls && (s.audioUrls as string[]).length > 0) body.audioUrls = s.audioUrls
+        if (s.characterOrientation) body.characterOrientation = s.characterOrientation
+        if (s.fixedLens !== undefined) body.fixedLens = s.fixedLens
+        if (s.webSearch !== undefined) body.webSearch = s.webSearch
       }
 
       if (request.type === 'audio') {

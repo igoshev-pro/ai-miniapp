@@ -73,6 +73,9 @@ export const allModels: ModelItem[] = [
   { id: 'v8', name: 'Hailuo 2.3 Std', slug: 'hailuo-2.3-standard', provider: 'MiniMax', category: 'video', description: 'Текст → видео, бюджетный', cost: 9.00, hasVariants: true },
   { id: 'v9', name: 'Hailuo 2.3 Pro', slug: 'hailuo-2.3-pro', provider: 'MiniMax', category: 'video', description: 'Улучшенное качество', cost: 14.00, hasVariants: true },
   { id: 'v10', name: 'Hailuo 02', slug: 'hailuo-02', provider: 'MiniMax', category: 'video', description: 'Текст/фото → видео', cost: 10.2, hasVariants: true },
+  { id: 'v11', name: 'Seedance 1.5 Pro', slug: 'seedance-1.5-pro', provider: 'ByteDance', category: 'video', description: 'Текст/фото → видео, звук, 4–12с', cost: 2.8, hasVariants: true },
+  { id: 'v12', name: 'Seedance 2', slug: 'seedance-2', provider: 'ByteDance', category: 'video', description: 'Мультиреференс, 4–15с', cost: 18, hasVariants: true },
+  { id: 'v13', name: 'Seedance 2 Fast', slug: 'seedance-2-fast', provider: 'ByteDance', category: 'video', description: 'Быстрая, 480/720p', cost: 9, hasVariants: true },
 
   // ═══════════════════════════════════════ АУДИО (6) ═══════════════════════════════════════
   { id: 'a1', name: 'Suno V4', slug: 'suno-v4', provider: 'Suno', category: 'audio', description: 'Генерация музыки и песен', cost: 4.00, hasVariants: true },

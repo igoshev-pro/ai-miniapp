@@ -62,6 +62,7 @@ const AR_META: Record<string, { label: string; orient: AROrient }> = {
 }
 
 const RES_META: Record<string, { label: string; sub?: string; tier: number }> = {
+  '480p': { label: '480p', sub: 'SD', tier: 0 },
   '720p': { label: '720p', sub: 'HD', tier: 1 },
   '1080p': { label: '1080p', sub: 'Full HD', tier: 2 },
   '1080P': { label: '1080p', sub: 'Full HD', tier: 2 },
@@ -169,9 +170,21 @@ const FALLBACK: Record<string, FallbackCaps> = {
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'seedance-1.5-pro': {
-    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
-    resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
-    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'], durations: [4, 8, 12],
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'seedance-2': {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+    durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'seedance-2-fast': {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+    durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
 }
 
@@ -329,6 +342,16 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const videoFileRef = useRef<HTMLInputElement>(null)
 
+  // 🆕 Seedance
+  const [fixedLens, setFixedLens] = useState(false)
+  const [webSearch, setWebSearch] = useState(false)
+  const [refVideos, setRefVideos] = useState<string[]>([])
+  const [refAudios, setRefAudios] = useState<string[]>([])
+  const [uploadingRefVideo, setUploadingRefVideo] = useState(false)
+  const [uploadingRefAudio, setUploadingRefAudio] = useState(false)
+  const refVideoFileRef = useRef<HTMLInputElement>(null)
+  const refAudioFileRef = useRef<HTMLInputElement>(null)
+
   const [uploading, setUploading] = useState(false)
   const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element'>('single')
 
@@ -351,6 +374,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   // isKling — только для UI 3.0 (мультисцены/элементы/кадры)
   const isKling = isKling3
   const isMotion = slug === 'motion-control'
+  const isSeedance15 = slug === 'seedance-1.5-pro'
+  const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast'
+  const isSeedance = isSeedance15 || isSeedance2
 
   /* ── UI config ── */
 
@@ -411,7 +437,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const veoForcesDuration8 = isVeo && veoMode === 'reference'
 
-    const comboCurrent = useMemo(
+  const comboCurrent = useMemo(
     () => ({
       duration: veoForcesDuration8 ? 8 : duration,
       resolution,
@@ -467,10 +493,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } else if (imgUrl) {
       p.hasInputImage = true
     }
+
+    // 🆕 Seedance 2: цена зависит от наличия видео-референса
+    if (isSeedance2) {
+      p.videoRef = refVideos.length > 0
+    }
+
     return p
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
+    isSeedance2, refVideos,
   ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
@@ -601,6 +634,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setCfgScale(0.5)
     setNsfwChecker(true)
 
+    // 🆕 seedance reset
+    setFixedLens(false)
+    setWebSearch(false)
+    setRefVideos([])
+    setRefAudios([])
+
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig, slug])
@@ -609,7 +648,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (veoForcesDuration8) setDuration(8)
   }, [veoForcesDuration8])
 
-    // Автокоррекция несовместимых комбинаций duration ↔ resolution
+  // Автокоррекция несовместимых комбинаций duration ↔ resolution
   useEffect(() => {
     if (!uiConfig?.pricingMatrix?.length) return
     if (isMotion || (isKling && multiShots)) return
@@ -792,6 +831,57 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     [haptic],
   )
 
+  // 🆕 Seedance: загрузка видео-референса (до 3, суммарно ≤15с)
+  const uploadRefVideo = useCallback(async (file: File) => {
+    if (!/\.(mp4|mov)$/i.test(file.name) && !file.type.match(/video\/(mp4|quicktime)/)) {
+      toast.error('Только MP4 или MOV'); return
+    }
+    if (file.size > 50 * 1024 * 1024) { toast.error('Макс 50MB'); return }
+    setUploadingRefVideo(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const token = useAuthStore.getState().token
+      const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/upload/video`, {
+        method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd,
+      })
+      if (!r.ok) throw new Error('Upload failed')
+      const d = await r.json(); const url = d.data?.url || d.url
+      if (!url) throw new Error('No URL')
+      setRefVideos((prev) => (prev.length >= 3 ? prev : [...prev, url]))
+      haptic('light'); toast.success('Видео добавлено')
+    } catch (e: any) {
+      toast.error(e.message || 'Ошибка загрузки видео')
+    } finally {
+      setUploadingRefVideo(false)
+    }
+  }, [haptic])
+
+  // 🆕 Seedance: загрузка аудио-референса (до 3, суммарно ≤15с)
+  const uploadRefAudio = useCallback(async (file: File) => {
+    if (!/\.(mp3|wav|aac|ogg|m4a)$/i.test(file.name) &&
+      !file.type.match(/audio\/(mpeg|wav|x-wav|aac|mp4|ogg)/)) {
+      toast.error('Только MP3, WAV, AAC, OGG'); return
+    }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Макс 15MB'); return }
+    setUploadingRefAudio(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const token = useAuthStore.getState().token
+      const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/upload/audio`, {
+        method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd,
+      })
+      if (!r.ok) throw new Error('Upload failed')
+      const d = await r.json(); const url = d.data?.url || d.url
+      if (!url) throw new Error('No URL')
+      setRefAudios((prev) => (prev.length >= 3 ? prev : [...prev, url]))
+      haptic('light'); toast.success('Аудио добавлено')
+    } catch (e: any) {
+      toast.error(e.message || 'Ошибка загрузки аудио')
+    } finally {
+      setUploadingRefAudio(false)
+    }
+  }, [haptic])
+
   const triggerUpload = useCallback(
     (target: 'single' | 'start' | 'end' | 'ref' | 'element', elementIdx?: number) => {
       uploadTarget.current = target
@@ -822,7 +912,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   /* ── Generate ── */
 
-    const doGen = useCallback(async () => {
+  const doGen = useCallback(async () => {
     const prompt = input.trim()
     if (!prompt) return
 
@@ -954,6 +1044,16 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       s.nsfwChecker = nsfwChecker
       const frames = imgUrl ? [imgUrl, endFrame].filter(Boolean) : []
       if (frames.length) s.imageUrls = frames
+    } else if (isSeedance) {
+      // картинки → imageUrls (провайдер положит в input_urls / reference_image_urls)
+      if (imgUrl) s.imageUrls = [imgUrl]
+      if (isSeedance15) {
+        s.fixedLens = fixedLens
+      } else {
+        s.webSearch = webSearch
+        if (refVideos.length) s.videoUrls = refVideos
+        if (refAudios.length) s.audioUrls = refAudios
+      }
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
       if (caps.supportsResizeMode && imgUrl) s.resizeMode = resizeMode
@@ -975,6 +1075,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isKling, multiShots, shots, elements,
     isKling25, cfgScale, nsfwChecker,
     isMotion, motionVideoUrl, motionEffectiveDuration, characterOrientation,
+    isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refAudios,
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -1558,7 +1659,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </div>
               )}
 
-                            {/* ═══ MOTION CONTROL ═══ */}
+              {/* ═══ MOTION CONTROL ═══ */}
               {isMotion && (
                 <>
                   {/* Фото персонажа */}
@@ -2025,8 +2126,142 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
+              {/* ═══ SEEDANCE ═══ */}
+              {isSeedance && (
+                <>
+                  {/* Входное изображение (1.5: input_urls / 2: reference) */}
+                  <Field label={<><ImageIcon size={12} /> {isSeedance15 ? 'Изображение (опц.)' : 'Референс-изображение (опц.)'}</>}>
+                    <div className="grid grid-cols-4 gap-2">
+                      {imgUrl ? (
+                        <div className="relative aspect-square rounded-[10px]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={imgUrl} alt="" className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block" />
+                          <button
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                            onClick={() => setImgUrl('')}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="aspect-square rounded-[10px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.03] text-white/30 flex flex-col items-center justify-center gap-1 text-[10px] cursor-pointer transition-all active:bg-white/[0.07] disabled:opacity-50"
+                          onClick={() => triggerUpload('single')}
+                          disabled={uploading}
+                        >
+                          {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+                          <span>Добавить</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      {isSeedance15
+                        ? 'Без фото — видео по тексту. С фото — оживление кадра.'
+                        : 'Референс персонажа/сцены. В промпте ссылайтесь через @Image1, @Image2…'}
+                    </div>
+                  </Field>
+
+                  {/* 1.5 Pro: фиксированная камера */}
+                  {isSeedance15 && (
+                    <Field label={<><Video size={12} /> Камера</>}>
+                      <ToggleRow
+                        active={fixedLens}
+                        onLabel={<>🔒 Фиксированная</>}
+                        offLabel={<>🎥 Динамичная</>}
+                        onChange={(v) => { setFixedLens(v); haptic('light') }}
+                      />
+                      <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                        Фиксированная — камера статична. Динамичная — движется по сцене.
+                      </div>
+                    </Field>
+                  )}
+
+                  {/* 2 / 2-fast: web search */}
+                  {isSeedance2 && (
+                    <Field label={<><Sparkles size={12} /> Онлайн-поиск</>}>
+                      <ToggleRow
+                        active={webSearch}
+                        onLabel={<>🌐 Включён</>}
+                        offLabel={<>📴 Выключен</>}
+                        onChange={(v) => { setWebSearch(v); haptic('light') }}
+                      />
+                      <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                        Модель ищет актуальную информацию в интернете для генерации.
+                      </div>
+                    </Field>
+                  )}
+
+                  {/* 2 / 2-fast: видео-референсы */}
+                  {isSeedance2 && (
+                    <Field label={<><Film size={12} /> Видео-референсы ({refVideos.length}/3)</>}>
+                      <div className="grid grid-cols-3 gap-2">
+                        {refVideos.map((url, idx) => (
+                          <div key={url + idx} className="relative aspect-video rounded-[10px] overflow-hidden border border-white/[0.08]">
+                            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                            <video src={url} className="w-full h-full object-cover bg-black block" muted playsInline />
+                            <button
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                              onClick={() => setRefVideos((p) => p.filter((_, i) => i !== idx))}
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        {refVideos.length < 3 && (
+                          <button
+                            className="aspect-video rounded-[10px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.03] text-white/30 flex flex-col items-center justify-center gap-1 text-[10px] cursor-pointer transition-all active:bg-white/[0.07] disabled:opacity-50"
+                            onClick={() => refVideoFileRef.current?.click()}
+                            disabled={uploadingRefVideo}
+                          >
+                            {uploadingRefVideo ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                            <span>Видео</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                        MP4/MOV, до 50MB. Суммарно ≤ 15 секунд.
+                      </div>
+                    </Field>
+                  )}
+
+                  {/* 2 / 2-fast: аудио-референсы */}
+                  {isSeedance2 && (
+                    <Field label={<><Volume2 size={12} /> Аудио-референсы ({refAudios.length}/3)</>}>
+                      <div className="flex flex-col gap-1.5">
+                        {refAudios.map((url, idx) => (
+                          <div key={url + idx} className="flex items-center gap-2 py-1.5 px-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]">
+                            <Volume2 size={14} className="text-white/40 shrink-0" />
+                            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                            <audio src={url} className="flex-1 min-w-0 h-7" controls />
+                            <button
+                              className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0"
+                              onClick={() => setRefAudios((p) => p.filter((_, i) => i !== idx))}
+                            >
+                              <X size={11} />
+                            </button>
+                          </div>
+                        ))}
+                        {refAudios.length < 3 && (
+                          <button
+                            className="flex items-center justify-center gap-1.5 py-2.5 rounded-[8px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.02] text-white/40 text-[12px] cursor-pointer transition-all active:bg-white/[0.06] disabled:opacity-50"
+                            onClick={() => refAudioFileRef.current?.click()}
+                            disabled={uploadingRefAudio}
+                          >
+                            {uploadingRefAudio ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                            Добавить аудио
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                        MP3/WAV/AAC/OGG, до 10MB. Суммарно ≤ 15 секунд.
+                      </div>
+                    </Field>
+                  )}
+                </>
+              )}
+
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && !isKling && !isMotion && caps.supportsImageInput && (
+              {!isVeo && !isKling && !isMotion && !isSeedance && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -2126,6 +2361,32 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         }}
       />
 
+      {/* 🆕 Seedance: video reference input */}
+      <input
+        ref={refVideoFileRef}
+        type="file"
+        accept="video/mp4,video/quicktime,.mp4,.mov"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) uploadRefVideo(f)
+          e.target.value = ''
+        }}
+      />
+
+      {/* 🆕 Seedance: audio reference input */}
+      <input
+        ref={refAudioFileRef}
+        type="file"
+        accept="audio/mpeg,audio/wav,audio/aac,audio/ogg,.mp3,.wav,.aac,.ogg,.m4a"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) uploadRefAudio(f)
+          e.target.value = ''
+        }}
+      />
+
       {/* ── Input area ── */}
       <div
         className="
@@ -2214,7 +2475,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
         <div className="flex items-center gap-2">
           {/* Кнопка загрузки (kling 3.0 грузит из настроек) */}
-                    {((isVeo && veoMode !== 'text') ||
+          {((isVeo && veoMode !== 'text') ||
             (isKling25 && caps.supportsImageInput) ||
             isMotion ||
             (!isVeo && !isKling && !isKling25 && !isMotion && caps.supportsImageInput)) && (
