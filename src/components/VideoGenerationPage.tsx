@@ -169,6 +169,11 @@ const FALLBACK: Record<string, FallbackCaps> = {
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
+  'wan-2.5': {
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
+    resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
   'seedance-1.5-pro': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'], durations: [4, 8, 12],
     resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,
