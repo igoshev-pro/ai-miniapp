@@ -153,6 +153,16 @@ const FALLBACK: Record<string, FallbackCaps> = {
     resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
+  'hailuo-2.3-standard': {
+    aspectRatios: [], durations: [6, 10],
+    resolutions: ['768P', '1080P'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'hailuo-2.3-pro': {
+    aspectRatios: [], durations: [6, 10],
+    resolutions: ['768P', '1080P'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
   'wan-2.7': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'], durations: [5, 10],
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,

@@ -72,6 +72,7 @@ export const allModels: ModelItem[] = [
   { id: 'v7', name: 'Runway Gen-3', slug: 'runway', provider: 'Runway', category: 'video', description: 'Кинематографичное видео, 5–10с', cost: 6.00, hasVariants: true },
   { id: 'v8', name: 'Hailuo 2.3 Std', slug: 'hailuo-2.3-standard', provider: 'MiniMax', category: 'video', description: 'Текст → видео, бюджетный', cost: 9.00, hasVariants: true },
   { id: 'v9', name: 'Hailuo 2.3 Pro', slug: 'hailuo-2.3-pro', provider: 'MiniMax', category: 'video', description: 'Улучшенное качество', cost: 14.00, hasVariants: true },
+  { id: 'v10', name: 'Hailuo 02', slug: 'hailuo-02', provider: 'MiniMax', category: 'video', description: 'Текст/фото → видео', cost: 10.2, hasVariants: true },
 
   // ═══════════════════════════════════════ АУДИО (6) ═══════════════════════════════════════
   { id: 'a1', name: 'Suno V4', slug: 'suno-v4', provider: 'Suno', category: 'audio', description: 'Генерация музыки и песен', cost: 4.00, hasVariants: true },
