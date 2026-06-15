@@ -23,7 +23,7 @@ interface Props {
 /* ─── Audio model types ─── */
 
 type AudioType =
-  | 'suno' | 'elevenlabs-tts' | 'elevenlabs-sfx'
+  | 'suno' | 'elevenlabs-tts' | 'elevenlabs-tts-turbo' | 'elevenlabs-sfx'
   | 'elevenlabs-isolation' | 'elevenlabs-stt'
   | 'elevenlabs-dialogue' | 'generic'
 
@@ -50,12 +50,12 @@ interface AudioCaps {
 /* ─── Constants ─── */
 
 const ELEVENLABS_VOICES = [
-  'Aria', 'Roger', 'Sarah', 'Laura', 'Charlie', 'George', 'Callum', 'River',
-  'Lily', 'Alice', 'Jessica', 'Daniel', 'Charlotte', 'Chris', 'Brian',
-  'Matilda', 'Will', 'Liam', 'Bill',
+  'Rachel', 'Aria', 'Roger', 'Sarah', 'Laura', 'Charlie', 'George', 'Callum',
+  'River', 'Liam', 'Charlotte', 'Alice', 'Matilda', 'Will', 'Jessica',
+  'Eric', 'Chris', 'Brian', 'Daniel', 'Lily', 'Bill',
 ]
 
-const DEFAULT_VOICE = 'Aria'
+const DEFAULT_VOICE = 'Rachel'
 
 const LANGUAGES = [
   { code: 'ru', label: 'Русский' }, { code: 'en', label: 'English' },
@@ -73,10 +73,15 @@ const EXAMPLES: Record<string, string[]> = {
     'Электронный бит в стиле synthwave, ретро 80-х',
     'Джаз в стиле smooth jazz, саксофон, расслабляющий вечер',
   ],
-  'elevenlabs-tts': [
+    'elevenlabs-tts': [
     'Добро пожаловать в наш подкаст! Сегодня мы обсудим последние новости технологий.',
     'Привет! Как дела? Я так рад тебя видеть!',
     'В далёкой-далёкой галактике, где звёзды сияли ярче обычного...',
+  ],
+  'elevenlabs-tts-turbo': [
+    'Welcome to our podcast! Today we discuss the latest tech news.',
+    'Hello! How are you? So glad to see you!',
+    'Once upon a time, in a galaxy far far away...',
   ],
   'elevenlabs-dialogue': [
     'Aria: Привет! Как прошёл твой день?\nRoger: Отлично! Я сегодня закончил проект.\nAria: Здорово! Расскажи подробнее.',
@@ -100,8 +105,18 @@ const FALLBACK_BY_TYPE: Record<AudioType, AudioCaps> = {
     supportsStability: false, supportsSimilarity: false,
     supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
+    // multilingual v2 — НЕ принимает language_code (озвучивает на языке текста)
   'elevenlabs-tts': {
     type: 'elevenlabs-tts', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
+    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
+    supportsVoice: true, voices: ELEVENLABS_VOICES,
+    supportsLanguage: false, languages: [],
+    supportsStability: true, supportsSimilarity: true,
+    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: true,
+  },
+  // turbo 2.5 — поддерживает принудительный язык (language_code)
+  'elevenlabs-tts-turbo': {
+    type: 'elevenlabs-tts-turbo', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
     supportsDuration: false, durationRange: [0, 0], durationStep: 0,
     supportsVoice: true, voices: ELEVENLABS_VOICES,
     supportsLanguage: true, languages: LANGUAGES,
@@ -155,6 +170,7 @@ function detectType(slug: string): AudioType {
   if (slug.includes('isolation')) return 'elevenlabs-isolation'
   if (slug.includes('stt') || slug.includes('speech-to-text')) return 'elevenlabs-stt'
   if (slug.includes('sfx') || slug.includes('sound')) return 'elevenlabs-sfx'
+  if (slug.includes('turbo')) return 'elevenlabs-tts-turbo' // turbo раньше общего tts
   if (slug.includes('elevenlabs') || slug.includes('tts')) return 'elevenlabs-tts'
   return 'generic'
 }
@@ -315,6 +331,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [uiConfig, slug])
 
+    /* ── Унифицированный флаг TTS (multilingual + turbo) ── */
+  const isTTS =
+    caps.type === 'elevenlabs-tts' || caps.type === 'elevenlabs-tts-turbo'
+
   /* ── Price calculator ── */
 
   const priceParams = useMemo(() => {
@@ -324,7 +344,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       if (caps.supportsCustomMode) p.customMode = customMode
       if (caps.supportsInstrumental) p.instrumental = instrumental
     }
-    if (caps.type === 'elevenlabs-tts') {
+        if (isTTS) {
       if (caps.supportsVoice && voiceId) p.voiceId = voiceId
       if (caps.supportsLanguage && language) p.language = language
     }
@@ -340,10 +360,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     }
     if (caps.supportsAudioInput && audioUrl) p.hasInputAudio = true
     // приблизительная длина текста для TTS (по символам)
-    if (caps.type === 'elevenlabs-tts' && input) p.chars = input.length
+        // приблизительная длина текста для TTS (по символам)
+    if (isTTS && input) p.chars = input.length
     return p
   }, [
-    caps, duration, customMode, instrumental,
+    caps, isTTS, duration, customMode, instrumental,
     voiceId, language, loop, audioUrl, input,
   ])
 
@@ -644,9 +665,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
         }
       }
     }
-    if (caps.type === 'elevenlabs-tts') {
+        if (isTTS) {
       if (caps.supportsVoice) settings.voiceId = voiceId
-      if (caps.supportsLanguage) settings.language = language
+      // language шлём ТОЛЬКО для turbo (multilingual вернёт 422)
+      if (caps.supportsLanguage && language) settings.language = language
       if (caps.supportsStability) settings.stability = stability / 100
       if (caps.supportsSimilarity) settings.similarity = similarity / 100
       if (caps.supportsSpeed) settings.speed = speed / 100
@@ -684,7 +706,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
   }, [
-    input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps,
+     input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps, isTTS,
     customMode, instrumental, style, duration,
     title, negativeTags, vocalGender, styleWeight, weirdnessConstraint, audioWeight,
     voiceId, language, stability, similarity, speed,
@@ -733,6 +755,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     switch (caps.type) {
       case 'suno': return 'Опишите музыку...'
       case 'elevenlabs-tts': return 'Введите текст для озвучки...'
+      case 'elevenlabs-tts-turbo': return 'Введите текст для озвучки...'
       case 'elevenlabs-dialogue': return 'Aria: Привет!\nRoger: Здравствуй...'
       case 'elevenlabs-sfx': return 'Опишите звуковой эффект...'
       case 'elevenlabs-isolation': return 'Загрузите аудио для обработки'
@@ -746,6 +769,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     switch (t) {
       case 'suno': return '· Музыка'
       case 'elevenlabs-tts': return '· Озвучка'
+      case 'elevenlabs-tts-turbo': return '· Озвучка Turbo'
       case 'elevenlabs-dialogue': return '· Диалог'
       case 'elevenlabs-sfx': return '· Звуки'
       case 'elevenlabs-isolation': return '· Изоляция'
@@ -758,6 +782,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     switch (caps.type) {
       case 'suno': return 'Генерация музыки'
       case 'elevenlabs-tts': return 'Озвучка текста'
+      case 'elevenlabs-tts-turbo': return 'Озвучка текста (Turbo)'
       case 'elevenlabs-dialogue': return 'Генерация диалога'
       case 'elevenlabs-sfx': return 'Звуковые эффекты'
       case 'elevenlabs-isolation': return 'Изоляция голоса'
@@ -769,7 +794,8 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   const emptyText = (() => {
     switch (caps.type) {
       case 'suno': return 'Опишите музыку, которую хотите создать. Генерация занимает до 2 минут.'
-      case 'elevenlabs-tts': return 'Введите текст для озвучки. Выберите голос и язык в настройках.'
+           case 'elevenlabs-tts': return 'Введите текст для озвучки. Язык определяется автоматически по тексту. Выберите голос в настройках.'
+      case 'elevenlabs-tts-turbo': return 'Введите текст для озвучки. Выберите голос и язык в настройках.'
       case 'elevenlabs-dialogue': return 'Напишите диалог «Имя: текст». Нажмите на имя ниже для быстрой вставки.'
       case 'elevenlabs-sfx': return 'Опишите звуковой эффект, который нужно сгенерировать.'
       case 'elevenlabs-isolation': return 'Загрузите аудиофайл для удаления шума.'
@@ -790,9 +816,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
         out.push({ key: 'vg', label: vocalGender === 'm' ? '♂' : '♀', active: true })
       }
     }
-    if (caps.type === 'elevenlabs-tts') {
+   if (isTTS) {
       out.push({ key: 'voice', label: voiceId })
-      out.push({ key: 'lang', label: caps.languages.find((l) => l.code === language)?.label || language })
+      if (caps.supportsLanguage) {
+        out.push({ key: 'lang', label: caps.languages.find((l) => l.code === language)?.label || language })
+      }
     }
     if (caps.type === 'elevenlabs-dialogue') {
       const lines = input.split('\n').filter((l) => l.trim() && l.includes(':')).length
@@ -807,7 +835,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       out.push({ key: 'audio', label: audioUrl ? '🎵 Аудио' : 'Нужен файл', active: !!audioUrl })
     }
     return out
-  }, [caps, duration, customMode, instrumental, style, title, vocalGender, voiceId, language, loop, audioUrl, input])
+  }, [caps, isTTS, duration, customMode, instrumental, style, title, vocalGender, voiceId, language, loop, audioUrl, input])
 
   /* ── Helpers ── */
 
@@ -1499,7 +1527,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ═══ TTS ═══ */}
-              {caps.type === 'elevenlabs-tts' && (
+              {isTTS && (
                 <>
                   {caps.supportsVoice && (
                     <Field label={<><Mic size={13} /> Голос</>}>
