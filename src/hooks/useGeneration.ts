@@ -444,6 +444,7 @@ export function useGeneration() {
           prompt: request.prompt,
           status: 'pending',
           progress: 0,
+          tokensUsed: data.data?.tokensCost,   // 🆕 стоимость из ответа POST
           settings: request.settings,
           createdAt: new Date().toISOString(),
         }
