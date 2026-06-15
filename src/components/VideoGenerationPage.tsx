@@ -133,6 +133,11 @@ const FALLBACK: Record<string, FallbackCaps> = {
     resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
     supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: true,
   },
+  'kling-2.5-turbo': {
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
+    resolutions: [], modes: [], supportsImageInput: true, maxInputImages: 2,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
   'kling-3.0': {
     aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10, 15],
     resolutions: [], modes: ['std', 'pro'], supportsImageInput: true, maxInputImages: 1,
@@ -250,6 +255,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [endFrame, setEndFrame] = useState('')
   const [refImages, setRefImages] = useState<string[]>([])
 
+  // 🆕 Kling 2.5 Turbo
+  const [cfgScale, setCfgScale] = useState(0.5)
+  const [nsfwChecker, setNsfwChecker] = useState(true)
+
   // 🆕 Kling 3.0
   const [multiShots, setMultiShots] = useState(false)
   const [shots, setShots] = useState<{ prompt: string; duration: number }[]>([
@@ -277,7 +286,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isVeo = isVeoSlug(slug)
   const supportsReference = isVeo && veoSupportsReference(slug)
 
-  const isKling = isKlingSlug(slug)
+  const isKling3 = slug === 'kling-3.0'
+  const isKling25 = slug === 'kling-2.5-turbo'
+  // isKling — только для UI 3.0 (мультисцены/элементы/кадры)
+  const isKling = isKling3
 
   /* ── UI config ── */
 
@@ -489,6 +501,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setMultiShots(false)
     setShots([{ prompt: '', duration: 5 }])
     setElements([])
+
+    // 🆕 kling 2.5 reset
+    setCfgScale(0.5)
+    setNsfwChecker(true)
 
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -739,6 +755,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           elementInputUrls: el.urls,
         }))
       if (validElements.length) s.klingElements = validElements
+    } else if (isKling25) {
+      s.cfgScale = cfgScale
+      s.nsfwChecker = nsfwChecker
+      // i2v: старт-кадр (imgUrl) + опц. конечный кадр (endFrame)
+      const frames = [imgUrl, endFrame].filter(Boolean)
+      if (frames.length) s.imageUrls = frames
+      // duration уже строкой через isKieStr (slug startsWith 'kling')
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
       // resizeMode передаём только если модель поддерживает и есть изображение
@@ -759,6 +782,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
     veoMaxRefImages,
     isKling, multiShots, shots, elements,   // 🆕 kling
+    isKling25, cfgScale, nsfwChecker,        // 🆕 kling 2.5
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -849,12 +873,21 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (isKling && (startFrame || endFrame)) {
       badges.push({ key: 'kframes', label: '🖼 Кадры', accent: true })
     }
+    // 🆕 kling 2.5 badges
+    if (isKling25) {
+      if (imgUrl) {
+        badges.push({ key: 'k25img', label: '📸 Фото', accent: true })
+      }
+      badges.push({ key: 'cfg', label: `✨ ${cfgScale.toFixed(1)}` })
+      badges.push({ key: 'k25res', label: '1080p' })
+    }
     return badges
 
   }, [
     caps, mode, duration, aspectRatio, resolution, sound, isI2V, imgUrl,
     isVeo, veoMode, veoForcesDuration8, resizeMode,
     isKling, multiShots, shots, elements, startFrame, endFrame,   // 🆕
+    isKling25, cfgScale,   // 🆕 kling 2.5
   ])
 
   const getGenCost = (gen: any): number | undefined => {
@@ -1246,7 +1279,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Aspect Ratio */}
-              {caps.aspectRatios.length > 0 && (
+              {caps.aspectRatios.length > 0 && !(isKling25 && imgUrl) && (
                 <Field label={<><Maximize2 size={12} /> Соотношение сторон</>}>
                   <Grid cols={caps.aspectRatios.length <= 3 ? caps.aspectRatios.length : 4}>
                     {caps.aspectRatios.map((a) => {
@@ -1323,7 +1356,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </div>
               )}
 
-                            {/* ═══ KLING 3.0 ═══ */}
+              {/* ═══ KLING 3.0 ═══ */}
               {isKling && (
                 <>
                   {/* Multi-shots toggle */}
@@ -1489,6 +1522,63 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         />
                       )}
                     </div>
+                  </Field>
+                </>
+              )}
+
+
+              {/* ═══ KLING 2.5 TURBO ═══ */}
+              {isKling25 && (
+                <>
+                  {/* Инфо про 1080p */}
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5 text-[12px] text-white/50 flex items-center gap-2">
+                    <Layers size={14} className="text-[var(--accent-yellow)]" />
+                    Качество видео — <b className="text-white/70 mx-1">1080p</b> (единственный вариант)
+                  </div>
+
+                  {/* Кадры: старт (опц.) → конец (опц.) */}
+                  <Field label={<><Film size={12} /> Изображение → видео (опц.)</>}>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <FrameSlot
+                        label="Старт (опц.)"
+                        url={imgUrl}
+                        uploading={uploading && uploadTarget.current === 'single'}
+                        onUpload={() => triggerUpload('single')}
+                        onRemove={() => setImgUrl('')}
+                      />
+                      <FrameSlot
+                        label="Конец (опц.)"
+                        url={endFrame}
+                        uploading={uploading && uploadTarget.current === 'end'}
+                        onUpload={() => triggerUpload('end')}
+                        onRemove={() => setEndFrame('')}
+                      />
+                    </div>
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      Без изображения — генерация по тексту. С изображением — оживление кадра.
+                      Конечный кадр опционален.
+                    </div>
+                  </Field>
+
+                  {/* Креативность (cfg_scale) */}
+                  <Field label={<><Sparkles size={12} /> Креативность</>}>
+                    <CfgSlider
+                      value={cfgScale}
+                      onChange={(v) => { setCfgScale(v); haptic('light') }}
+                    />
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      Чем выше — тем строже следование промпту. Ниже — больше свободы у модели.
+                    </div>
+                  </Field>
+
+                  {/* NSFW checker */}
+                  <Field label={<><ShieldOff size={12} /> Фильтр контента</>}>
+                    <ToggleRow
+                      active={nsfwChecker}
+                      onLabel={<><Check size={14} /> Включён</>}
+                      offLabel={<><X size={14} /> Выключен</>}
+                      onChange={(v) => { setNsfwChecker(v); haptic('light') }}
+                    />
                   </Field>
                 </>
               )}
@@ -1684,7 +1774,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 chips.push({ url, label: `Реф ${idx + 1}`, onRemove: () => setRefImages((p) => p.filter((_, i) => i !== idx)) }),
               )
             }
-                    } else if (isKling) {
+          } else if (isKling) {
             if (startFrame)
               chips.push({ url: startFrame, label: 'Старт', onRemove: () => setStartFrame('') })
             if (!multiShots && endFrame)
@@ -1698,6 +1788,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 })
               }
             })
+          } else if (isKling25) {
+            if (imgUrl)
+              chips.push({ url: imgUrl, label: 'Старт', onRemove: () => setImgUrl('') })
+            if (endFrame)
+              chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
           } else if (imgUrl) {
             chips.push({ url: imgUrl, label: 'Изображение', onRemove: () => setImgUrl('') })
           }
@@ -1740,39 +1835,40 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         })()}
 
         <div className="flex items-center gap-2">
-                    {/* Кнопка загрузки */}
+          {/* Кнопка загрузки (kling 3.0 грузит из настроек) */}
           {((isVeo && veoMode !== 'text') ||
-            (isKling && !caps.supportsImageInput ? false : isKling) ||
-            (!isVeo && !isKling && caps.supportsImageInput)) && (
-            <button
-              className={`
+            (isKling25 && caps.supportsImageInput) ||
+            (!isVeo && !isKling && !isKling25 && caps.supportsImageInput)) && (
+              <button
+                className={`
                 w-[38px] h-[38px] rounded-[10px] border-none
                 flex items-center justify-center
                 cursor-pointer transition-all duration-150
                 shrink-0 self-center
                 ${(isVeo && veoMode === 'frames' && startFrame) ||
-                  (isVeo && veoMode === 'reference' && refImages.length > 0) ||
-                  (!isVeo && imgUrl)
-                  ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
-                  : 'bg-white/[0.04] text-[var(--gray-500)]'
-                }
+                    (isVeo && veoMode === 'reference' && refImages.length > 0) ||
+                    (!isVeo && imgUrl)
+                    ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                    : 'bg-white/[0.04] text-[var(--gray-500)]'
+                  }
                 active:scale-[0.92]
                 disabled:opacity-50 disabled:cursor-default
               `}
-              onClick={() => {
-                if (isVeo && veoMode === 'frames') triggerUpload(startFrame ? 'end' : 'start')
-                else if (isVeo && veoMode === 'reference') triggerUpload('ref')
-                else triggerUpload('single')
-              }}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <Upload size={18} />
-              )}
-            </button>
-          )}
+                onClick={() => {
+                  if (isVeo && veoMode === 'frames') triggerUpload(startFrame ? 'end' : 'start')
+                  else if (isVeo && veoMode === 'reference') triggerUpload('ref')
+                  else if (isKling25) triggerUpload('single')
+                  else triggerUpload('single')
+                }}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Upload size={18} />
+                )}
+              </button>
+            )}
 
           <textarea
             ref={inputRef}
@@ -1789,18 +1885,22 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               placeholder:text-[var(--gray-600)]
               focus:border-[rgba(250,204,21,0.2)]
             "
-                        placeholder={
+            placeholder={
               isVeo && veoMode === 'frames'
                 ? 'Опишите движение между кадрами...'
                 : isVeo && veoMode === 'reference'
-                ? 'Опишите сцену с референсами...'
-                : isKling && multiShots
-                ? 'Общее описание (опц.) — детали в шотах...'
-                : isKling && elements.some((e) => e.name.trim())
-                ? 'Опишите сцену, ссылайтесь на @имя элемента...'
-                : requiresInputImage
-                ? 'Загрузите фото и опишите видео...'
-                : 'Опишите видео...'
+                  ? 'Опишите сцену с референсами...'
+                  : isKling && multiShots
+                    ? 'Общее описание (опц.) — детали в шотах...'
+                    : isKling && elements.some((e) => e.name.trim())
+                      ? 'Опишите сцену, ссылайтесь на @имя элемента...'
+                      : isKling25 && imgUrl
+                        ? 'Опишите как оживить изображение...'
+                        : isKling25
+                          ? 'Опишите видео детально для лучшего результата...'
+                          : requiresInputImage
+                            ? 'Загрузите фото и опишите видео...'
+                            : 'Опишите видео...'
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -2328,6 +2428,55 @@ function ElementEditor({
       {needMore && (
         <span className="text-[10px] text-amber-400/70">Нужно минимум 2 фото</span>
       )}
+    </div>
+  )
+}
+
+/* ─── Kling 2.5: ползунок креативности (cfg_scale) ─── */
+function CfgSlider({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (v: number) => void
+}) {
+  const pct = value * 100
+  return (
+    <div className="flex flex-col gap-2.5 px-1 pt-1">
+      <div className="flex items-baseline justify-center gap-1">
+        <span className="text-[var(--accent-yellow)] text-[20px] font-bold leading-none">
+          {value.toFixed(1)}
+        </span>
+      </div>
+
+      <div className="relative h-9 flex items-center">
+        <div className="absolute left-0 right-0 h-1.5 rounded-full bg-white/[0.08]" />
+        <div
+          className="absolute left-0 h-1.5 rounded-full bg-[var(--accent-yellow)] transition-all duration-150"
+          style={{ width: `${pct}%` }}
+        />
+        <div
+          className="absolute w-5 h-5 rounded-full bg-[var(--accent-yellow)]
+            shadow-[0_0_0_4px_rgba(250,204,21,0.15)] -translate-x-1/2 transition-all duration-150
+            pointer-events-none"
+          style={{ left: `${pct}%` }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.1}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute left-0 right-0 w-full h-9 opacity-0 cursor-pointer m-0 p-0"
+          aria-label="Креативность"
+        />
+      </div>
+
+      <div className="flex justify-between px-0 text-[10px] text-white/35">
+        <span>Свободно</span>
+        <span>Точно по промпту</span>
+      </div>
     </div>
   )
 }

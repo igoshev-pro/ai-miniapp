@@ -374,7 +374,7 @@ export function useGeneration() {
         if (s.promptOptimizer !== undefined) body.promptOptimizer = s.promptOptimizer
         if (s.waterMark !== undefined) body.waterMark = s.waterMark
 
-        // 🆕 Kling 3.0: multi-shots / elements
+                // 🆕 Kling 3.0: multi-shots / elements
         if (s.multiShots !== undefined) body.multiShots = s.multiShots
         if (s.multiPrompt && (s.multiPrompt as any[]).length > 0) {
           body.multiPrompt = s.multiPrompt
@@ -382,6 +382,11 @@ export function useGeneration() {
         if (s.klingElements && (s.klingElements as any[]).length > 0) {
           body.klingElements = s.klingElements
         }
+
+        // 🆕 Kling 2.5 Turbo: cfg scale / nsfw checker / negative prompt
+        if (s.cfgScale !== undefined) body.cfgScale = s.cfgScale
+        if (s.nsfwChecker !== undefined) body.nsfwChecker = s.nsfwChecker
+        if (s.negativePrompt) body.negativePrompt = s.negativePrompt
       }
 
       if (request.type === 'audio') {
