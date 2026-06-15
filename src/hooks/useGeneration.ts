@@ -396,7 +396,7 @@ export function useGeneration() {
         if (s.webSearch !== undefined) body.webSearch = s.webSearch
       }
 
-      if (request.type === 'audio') {
+            if (request.type === 'audio') {
         if (s.style) body.style = s.style
         if (s.duration) body.duration = s.duration
         if (s.instrumental !== undefined) body.instrumental = s.instrumental
@@ -410,6 +410,15 @@ export function useGeneration() {
         if (s.promptInfluence !== undefined) body.promptInfluence = s.promptInfluence
         if (s.audioUrl) body.audioUrl = s.audioUrl
         if (s.dialogue && (s.dialogue as any[]).length > 0) body.dialogue = s.dialogue
+
+        // 🆕 Suno расширенные (Custom Mode)
+        if (s.title) body.title = s.title
+        if (s.negativeTags) body.negativeTags = s.negativeTags
+        if (s.vocalGender) body.vocalGender = s.vocalGender
+        if (s.styleWeight !== undefined) body.styleWeight = s.styleWeight
+        if (s.weirdnessConstraint !== undefined) body.weirdnessConstraint = s.weirdnessConstraint
+        if (s.audioWeight !== undefined) body.audioWeight = s.audioWeight
+        if (s.operation) body.operation = s.operation
       }
 
       try {

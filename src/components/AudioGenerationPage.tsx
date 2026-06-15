@@ -95,7 +95,7 @@ const EXAMPLES: Record<string, string[]> = {
 const FALLBACK_BY_TYPE: Record<AudioType, AudioCaps> = {
   suno: {
     type: 'suno', supportsCustomMode: true, supportsInstrumental: true, supportsStyle: true,
-    supportsDuration: true, durationRange: [5, 300], durationStep: 5,
+    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
     supportsVoice: false, voices: [], supportsLanguage: false, languages: [],
     supportsStability: false, supportsSimilarity: false,
     supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
@@ -220,6 +220,14 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   const [instrumental, setInstrumental] = useState(false)
   const [style, setStyle] = useState('')
   const [duration, setDuration] = useState(30)
+
+  // Suno (расширенные, custom mode)
+  const [title, setTitle] = useState('')
+  const [negativeTags, setNegativeTags] = useState('')
+  const [vocalGender, setVocalGender] = useState('') // '' | 'm' | 'f'
+  const [styleWeight, setStyleWeight] = useState(65)          // 0-100 → /100
+  const [weirdnessConstraint, setWeirdnessConstraint] = useState(50)
+  const [audioWeight, setAudioWeight] = useState(65)
 
   // TTS
   const [voiceId, setVoiceId] = useState(DEFAULT_VOICE)
@@ -472,10 +480,16 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     setInput('')
     setAudioUrl('')
 
-    // Suno
+        // Suno
     setCustomMode(false)
     setInstrumental(false)
     setStyle('')
+    setTitle('')
+    setNegativeTags('')
+    setVocalGender('')
+    setStyleWeight(65)
+    setWeirdnessConstraint(50)
+    setAudioWeight(65)
 
     // common duration
     setDuration(defDur)
@@ -487,7 +501,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     setSimilarity(75)
     setSpeed(100)
 
-        // SFX
+    // SFX
     setLoop(false)
     setPromptInfluence(30)
 
@@ -599,11 +613,19 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
     const settings: Record<string, unknown> = {}
 
-    if (caps.type === 'suno') {
+        if (caps.type === 'suno') {
       if (caps.supportsCustomMode) settings.customMode = customMode
       if (caps.supportsInstrumental) settings.instrumental = instrumental
-      if (caps.supportsStyle && style.trim()) settings.style = style.trim()
-      if (caps.supportsDuration) settings.duration = duration
+      // расширенные параметры — только в Custom Mode
+      if (customMode) {
+        if (style.trim()) settings.style = style.trim()
+        if (title.trim()) settings.title = title.trim()
+        if (negativeTags.trim()) settings.negativeTags = negativeTags.trim()
+        if (!instrumental && vocalGender) settings.vocalGender = vocalGender
+        settings.styleWeight = styleWeight / 100
+        settings.weirdnessConstraint = weirdnessConstraint / 100
+        settings.audioWeight = audioWeight / 100
+      }
     }
     if (caps.type === 'elevenlabs-tts') {
       if (caps.supportsVoice) settings.voiceId = voiceId
@@ -641,6 +663,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   }, [
     input, audioUrl, balance, displayedCost, slug, caps,
     customMode, instrumental, style, duration,
+    title, negativeTags, vocalGender, styleWeight, weirdnessConstraint, audioWeight,
     voiceId, language, stability, similarity, speed,
     loop, promptInfluence,
     haptic, hapticNotification, generate,
@@ -716,11 +739,14 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   /* ── 🆕 Активные бейджики для строки модели (как в Image) ── */
   const activeBadges = useMemo(() => {
     const out: { key: string; label: string; active?: boolean }[] = []
-    if (caps.type === 'suno') {
-      if (caps.supportsDuration) out.push({ key: 'dur', label: `${duration} сек` })
+        if (caps.type === 'suno') {
       if (customMode) out.push({ key: 'custom', label: 'Custom', active: true })
       if (instrumental) out.push({ key: 'instr', label: 'Инструментал', active: true })
-      if (style.trim()) out.push({ key: 'style', label: style.trim(), active: true })
+      if (customMode && style.trim()) out.push({ key: 'style', label: style.trim(), active: true })
+      if (customMode && title.trim()) out.push({ key: 'title', label: `🎵 ${title.trim()}`, active: true })
+      if (customMode && !instrumental && vocalGender) {
+        out.push({ key: 'vg', label: vocalGender === 'm' ? '♂' : '♀', active: true })
+      }
     }
     if (caps.type === 'elevenlabs-tts') {
       out.push({ key: 'voice', label: voiceId })
@@ -739,7 +765,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       out.push({ key: 'audio', label: audioUrl ? '🎵 Аудио' : 'Нужен файл', active: !!audioUrl })
     }
     return out
-  }, [caps, duration, customMode, instrumental, style, voiceId, language, loop, audioUrl, input])
+  }, [caps, duration, customMode, instrumental, style, title, vocalGender, voiceId, language, loop, audioUrl, input])
 
   /* ── Helpers ── */
 
@@ -1032,7 +1058,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                   relative overflow-hidden
                 "
               >
-                                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
+                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
                 <Loader2 size={36} className="text-[var(--accent-yellow)] animate-spin relative z-10" strokeWidth={1.5} />
                 <div className="text-[13px] font-medium text-white/70 relative z-10">
                   {caps.type === 'suno' ? 'Создаём музыку...' :
@@ -1253,7 +1279,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             </div>
 
             <div className="flex flex-col gap-5 p-5">
-              {/* ═══ SUNO ═══ */}
+                            {/* ═══ SUNO ═══ */}
               {caps.type === 'suno' && (
                 <>
                   {caps.supportsCustomMode && (
@@ -1262,6 +1288,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                         <Chip active={!customMode} onClick={() => { setCustomMode(false); haptic('light') }}>Авто</Chip>
                         <Chip active={customMode} onClick={() => { setCustomMode(true); haptic('light') }}>Custom Mode</Chip>
                       </Chips>
+                      <div className="text-[11px] text-white/35 mt-1">
+                        {customMode
+                          ? 'Полный контроль: стиль, название, тонкие настройки.'
+                          : 'Просто опишите трек — Suno подберёт стиль автоматически.'}
+                      </div>
                     </Field>
                   )}
 
@@ -1274,39 +1305,103 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                     </Field>
                   )}
 
-                  {caps.supportsStyle && (
-                    <Field label="🎨 Стиль" hint="pop, rock, jazz, electronic...">
-                      <input
-                        type="text"
-                        className="
-                          w-full py-[10px] px-3.5
-                          rounded-[10px] border border-white/[0.08]
-                          bg-white/[0.03] text-white text-[13px]
-                          outline-none transition-[border-color] duration-200
-                          placeholder:text-white/25
-                          focus:border-amber-400/30
-                          font-[inherit]
-                        "
-                        placeholder="Например: pop, energetic, upbeat"
-                        value={style}
-                        onChange={(e) => setStyle(e.target.value)}
-                      />
-                    </Field>
-                  )}
+                  {/* ── Расширенные параметры (только Custom Mode) ── */}
+                  {customMode && (
+                    <>
+                      {caps.supportsStyle && (
+                        <Field label="🎨 Стиль" hint="pop, rock, jazz, electronic...">
+                          <input
+                            type="text"
+                            className="
+                              w-full py-[10px] px-3.5
+                              rounded-[10px] border border-white/[0.08]
+                              bg-white/[0.03] text-white text-[13px]
+                              outline-none transition-[border-color] duration-200
+                              placeholder:text-white/25
+                              focus:border-amber-400/30
+                              font-[inherit]
+                            "
+                            placeholder="Например: pop, energetic, upbeat"
+                            value={style}
+                            onChange={(e) => setStyle(e.target.value)}
+                          />
+                        </Field>
+                      )}
 
-                  {caps.supportsDuration && (
-                    <Slider
-                      label={<><Clock size={13} /> Длительность</>}
-                      value={duration}
-                      onChange={setDuration}
-                      min={caps.durationRange[0]}
-                      max={caps.durationRange[1]}
-                      step={caps.durationStep}
-                      unit="сек"
-                      minLabel={`${caps.durationRange[0]} сек`}
-                      maxLabel={`${caps.durationRange[1]} сек`}
-                      priceHint
-                    />
+                      <Field label="✏️ Название трека" hint="опционально">
+                        <input
+                          type="text"
+                          className="
+                            w-full py-[10px] px-3.5
+                            rounded-[10px] border border-white/[0.08]
+                            bg-white/[0.03] text-white text-[13px]
+                            outline-none transition-[border-color] duration-200
+                            placeholder:text-white/25
+                            focus:border-amber-400/30
+                            font-[inherit]
+                          "
+                          placeholder="Например: Summer Vibes"
+                          value={title}
+                          maxLength={100}
+                          onChange={(e) => setTitle(e.target.value)}
+                        />
+                      </Field>
+
+                      <Field label="🚫 Исключить стили" hint="чего НЕ должно быть">
+                        <input
+                          type="text"
+                          className="
+                            w-full py-[10px] px-3.5
+                            rounded-[10px] border border-white/[0.08]
+                            bg-white/[0.03] text-white text-[13px]
+                            outline-none transition-[border-color] duration-200
+                            placeholder:text-white/25
+                            focus:border-amber-400/30
+                            font-[inherit]
+                          "
+                          placeholder="Например: heavy metal, screamo"
+                          value={negativeTags}
+                          onChange={(e) => setNegativeTags(e.target.value)}
+                        />
+                      </Field>
+
+                      {!instrumental && (
+                        <Field label={<><Mic size={13} /> Голос</>}>
+                          <Chips>
+                            <Chip active={vocalGender === ''} onClick={() => { setVocalGender(''); haptic('light') }}>Авто</Chip>
+                            <Chip active={vocalGender === 'm'} onClick={() => { setVocalGender('m'); haptic('light') }}>Мужской</Chip>
+                            <Chip active={vocalGender === 'f'} onClick={() => { setVocalGender('f'); haptic('light') }}>Женский</Chip>
+                          </Chips>
+                        </Field>
+                      )}
+
+                      <Slider
+                        label="Вес стиля"
+                        hint="Насколько строго следовать стилю"
+                        value={styleWeight}
+                        onChange={setStyleWeight}
+                        min={0} max={100} step={5} unit="%"
+                        minLabel="Свободнее" maxLabel="Строже"
+                      />
+
+                      <Slider
+                        label="Экспериментальность"
+                        hint="Выше = необычнее звучание"
+                        value={weirdnessConstraint}
+                        onChange={setWeirdnessConstraint}
+                        min={0} max={100} step={5} unit="%"
+                        minLabel="Классика" maxLabel="Эксперимент"
+                      />
+
+                      <Slider
+                        label="Вес аудио"
+                        hint="Влияние референса на результат"
+                        value={audioWeight}
+                        onChange={setAudioWeight}
+                        min={0} max={100} step={5} unit="%"
+                        minLabel="Меньше" maxLabel="Больше"
+                      />
+                    </>
                   )}
                 </>
               )}

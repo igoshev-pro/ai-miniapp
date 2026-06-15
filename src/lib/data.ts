@@ -78,7 +78,7 @@ export const allModels: ModelItem[] = [
   { id: 'v13', name: 'Seedance 2 Fast', slug: 'seedance-2-fast', provider: 'ByteDance', category: 'video', description: 'Быстрая, 480/720p', cost: 9, hasVariants: true },
 
   // ═══════════════════════════════════════ АУДИО (6) ═══════════════════════════════════════
-  { id: 'a1', name: 'Suno V4', slug: 'suno-v4', provider: 'Suno', category: 'audio', description: 'Генерация музыки и песен', cost: 4.00, hasVariants: true },
+  { id: 'a1', name: 'Suno V5', slug: 'suno', provider: 'Suno', category: 'audio', description: 'Генерация музыки с вокалом — Suno V5', cost: 12, hasVariants: false },
   { id: 'a2', name: 'ElevenLabs TTS Turbo', slug: 'elevenlabs-tts-turbo', provider: 'ElevenLabs', category: 'audio', description: 'Быстрая озвучка текста', cost: 2.70, hasVariants: true },
   { id: 'a3', name: 'ElevenLabs TTS Multi', slug: 'elevenlabs-tts-multilingual', provider: 'ElevenLabs', category: 'audio', description: 'Многоязычная озвучка текста', cost: 5.40, hasVariants: true },
   { id: 'a4', name: 'ElevenLabs Dialogue', slug: 'elevenlabs-dialogue', provider: 'ElevenLabs', category: 'audio', description: 'Генерация диалогов с разными голосами', cost: 6.70, hasVariants: true },
