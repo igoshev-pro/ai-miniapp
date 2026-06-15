@@ -269,6 +269,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   >([])
   const elementUploadIdxRef = useRef<number>(0)
 
+  // 🆕 Motion Control
+  const [motionVideoUrl, setMotionVideoUrl] = useState('')
+  const [motionVideoDuration, setMotionVideoDuration] = useState<number | null>(null)
+  const [characterOrientation, setCharacterOrientation] = useState<'video' | 'image'>('video')
+  const [uploadingVideo, setUploadingVideo] = useState(false)
+  const videoFileRef = useRef<HTMLInputElement>(null)
+
   const [uploading, setUploading] = useState(false)
   const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element'>('single')
 
@@ -290,6 +297,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isKling25 = slug === 'kling-2.5-turbo'
   // isKling — только для UI 3.0 (мультисцены/элементы/кадры)
   const isKling = isKling3
+  const isMotion = slug === 'motion-control'
 
   /* ── UI config ── */
 
@@ -350,6 +358,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const veoForcesDuration8 = isVeo && veoMode === 'reference'
 
+  // Motion Control: duration берётся из видео, при orientation=image макс 10с
+  const motionMaxDur = characterOrientation === 'image' ? 10 : 30
+  const motionEffectiveDuration = isMotion
+    ? Math.min(motionMaxDur, Math.max(3, motionVideoDuration ? Math.round(motionVideoDuration) : 5))
+    : undefined
+
   useEffect(() => {
     if (isVeo && veoMode === 'reference' && !supportsReference) {
       setVeoMode('text')
@@ -361,7 +375,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const priceParams = useMemo(() => {
     const p: Record<string, any> = {}
     if (caps.modes.length > 0 && mode) p.mode = mode
-    if (caps.durations.length > 0 && duration !== undefined) {
+    if (isMotion) {
+      p.mode = mode || '720p'
+      if (motionEffectiveDuration) p.duration = motionEffectiveDuration
+      p.hasInputImage = true
+    } else if (caps.durations.length > 0 && duration !== undefined) {
       p.duration = veoForcesDuration8 ? 8 : duration
     }
     if (caps.aspectRatios.length > 0 && aspectRatio) p.aspectRatio = aspectRatio
@@ -502,6 +520,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setShots([{ prompt: '', duration: 5 }])
     setElements([])
 
+    // 🆕 motion control reset
+    setMotionVideoUrl('')
+    setMotionVideoDuration(null)
+    setCharacterOrientation('video')
+
     // 🆕 kling 2.5 reset
     setCfgScale(0.5)
     setNsfwChecker(true)
@@ -614,6 +637,69 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     [haptic, caps.maxInputImages, slug],
   )
 
+  // 🆕 Загрузка видео для Motion Control + чтение длительности
+  const uploadVideo = useCallback(
+    async (file: File) => {
+      if (!file.type.match(/video\/(mp4|quicktime|mov)/) && !/\.(mp4|mov)$/i.test(file.name)) {
+        toast.error('Только MP4 или MOV')
+        return
+      }
+      if (file.size > 100 * 1024 * 1024) {
+        toast.error('Макс 100MB')
+        return
+      }
+
+      // читаем длительность локально
+      const localUrl = URL.createObjectURL(file)
+      const probeDuration = await new Promise<number | null>((resolve) => {
+        const v = document.createElement('video')
+        v.preload = 'metadata'
+        v.onloadedmetadata = () => {
+          resolve(isFinite(v.duration) ? v.duration : null)
+          URL.revokeObjectURL(localUrl)
+        }
+        v.onerror = () => { resolve(null); URL.revokeObjectURL(localUrl) }
+        v.src = localUrl
+      })
+
+      if (probeDuration !== null) {
+        if (probeDuration < 3) {
+          toast.error('Видео должно быть не короче 3 секунд')
+          return
+        }
+        if (probeDuration > 30) {
+          toast.warning('Видео длиннее 30с — будет использовано первые 30с')
+        }
+      }
+
+      setUploadingVideo(true)
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const token = useAuthStore.getState().token
+        const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/upload/video`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: fd,
+        })
+        if (!r.ok) throw new Error('Upload failed')
+        const d = await r.json()
+        const url = d.data?.url || d.url
+        if (!url) throw new Error('No URL')
+
+        setMotionVideoUrl(url)
+        setMotionVideoDuration(probeDuration)
+        haptic('light')
+        toast.success('Видео загружено')
+      } catch (e: any) {
+        toast.error(e.message || 'Ошибка загрузки видео')
+      } finally {
+        setUploadingVideo(false)
+      }
+    },
+    [haptic],
+  )
+
   const triggerUpload = useCallback(
     (target: 'single' | 'start' | 'end' | 'ref' | 'element', elementIdx?: number) => {
       uploadTarget.current = target
@@ -644,7 +730,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   /* ── Generate ── */
 
-  const doGen = useCallback(async () => {
+    const doGen = useCallback(async () => {
     const prompt = input.trim()
     if (!prompt) return
 
@@ -674,13 +760,23 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         return
       }
     }
-    // элементы: если есть незаполненные — предупредим
     if (isKling) {
       const badEl = elements.find(
         (el) => el.name.trim() && el.urls.length > 0 && el.urls.length < 2,
       )
       if (badEl) {
         toast.warning(`Элемент "${badEl.name}" требует 2-4 изображения`)
+        return
+      }
+    }
+
+    if (isMotion) {
+      if (!imgUrl) {
+        toast.warning('Загрузите фото персонажа')
+        return
+      }
+      if (!motionVideoUrl) {
+        toast.warning('Загрузите видео с движениями')
         return
       }
     }
@@ -703,9 +799,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
 
     if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
-
     if (caps.resolutions.length && resolution) s.resolution = resolution
-
     if (caps.modes.length && mode) s.mode = mode
 
     if (caps.supportsSound) {
@@ -715,7 +809,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     if (caps.supportsRemoveWatermark) s.removeWatermark = removeWatermark
 
-    if (isVeo) {
+    if (isMotion) {
+      s.imageUrls = [imgUrl]
+      s.videoUrls = [motionVideoUrl]
+      s.characterOrientation = characterOrientation
+      s.mode = mode || '720p'
+      s.duration = motionEffectiveDuration
+    } else if (isVeo) {
       const safeMode: VeoMode =
         veoMode === 'reference' && !supportsReference ? 'text' : veoMode
 
@@ -728,13 +828,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         if (refImages.length) s.referenceImages = refImages.slice(0, veoMaxRefImages)
       }
     } else if (isKling) {
-      // Старт/конец кадр через image_urls
       const frames = multiShots
-        ? [startFrame].filter(Boolean)            // multi: только первый кадр
-        : [startFrame, endFrame].filter(Boolean)  // single: старт + конец
+        ? [startFrame].filter(Boolean)
+        : [startFrame, endFrame].filter(Boolean)
       if (frames.length) s.imageUrls = frames
 
-      // Совместимость: если старого imgUrl нет, но есть старт — продублируем
       if (imgUrl && frames.length === 0) s.imageUrls = [imgUrl]
 
       s.multiShots = multiShots
@@ -747,10 +845,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             prompt: sh.prompt.trim().slice(0, 500),
             duration: Math.min(12, Math.max(1, sh.duration || 3)),
           }))
-        s.sound = true // KIE форсит звук в multi-shots
+        s.sound = true
       }
 
-      // Элементы (до 3), берём только заполненные с 2-4 картинками
       const validElements = elements
         .filter((el) => el.name.trim() && el.urls.length >= 2 && el.urls.length <= 4)
         .slice(0, 3)
@@ -763,13 +860,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } else if (isKling25) {
       s.cfgScale = cfgScale
       s.nsfwChecker = nsfwChecker
-      // i2v: старт-кадр (imgUrl) + опц. конечный кадр (endFrame)
       const frames = imgUrl ? [imgUrl, endFrame].filter(Boolean) : []
       if (frames.length) s.imageUrls = frames
-      // duration уже строкой через isKieStr (slug startsWith 'kling')
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
-      // resizeMode передаём только если модель поддерживает и есть изображение
       if (caps.supportsResizeMode && imgUrl) s.resizeMode = resizeMode
     }
 
@@ -786,8 +880,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     caps, requiresInputImage, haptic, hapticNotification, generate,
     isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
     veoMaxRefImages,
-    isKling, multiShots, shots, elements,   // 🆕 kling
-    isKling25, cfgScale, nsfwChecker,        // 🆕 kling 2.5
+    isKling, multiShots, shots, elements,
+    isKling25, cfgScale, nsfwChecker,
+    isMotion, motionVideoUrl, motionEffectiveDuration, characterOrientation,
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -886,6 +981,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       badges.push({ key: 'cfg', label: `✨ ${cfgScale.toFixed(1)}` })
       badges.push({ key: 'k25res', label: '1080p' })
     }
+
+    // 🆕 motion control badges
+    if (isMotion) {
+      if (imgUrl) badges.push({ key: 'mc-img', label: '📸 Фото', accent: true })
+      if (motionVideoUrl) badges.push({ key: 'mc-vid', label: '🎬 Видео', accent: true })
+      badges.push({ key: 'mc-co', label: characterOrientation === 'video' ? 'Ориент: видео' : 'Ориент: фото' })
+    }
+
     return badges
 
   }, [
@@ -1246,7 +1349,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Mode */}
-              {caps.modes.length > 0 && (
+              {caps.modes.length > 0 && !isMotion && (
                 <Field label={<><Sparkles size={12} /> Режим</>} priceHint>
                   <Grid cols={caps.modes.length <= 3 ? caps.modes.length : 2}>
                     {caps.modes.map((m) => {
@@ -1267,7 +1370,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Duration */}
-              {caps.durations.length > 0 && !(isKling && multiShots) && (
+              {caps.durations.length > 0 && !(isKling && multiShots) && !isMotion && (
                 <Field label={<><Clock size={12} /> Длительность</>} priceHint>
                   {veoForcesDuration8 ? (
                     <div className="text-[12px] text-white/40 bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5">
@@ -1359,6 +1462,129 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-[12px] text-white/60 leading-relaxed">
                   ⚠️ Sora 2 имеет строгую модерацию. Реальные люди на изображениях не поддерживаются.
                 </div>
+              )}
+
+                            {/* ═══ MOTION CONTROL ═══ */}
+              {isMotion && (
+                <>
+                  {/* Фото персонажа */}
+                  <Field label={<><ImageIcon size={12} /> Фото персонажа</>}>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <FrameSlot
+                        label="Референс (персонаж)"
+                        url={imgUrl}
+                        uploading={uploading && uploadTarget.current === 'single'}
+                        onUpload={() => triggerUpload('single')}
+                        onRemove={() => setImgUrl('')}
+                      />
+                    </div>
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      Внешность, фон и стиль персонажа возьмутся с этого фото.
+                    </div>
+                  </Field>
+
+                  {/* Видео с движениями */}
+                  <Field label={<><Film size={12} /> Видео с движениями</>}>
+                    {motionVideoUrl ? (
+                      <div className="relative rounded-[10px] overflow-hidden border border-white/[0.08]">
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <video
+                          src={motionVideoUrl}
+                          className="w-full max-h-[180px] object-contain bg-black block"
+                          controls
+                          playsInline
+                        />
+                        <button
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                          onClick={() => { setMotionVideoUrl(''); setMotionVideoDuration(null) }}
+                        >
+                          <X size={13} />
+                        </button>
+                        {motionVideoDuration !== null && (
+                          <span className="absolute bottom-1.5 left-1.5 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
+                            {Math.round(motionVideoDuration)}с
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        className="
+                          w-full py-6 rounded-[10px]
+                          border-[1.5px] border-dashed border-white/[0.12]
+                          bg-white/[0.03] text-white/30
+                          flex flex-col items-center justify-center gap-1.5 text-[12px]
+                          cursor-pointer transition-all
+                          active:bg-white/[0.07] active:border-white/[0.22]
+                          disabled:opacity-50
+                        "
+                        onClick={() => videoFileRef.current?.click()}
+                        disabled={uploadingVideo}
+                      >
+                        {uploadingVideo
+                          ? <Loader2 size={22} className="animate-spin" />
+                          : <Upload size={22} />}
+                        <span>{uploadingVideo ? 'Загрузка...' : 'Загрузить видео'}</span>
+                      </button>
+                    )}
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      MP4 или MOV, 3–30 сек, до 100MB. В кадре должен быть один человек —
+                      его движения перенесутся на персонажа с фото.
+                    </div>
+                  </Field>
+
+                  {/* Ориентация персонажа */}
+                  <Field label={<><Type size={12} /> Источник ориентации</>}>
+                    <Grid cols={2}>
+                      <OptBtn
+                        active={characterOrientation === 'video'}
+                        onClick={() => { setCharacterOrientation('video'); haptic('light') }}
+                      >
+                        🎬 По видео (до 30с)
+                      </OptBtn>
+                      <OptBtn
+                        active={characterOrientation === 'image'}
+                        onClick={() => { setCharacterOrientation('image'); haptic('light') }}
+                      >
+                        📸 По фото (до 10с)
+                      </OptBtn>
+                    </Grid>
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      «По видео» — персонаж повторяет повороты из видео (до 30с).
+                      «По фото» — ориентация как на фото (макс 10с).
+                    </div>
+                  </Field>
+
+                  {/* Качество */}
+                  {caps.modes.length > 0 && (
+                    <Field label={<><Layers size={12} /> Качество</>} priceHint>
+                      <Grid cols={caps.modes.length}>
+                        {caps.modes.map((m) => (
+                          <OptBtn
+                            key={m}
+                            active={mode === m}
+                            onClick={() => { setMode(m); haptic('light') }}
+                          >
+                            {m === '720p' ? '720p HD' : m === '1080p' ? '1080p FHD' : m}
+                          </OptBtn>
+                        ))}
+                      </Grid>
+                    </Field>
+                  )}
+
+                  {/* Инфо о длительности (авто из видео) */}
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5 text-[12px] text-white/50 flex items-center gap-2">
+                    <Clock size={14} className="text-[var(--accent-yellow)]" />
+                    {motionVideoDuration !== null ? (
+                      <>Длительность видео: <b className="text-white/70 mx-1">{motionEffectiveDuration}с</b>
+                        {characterOrientation === 'image' && motionVideoDuration > 10 && (
+                          <span className="text-amber-400/70">(обрезано до 10с)</span>
+                        )}
+                      </>
+                    ) : (
+                      <>Длительность определится из загруженного видео</>
+                    )}
+                  </div>
+                </>
               )}
 
               {/* ═══ KLING 3.0 ═══ */}
@@ -1541,7 +1767,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     Качество видео — <b className="text-white/70 mx-1">1080p</b> (единственный вариант)
                   </div>
 
-                                    {/* Индикатор текущего режима */}
+                  {/* Индикатор текущего режима */}
                   <div
                     className={`
                       rounded-[var(--radius-xs)] px-3 py-2.5
@@ -1565,7 +1791,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     )}
                   </div>
 
-                                    {/* Кадры: начальный (обязателен для i2v) → конечный (опц.) */}
+                  {/* Кадры: начальный (обязателен для i2v) → конечный (опц.) */}
                   <Field label={<><Film size={12} /> Оживить изображение (опц.)</>}>
                     <div className="grid grid-cols-2 gap-2.5">
                       <FrameSlot
@@ -1611,7 +1837,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                                    {/* NSFW checker */}
+                  {/* NSFW checker */}
                   <Field label={<><ShieldOff size={12} /> Фильтр 18+ контента</>}>
                     <ToggleRow
                       active={nsfwChecker}
@@ -1706,7 +1932,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && !isKling && caps.supportsImageInput && (
+              {!isVeo && !isKling && !isMotion && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -1793,6 +2019,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         }}
       />
 
+      {/* Скрытый video input (Motion Control) */}
+      <input
+        ref={videoFileRef}
+        type="file"
+        accept="video/mp4,video/quicktime,.mp4,.mov"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) uploadVideo(f)
+          e.target.value = ''
+        }}
+      />
+
       {/* ── Input area ── */}
       <div
         className="
@@ -1836,6 +2075,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               chips.push({ url: imgUrl, label: 'Старт', onRemove: () => setImgUrl('') })
             if (endFrame)
               chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
+          } else if (isMotion) {
+            if (imgUrl) chips.push({ url: imgUrl, label: 'Фото', onRemove: () => setImgUrl('') })
           } else if (imgUrl) {
             chips.push({ url: imgUrl, label: 'Изображение', onRemove: () => setImgUrl('') })
           }
@@ -1879,9 +2120,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
         <div className="flex items-center gap-2">
           {/* Кнопка загрузки (kling 3.0 грузит из настроек) */}
-          {((isVeo && veoMode !== 'text') ||
+                    {((isVeo && veoMode !== 'text') ||
             (isKling25 && caps.supportsImageInput) ||
-            (!isVeo && !isKling && !isKling25 && caps.supportsImageInput)) && (
+            isMotion ||
+            (!isVeo && !isKling && !isKling25 && !isMotion && caps.supportsImageInput)) && (
               <button
                 className={`
                 w-[38px] h-[38px] rounded-[10px] border-none
