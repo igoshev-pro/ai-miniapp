@@ -382,7 +382,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } else if (caps.durations.length > 0 && duration !== undefined) {
       p.duration = veoForcesDuration8 ? 8 : duration
     }
-    if (caps.aspectRatios.length > 0 && aspectRatio) p.aspectRatio = aspectRatio
+    if (caps.aspectRatios.length > 0 && aspectRatio && !isMotion) p.aspectRatio = aspectRatio
     if (caps.resolutions.length > 0 && resolution) p.resolution = resolution
     if (caps.supportsSound) p.sound = sound
     if (caps.supportsRemoveWatermark) p.removeWatermark = removeWatermark
@@ -798,7 +798,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       s.duration = isKieStr ? String(dur) : dur
     }
 
-    if (caps.aspectRatios.length && aspectRatio) s.aspectRatio = aspectRatio
+    if (caps.aspectRatios.length && aspectRatio && !isMotion) s.aspectRatio = aspectRatio
     if (caps.resolutions.length && resolution) s.resolution = resolution
     if (caps.modes.length && mode) s.mode = mode
 
@@ -933,7 +933,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (caps.durations.length > 0 && duration !== undefined && !(isKling && multiShots)) {
       badges.push({ key: 'dur', label: `${veoForcesDuration8 ? 8 : duration} сек` })
     }
-    if (caps.aspectRatios.length > 0 && aspectRatio) {
+    if (caps.aspectRatios.length > 0 && aspectRatio && !isMotion) {
       badges.push({ key: 'ar', label: AR_META[aspectRatio]?.label || aspectRatio })
     }
     if (caps.resolutions.length > 0 && resolution) {
@@ -1387,7 +1387,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Aspect Ratio */}
-              {caps.aspectRatios.length > 0 && !(isKling25 && imgUrl) && (
+              {caps.aspectRatios.length > 0 && !(isKling25 && imgUrl) && !isMotion && (
                 <Field label={<><Maximize2 size={12} /> Соотношение сторон</>}>
                   <Grid cols={caps.aspectRatios.length <= 3 ? caps.aspectRatios.length : 4}>
                     {caps.aspectRatios.map((a) => {
