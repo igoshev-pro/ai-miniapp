@@ -332,7 +332,7 @@ export function useGeneration() {
         body.numImages = (s.count as number) || 1
       }
 
-            if (request.type === 'video') {
+      if (request.type === 'video') {
         if (s.aspectRatio) body.aspectRatio = s.aspectRatio
 
         // resolution: kie-модели (wan) читают напрямую;
@@ -361,7 +361,7 @@ export function useGeneration() {
         if (s.generationType) body.generationType = s.generationType
         // 🆕 Veo: watermark текст
         if (s.watermark) body.watermark = s.watermark
-        
+
         if (s.style) body.style = s.style
         if (s.mode) body.mode = s.mode
 
@@ -373,6 +373,15 @@ export function useGeneration() {
         if (s.removeWatermark !== undefined) body.removeWatermark = s.removeWatermark
         if (s.promptOptimizer !== undefined) body.promptOptimizer = s.promptOptimizer
         if (s.waterMark !== undefined) body.waterMark = s.waterMark
+
+        // 🆕 Kling 3.0: multi-shots / elements
+        if (s.multiShots !== undefined) body.multiShots = s.multiShots
+        if (s.multiPrompt && (s.multiPrompt as any[]).length > 0) {
+          body.multiPrompt = s.multiPrompt
+        }
+        if (s.klingElements && (s.klingElements as any[]).length > 0) {
+          body.klingElements = s.klingElements
+        }
       }
 
       if (request.type === 'audio') {

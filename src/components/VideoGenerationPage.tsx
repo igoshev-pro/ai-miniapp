@@ -6,6 +6,7 @@ import {
   Clock, Maximize2, Loader2, Upload, Image as ImageIcon,
   Sparkles, Layers, Volume2, VolumeX, ShieldOff, Film, Images,
   Type, Rocket, Gauge, Crown, Scissors,
+  Plus, Trash2, Tag, FileText,   // 🆕 kling
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -172,6 +173,10 @@ function isVeoSlug(slug: string): boolean {
   return slug.startsWith('veo')
 }
 
+function isKlingSlug(slug: string): boolean {
+  return slug.startsWith('kling')
+}
+
 function getParamOptions(config: ModelUIConfig | null, key: string): string[] {
   if (!config?.uiParameters) return []
   const p = config.uiParameters.find((x) => x.key === key)
@@ -245,8 +250,18 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [endFrame, setEndFrame] = useState('')
   const [refImages, setRefImages] = useState<string[]>([])
 
+  // 🆕 Kling 3.0
+  const [multiShots, setMultiShots] = useState(false)
+  const [shots, setShots] = useState<{ prompt: string; duration: number }[]>([
+    { prompt: '', duration: 5 },
+  ])
+  const [elements, setElements] = useState<
+    { name: string; description: string; urls: string[] }[]
+  >([])
+  const elementUploadIdxRef = useRef<number>(0)
+
   const [uploading, setUploading] = useState(false)
-  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref'>('single')
+  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element'>('single')
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
@@ -261,6 +276,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const isVeo = isVeoSlug(slug)
   const supportsReference = isVeo && veoSupportsReference(slug)
+
+  const isKling = isKlingSlug(slug)
 
   /* ── UI config ── */
 
@@ -293,9 +310,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     return {
       aspectRatios: arBackend.length ? arBackend : fb.aspectRatios,
-      durations:    durBackend.length ? durBackend : fb.durations,
-      resolutions:  rBackend.length   ? rBackend   : fb.resolutions,
-      modes:        modeBackend.length ? modeBackend : fb.modes,
+      durations: durBackend.length ? durBackend : fb.durations,
+      resolutions: rBackend.length ? rBackend : fb.resolutions,
+      modes: modeBackend.length ? modeBackend : fb.modes,
       supportsImageInput: inputCap.acceptsImages === true || fb.supportsImageInput,
       maxInputImages: inputCap.maxInputImages ?? fb.maxInputImages,
       supportsSound:
@@ -468,6 +485,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setEndFrame('')
     setRefImages([])
 
+    // 🆕 kling reset
+    setMultiShots(false)
+    setShots([{ prompt: '', duration: 5 }])
+    setElements([])
+
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig, slug])
@@ -489,7 +511,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px'
   }, [input])
 
-    // Скролл к последнему при изменении списка
+  // Скролл к последнему при изменении списка
   useEffect(() => {
     const el = resultsContainerRef.current
     if (!el) return
@@ -554,6 +576,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             if (prev.length >= max) return prev
             return [...prev, url]
           })
+        } else if (target === 'element') {
+          const idx = elementUploadIdxRef.current
+          setElements((prev) =>
+            prev.map((el, i) =>
+              i === idx && el.urls.length < 4
+                ? { ...el, urls: [...el.urls, url] }
+                : el,
+            ),
+          )
         }
 
         haptic('light')
@@ -568,8 +599,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   )
 
   const triggerUpload = useCallback(
-    (target: 'single' | 'start' | 'end' | 'ref') => {
+    (target: 'single' | 'start' | 'end' | 'ref' | 'element', elementIdx?: number) => {
       uploadTarget.current = target
+      if (target === 'element' && elementIdx !== undefined) {
+        elementUploadIdxRef.current = elementIdx
+      }
       fileRef.current?.click()
     },
     [],
@@ -610,6 +644,24 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } else if (requiresInputImage && !imgUrl) {
       toast.warning('Загрузите изображение для этой модели')
       return
+    }
+
+    if (isKling && multiShots) {
+      const validShots = shots.filter((sh) => sh.prompt.trim())
+      if (validShots.length === 0) {
+        toast.warning('Добавьте хотя бы один шот с описанием')
+        return
+      }
+    }
+    // элементы: если есть незаполненные — предупредим
+    if (isKling) {
+      const badEl = elements.find(
+        (el) => el.name.trim() && el.urls.length > 0 && el.urls.length < 2,
+      )
+      if (badEl) {
+        toast.warning(`Элемент "${badEl.name}" требует 2-4 изображения`)
+        return
+      }
     }
 
     if (balance < displayedCost) {
@@ -654,6 +706,39 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       } else if (safeMode === 'reference') {
         if (refImages.length) s.referenceImages = refImages.slice(0, veoMaxRefImages)
       }
+    } else if (isKling) {
+      // Старт/конец кадр через image_urls
+      const frames = multiShots
+        ? [startFrame].filter(Boolean)            // multi: только первый кадр
+        : [startFrame, endFrame].filter(Boolean)  // single: старт + конец
+      if (frames.length) s.imageUrls = frames
+
+      // Совместимость: если старого imgUrl нет, но есть старт — продублируем
+      if (imgUrl && frames.length === 0) s.imageUrls = [imgUrl]
+
+      s.multiShots = multiShots
+
+      if (multiShots) {
+        s.multiPrompt = shots
+          .filter((sh) => sh.prompt.trim())
+          .slice(0, 5)
+          .map((sh) => ({
+            prompt: sh.prompt.trim().slice(0, 500),
+            duration: Math.min(12, Math.max(1, sh.duration || 3)),
+          }))
+        s.sound = true // KIE форсит звук в multi-shots
+      }
+
+      // Элементы (до 3), берём только заполненные с 2-4 картинками
+      const validElements = elements
+        .filter((el) => el.name.trim() && el.urls.length >= 2 && el.urls.length <= 4)
+        .slice(0, 3)
+        .map((el) => ({
+          name: el.name.trim(),
+          description: el.description.trim(),
+          elementInputUrls: el.urls,
+        }))
+      if (validElements.length) s.klingElements = validElements
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
       // resizeMode передаём только если модель поддерживает и есть изображение
@@ -673,6 +758,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     caps, requiresInputImage, haptic, hapticNotification, generate,
     isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
     veoMaxRefImages,
+    isKling, multiShots, shots, elements,   // 🆕 kling
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -697,16 +783,20 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const hasResults = vidGens.length > 0
 
+  const klingMultiInvalid =
+    isKling && multiShots && shots.filter((sh) => sh.prompt.trim()).length === 0
+
   const genDisabled =
-    !input.trim() ||
+    (!input.trim() && !klingMultiInvalid && !(isKling && multiShots)) ||
+    (isKling && multiShots && klingMultiInvalid) ||
     generating ||
     (isVeo && veoMode === 'frames' && !startFrame) ||
     (isVeo && veoMode === 'reference' && refImages.length === 0) ||
-    (!isVeo && requiresInputImage && !imgUrl)
+    (!isVeo && !isKling && requiresInputImage && !imgUrl)
 
   /* ── Badges ── */
 
-    const activeBadges = useMemo(() => {
+  const activeBadges = useMemo(() => {
     const badges: { key: string; label: string; accent?: boolean }[] = []
 
     if (isVeo) {
@@ -716,7 +806,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (caps.modes.length > 0 && mode) {
       badges.push({ key: 'mode', label: MODE_META[mode]?.label || mode, accent: true })
     }
-    if (caps.durations.length > 0 && duration !== undefined) {
+    if (caps.durations.length > 0 && duration !== undefined && !(isKling && multiShots)) {
       badges.push({ key: 'dur', label: `${veoForcesDuration8 ? 8 : duration} сек` })
     }
     if (caps.aspectRatios.length > 0 && aspectRatio) {
@@ -726,7 +816,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       badges.push({ key: 'res', label: RES_META[resolution]?.label || resolution })
     }
     if (caps.supportsSound) {
-      badges.push({ key: 'sound', label: sound ? '🔊' : '🔇', accent: sound })
+      const sndOn = isKling && multiShots ? true : sound
+      badges.push({ key: 'sound', label: sndOn ? '🔊' : '🔇', accent: sndOn })
     }
     if (isI2V) {
       badges.push({
@@ -743,10 +834,27 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         accent: resizeMode === 'pad',
       })
     }
+    // 🆕 kling badges
+    if (isKling && multiShots) {
+      const cnt = shots.filter((sh) => sh.prompt.trim()).length
+      badges.push({ key: 'multishot', label: `🎬 ${cnt} шот${cnt === 1 ? '' : 'ов'}`, accent: true })
+    }
+    if (isKling && elements.filter((e) => e.name.trim()).length > 0) {
+      badges.push({
+        key: 'elements',
+        label: `🧩 ${elements.filter((e) => e.name.trim()).length}`,
+        accent: true,
+      })
+    }
+    if (isKling && (startFrame || endFrame)) {
+      badges.push({ key: 'kframes', label: '🖼 Кадры', accent: true })
+    }
     return badges
+
   }, [
     caps, mode, duration, aspectRatio, resolution, sound, isI2V, imgUrl,
     isVeo, veoMode, veoForcesDuration8, resizeMode,
+    isKling, multiShots, shots, elements, startFrame, endFrame,   // 🆕
   ])
 
   const getGenCost = (gen: any): number | undefined => {
@@ -939,8 +1047,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 {isVeo && veoMode === 'frames'
                   ? 'Загрузите кадры (старт и конец) — Veo создаст переход между ними.'
                   : isVeo && veoMode === 'reference'
-                  ? 'Загрузите до 3 референсов (персонаж, стиль, локация) и опишите сцену.'
-                  : 'Опишите сцену. Видео может генерироваться до 5 минут.'}
+                    ? 'Загрузите до 3 референсов (персонаж, стиль, локация) и опишите сцену.'
+                    : 'Опишите сцену. Видео может генерироваться до 5 минут.'}
               </div>
               <button
                 className="
@@ -1121,7 +1229,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Duration */}
-              {caps.durations.length > 0 && (
+              {caps.durations.length > 0 && !(isKling && multiShots) && (
                 <Field label={<><Clock size={12} /> Длительность</>} priceHint>
                   {veoForcesDuration8 ? (
                     <div className="text-[12px] text-white/40 bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5">
@@ -1179,7 +1287,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* Sound */}
-              {caps.supportsSound && (
+              {caps.supportsSound && !(isKling && multiShots) && (
                 <Field label={<><Volume2 size={12} /> Звук</>}>
                   <ToggleRow
                     active={sound}
@@ -1188,6 +1296,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     onChange={(v) => { setSound(v); haptic('light') }}
                   />
                 </Field>
+              )}
+
+              {/* 🆕 Kling: звук в мультисценах форсится */}
+              {isKling && multiShots && caps.supportsSound && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5 text-[12px] text-white/50 flex items-center gap-2">
+                  <Volume2 size={14} className="text-[var(--accent-yellow)]" />
+                  В режиме мультисцен звук включается автоматически
+                </div>
               )}
 
               {/* Remove watermark */}
@@ -1205,6 +1321,176 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-[12px] text-white/60 leading-relaxed">
                   ⚠️ Sora 2 имеет строгую модерацию. Реальные люди на изображениях не поддерживаются.
                 </div>
+              )}
+
+                            {/* ═══ KLING 3.0 ═══ */}
+              {isKling && (
+                <>
+                  {/* Multi-shots toggle */}
+                  <Field label={<><Film size={12} /> Мультисцены</>}>
+                    <Grid cols={2}>
+                      <OptBtn
+                        active={!multiShots}
+                        onClick={() => { setMultiShots(false); haptic('light') }}
+                      >
+                        🎥 Одна сцена
+                      </OptBtn>
+                      <OptBtn
+                        active={multiShots}
+                        onClick={() => { setMultiShots(true); haptic('light') }}
+                      >
+                        🎬 Мультисцены
+                      </OptBtn>
+                    </Grid>
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      Мультисцены — до 5 последовательных шотов с разными промптами и длительностью.
+                    </div>
+                  </Field>
+
+                  {/* Shots editor */}
+                  {multiShots && (
+                    <Field label={<><Layers size={12} /> Шоты ({shots.length}/5)</>} priceHint>
+                      <div className="flex flex-col gap-2.5">
+                        {shots.map((sh, idx) => (
+                          <ShotEditor
+                            key={idx}
+                            index={idx}
+                            prompt={sh.prompt}
+                            duration={sh.duration}
+                            canRemove={shots.length > 1}
+                            onPrompt={(v) =>
+                              setShots((prev) =>
+                                prev.map((s, i) => (i === idx ? { ...s, prompt: v } : s)),
+                              )
+                            }
+                            onDuration={(v) => {
+                              setShots((prev) =>
+                                prev.map((s, i) => (i === idx ? { ...s, duration: v } : s)),
+                              )
+                              haptic('light')
+                            }}
+                            onRemove={() => {
+                              setShots((prev) => prev.filter((_, i) => i !== idx))
+                              haptic('light')
+                            }}
+                          />
+                        ))}
+                        {shots.length < 5 && (
+                          <button
+                            className="
+                              flex items-center justify-center gap-1.5
+                              py-2.5 rounded-[var(--radius-xs)]
+                              border-[1.5px] border-dashed border-white/[0.12]
+                              bg-white/[0.02] text-white/40 text-[12px] font-medium
+                              cursor-pointer transition-all active:scale-[0.98]
+                              active:bg-white/[0.06]
+                            "
+                            onClick={() => {
+                              setShots((prev) => [...prev, { prompt: '', duration: 5 }])
+                              haptic('light')
+                            }}
+                          >
+                            <Plus size={14} /> Добавить шот
+                          </button>
+                        )}
+                      </div>
+                    </Field>
+                  )}
+
+                  {/* Elements editor */}
+                  <Field label={<><Tag size={12} /> Элементы ({elements.length}/3)</>}>
+                    <div className="flex flex-col gap-2.5">
+                      {elements.map((el, idx) => (
+                        <ElementEditor
+                          key={idx}
+                          index={idx}
+                          name={el.name}
+                          description={el.description}
+                          urls={el.urls}
+                          uploading={
+                            uploading &&
+                            uploadTarget.current === 'element' &&
+                            elementUploadIdxRef.current === idx
+                          }
+                          onName={(v) =>
+                            setElements((prev) =>
+                              prev.map((e, i) => (i === idx ? { ...e, name: v } : e)),
+                            )
+                          }
+                          onDescription={(v) =>
+                            setElements((prev) =>
+                              prev.map((e, i) => (i === idx ? { ...e, description: v } : e)),
+                            )
+                          }
+                          onAddImage={() => triggerUpload('element', idx)}
+                          onRemoveImage={(imgIdx) =>
+                            setElements((prev) =>
+                              prev.map((e, i) =>
+                                i === idx
+                                  ? { ...e, urls: e.urls.filter((_, j) => j !== imgIdx) }
+                                  : e,
+                              ),
+                            )
+                          }
+                          onRemove={() => {
+                            setElements((prev) => prev.filter((_, i) => i !== idx))
+                            haptic('light')
+                          }}
+                        />
+                      ))}
+                      {elements.length < 3 && (
+                        <button
+                          className="
+                            flex items-center justify-center gap-1.5
+                            py-2.5 rounded-[var(--radius-xs)]
+                            border-[1.5px] border-dashed border-white/[0.12]
+                            bg-white/[0.02] text-white/40 text-[12px] font-medium
+                            cursor-pointer transition-all active:scale-[0.98]
+                            active:bg-white/[0.06]
+                          "
+                          onClick={() => {
+                            setElements((prev) => [...prev, { name: '', description: '', urls: [] }])
+                            haptic('light')
+                          }}
+                        >
+                          <Plus size={14} /> Добавить элемент
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                      Элемент = персонаж/объект с 2-4 фото. Ссылайтесь в промпте через{' '}
+                      <b className="text-white/50">@имя</b>. Нужно 2-4 изображения.
+                    </div>
+                  </Field>
+
+                  {/* Frames (старт/конец кадр) */}
+                  <Field
+                    label={
+                      <>
+                        <Film size={12} /> Кадры {multiShots ? '(только старт)' : '(старт → конец)'}
+                      </>
+                    }
+                  >
+                    <div className={`grid gap-2.5 ${multiShots ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                      <FrameSlot
+                        label="Старт (опц.)"
+                        url={startFrame}
+                        uploading={uploading && uploadTarget.current === 'start'}
+                        onUpload={() => triggerUpload('start')}
+                        onRemove={() => setStartFrame('')}
+                      />
+                      {!multiShots && (
+                        <FrameSlot
+                          label="Конец (опц.)"
+                          url={endFrame}
+                          uploading={uploading && uploadTarget.current === 'end'}
+                          onUpload={() => triggerUpload('end')}
+                          onRemove={() => setEndFrame('')}
+                        />
+                      )}
+                    </div>
+                  </Field>
+                </>
               )}
 
               {/* ─── Veo: FRAMES ─── */}
@@ -1287,7 +1573,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && caps.supportsImageInput && (
+              {!isVeo && !isKling && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -1386,7 +1672,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
       >
-                {/* Превью прикреплённых изображений */}
+        {/* Превью прикреплённых изображений */}
         {(() => {
           const chips: { url: string; label: string; onRemove: () => void }[] = []
           if (isVeo) {
@@ -1398,6 +1684,20 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 chips.push({ url, label: `Реф ${idx + 1}`, onRemove: () => setRefImages((p) => p.filter((_, i) => i !== idx)) }),
               )
             }
+                    } else if (isKling) {
+            if (startFrame)
+              chips.push({ url: startFrame, label: 'Старт', onRemove: () => setStartFrame('') })
+            if (!multiShots && endFrame)
+              chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
+            elements.forEach((el, idx) => {
+              if (el.urls[0]) {
+                chips.push({
+                  url: el.urls[0],
+                  label: el.name ? `@${el.name}` : `Элемент ${idx + 1}`,
+                  onRemove: () => setElements((p) => p.filter((_, i) => i !== idx)),
+                })
+              }
+            })
           } else if (imgUrl) {
             chips.push({ url: imgUrl, label: 'Изображение', onRemove: () => setImgUrl('') })
           }
@@ -1440,20 +1740,21 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         })()}
 
         <div className="flex items-center gap-2">
-          {/* Кнопка загрузки */}
-          {((isVeo && veoMode !== 'text') || (!isVeo && caps.supportsImageInput)) && (
+                    {/* Кнопка загрузки */}
+          {((isVeo && veoMode !== 'text') ||
+            (isKling && !caps.supportsImageInput ? false : isKling) ||
+            (!isVeo && !isKling && caps.supportsImageInput)) && (
             <button
               className={`
                 w-[38px] h-[38px] rounded-[10px] border-none
                 flex items-center justify-center
                 cursor-pointer transition-all duration-150
                 shrink-0 self-center
-                ${
-                  (isVeo && veoMode === 'frames' && startFrame) ||
+                ${(isVeo && veoMode === 'frames' && startFrame) ||
                   (isVeo && veoMode === 'reference' && refImages.length > 0) ||
                   (!isVeo && imgUrl)
-                    ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
-                    : 'bg-white/[0.04] text-[var(--gray-500)]'
+                  ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                  : 'bg-white/[0.04] text-[var(--gray-500)]'
                 }
                 active:scale-[0.92]
                 disabled:opacity-50 disabled:cursor-default
@@ -1488,11 +1789,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               placeholder:text-[var(--gray-600)]
               focus:border-[rgba(250,204,21,0.2)]
             "
-            placeholder={
+                        placeholder={
               isVeo && veoMode === 'frames'
                 ? 'Опишите движение между кадрами...'
                 : isVeo && veoMode === 'reference'
                 ? 'Опишите сцену с референсами...'
+                : isKling && multiShots
+                ? 'Общее описание (опц.) — детали в шотах...'
+                : isKling && elements.some((e) => e.name.trim())
+                ? 'Опишите сцену, ссылайтесь на @имя элемента...'
                 : requiresInputImage
                 ? 'Загрузите фото и опишите видео...'
                 : 'Опишите видео...'
@@ -1625,10 +1930,10 @@ function Grid({
 }) {
   const colsClass =
     cols === 1 ? 'grid-cols-1' :
-    cols === 2 ? 'grid-cols-2' :
-    cols === 3 ? 'grid-cols-3' :
-    cols === 4 ? 'grid-cols-4' :
-    'grid-cols-3'
+      cols === 2 ? 'grid-cols-2' :
+        cols === 3 ? 'grid-cols-3' :
+          cols === 4 ? 'grid-cols-4' :
+            'grid-cols-3'
 
   return <div className={`grid gap-1.5 ${colsClass}`}>{children}</div>
 }
@@ -1687,9 +1992,9 @@ function AROptBtn({ active, orient, label, onClick }: {
 }) {
   const box =
     orient === 'portrait' ? 'w-[16px] h-[24px]' :
-    orient === 'square'   ? 'w-[20px] h-[20px]' :
-    orient === 'wide'     ? 'w-[28px] h-[12px]' :
-                            'w-[26px] h-[16px]'
+      orient === 'square' ? 'w-[20px] h-[20px]' :
+        orient === 'wide' ? 'w-[28px] h-[12px]' :
+          'w-[26px] h-[16px]'
   return (
     <button
       onClick={onClick}
@@ -1846,6 +2151,183 @@ function DurationSlider({ values, value, onChange }: {
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+/* ─── Kling: редактор шота ─── */
+function ShotEditor({
+  index,
+  prompt,
+  duration,
+  canRemove,
+  onPrompt,
+  onDuration,
+  onRemove,
+}: {
+  index: number
+  prompt: string
+  duration: number
+  canRemove: boolean
+  onPrompt: (v: string) => void
+  onDuration: (v: number) => void
+  onRemove: () => void
+}) {
+  const durations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  return (
+    <div className="rounded-[var(--radius-xs)] border border-white/[0.07] bg-white/[0.02] p-2.5 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-[var(--accent-yellow)]">
+          Шот {index + 1}
+        </span>
+        {canRemove && (
+          <button
+            className="w-6 h-6 rounded-md bg-white/[0.05] text-white/40 flex items-center justify-center active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]"
+            onClick={onRemove}
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
+
+      <textarea
+        className="
+          w-full block py-2 px-2.5 rounded-[8px]
+          border border-white/[0.08] bg-white/[0.03]
+          text-white text-[13px] font-[inherit]
+          outline-none resize-none leading-[1.4] min-h-[56px]
+          placeholder:text-white/25
+          focus:border-[rgba(250,204,21,0.2)]
+        "
+        placeholder="Что происходит в этом шоте..."
+        value={prompt}
+        maxLength={500}
+        onChange={(e) => onPrompt(e.target.value)}
+        rows={2}
+      />
+
+      <div className="flex items-center gap-1 flex-wrap">
+        {durations.map((d) => (
+          <button
+            key={d}
+            onClick={() => onDuration(d)}
+            className={`
+              min-w-[30px] py-1 px-1.5 rounded-[6px] text-[11px] font-medium
+              transition-all active:scale-[0.94]
+              ${duration === d
+                ? 'bg-[rgba(250,204,21,0.12)] text-[var(--accent-yellow)] border border-[rgba(250,204,21,0.3)]'
+                : 'bg-white/[0.04] text-white/40 border border-transparent'
+              }
+            `}
+          >
+            {d}с
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Kling: редактор элемента ─── */
+function ElementEditor({
+  index,
+  name,
+  description,
+  urls,
+  uploading,
+  onName,
+  onDescription,
+  onAddImage,
+  onRemoveImage,
+  onRemove,
+}: {
+  index: number
+  name: string
+  description: string
+  urls: string[]
+  uploading: boolean
+  onName: (v: string) => void
+  onDescription: (v: string) => void
+  onAddImage: () => void
+  onRemoveImage: (imgIdx: number) => void
+  onRemove: () => void
+}) {
+  const needMore = urls.length < 2
+  return (
+    <div className="rounded-[var(--radius-xs)] border border-white/[0.07] bg-white/[0.02] p-2.5 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-white/50">
+          Элемент {index + 1}
+        </span>
+        <button
+          className="w-6 h-6 rounded-md bg-white/[0.05] text-white/40 flex items-center justify-center active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]"
+          onClick={onRemove}
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-1.5 py-1.5 px-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]">
+        <Tag size={13} className="text-white/30 shrink-0" />
+        <input
+          className="flex-1 min-w-0 bg-transparent outline-none text-white text-[13px] font-[inherit] placeholder:text-white/25"
+          placeholder="имя (например cat)"
+          value={name}
+          maxLength={100}
+          onChange={(e) => onName(e.target.value.replace(/\s+/g, '_'))}
+        />
+      </div>
+
+      <div className="flex items-start gap-1.5 py-1.5 px-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]">
+        <FileText size={13} className="text-white/30 shrink-0 mt-1" />
+        <textarea
+          className="flex-1 min-w-0 bg-transparent outline-none text-white text-[13px] font-[inherit] resize-none leading-[1.4] placeholder:text-white/25"
+          placeholder="описание элемента (опц.)"
+          value={description}
+          maxLength={500}
+          onChange={(e) => onDescription(e.target.value)}
+          rows={1}
+        />
+      </div>
+
+      <div className="grid grid-cols-4 gap-1.5">
+        {urls.map((u, i) => (
+          <div key={u + i} className="relative aspect-square rounded-[8px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={u}
+              alt=""
+              className="w-full h-full object-cover rounded-[8px] border border-white/[0.08] block"
+            />
+            <button
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+              onClick={() => onRemoveImage(i)}
+            >
+              <X size={9} />
+            </button>
+          </div>
+        ))}
+        {urls.length < 4 && (
+          <button
+            className="
+              aspect-square rounded-[8px]
+              border-[1.5px] border-dashed border-white/[0.12]
+              bg-white/[0.02] text-white/30
+              flex items-center justify-center
+              active:bg-white/[0.06]
+              disabled:opacity-50
+            "
+            onClick={onAddImage}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+          </button>
+        )}
+      </div>
+
+      {needMore && (
+        <span className="text-[10px] text-amber-400/70">Нужно минимум 2 фото</span>
+      )}
     </div>
   )
 }
