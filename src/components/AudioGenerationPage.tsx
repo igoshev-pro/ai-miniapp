@@ -1601,7 +1601,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  <Field label={<><Mic size={13} /> Доступные голоса</>}>
+                  {/* <Field label={<><Mic size={13} /> Доступные голоса</>}>
                     <ChipsWrap>
                       {(caps.voices.length > 0 ? caps.voices : ELEVENLABS_VOICES).map((v) => (
                         <Chip key={v} active={false} onClick={() => { insertVoiceName(v); haptic('light') }}>
@@ -1609,7 +1609,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                         </Chip>
                       ))}
                     </ChipsWrap>
-                  </Field>
+                  </Field> */}
 
                   {caps.supportsLanguage && (
                     <Field label="🌐 Язык">
