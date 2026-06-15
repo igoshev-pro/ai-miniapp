@@ -205,6 +205,49 @@ function getDefault(config: ModelUIConfig | null, key: string): string | undefin
   return p?.defaultValue !== undefined ? String(p.defaultValue) : undefined
 }
 
+/* ─── Совместимость опций (из pricingMatrix) ─── */
+
+const COMBO_KEYS = ['duration', 'resolution', 'mode', 'tier', 'aspectRatio'] as const
+
+function getMatrixKeys(config: ModelUIConfig | null): string[] {
+  if (!config?.pricingMatrix?.length) return []
+  const keys = new Set<string>()
+  for (const rule of config.pricingMatrix) {
+    const cond = rule.conditions || {}
+    for (const k of Object.keys(cond)) keys.add(k)
+  }
+  return [...keys]
+}
+
+function isComboAllowed(
+  config: ModelUIConfig | null,
+  candidateKey: string,
+  candidateVal: string | number,
+  current: Record<string, string | number | undefined>,
+): boolean {
+  if (!config?.pricingMatrix?.length) return true
+
+  const matrixKeys = getMatrixKeys(config)
+  if (!matrixKeys.includes(candidateKey)) return true
+
+  const target: Record<string, string | number> = { [candidateKey]: candidateVal }
+  for (const k of COMBO_KEYS) {
+    if (k === candidateKey) continue
+    if (!matrixKeys.includes(k)) continue
+    const v = current[k]
+    if (v !== undefined && v !== '') target[k] = v
+  }
+
+  return config.pricingMatrix.some((rule) => {
+    const cond = rule.conditions || {}
+    for (const [k, want] of Object.entries(target)) {
+      if (cond[k] === undefined) continue
+      if (String(cond[k]) !== String(want)) return false
+    }
+    return true
+  })
+}
+
 /* ─── Component ─── */
 
 export function VideoGenerationPage({ initialModel, onBack }: Props) {
@@ -357,6 +400,25 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     (slug.includes('img2vid') || slug.includes('img2video') || slug === 'kling-3.0-motion')
 
   const veoForcesDuration8 = isVeo && veoMode === 'reference'
+
+    const comboCurrent = useMemo(
+    () => ({
+      duration: veoForcesDuration8 ? 8 : duration,
+      resolution,
+      mode,
+      aspectRatio,
+    }),
+    [duration, resolution, mode, aspectRatio, veoForcesDuration8],
+  )
+
+  const isDurationDisabled = useCallback(
+    (d: number) => !isComboAllowed(uiConfig, 'duration', d, comboCurrent),
+    [uiConfig, comboCurrent],
+  )
+  const isResolutionDisabled = useCallback(
+    (r: string) => !isComboAllowed(uiConfig, 'resolution', r, comboCurrent),
+    [uiConfig, comboCurrent],
+  )
 
   // Motion Control: duration берётся из видео, при orientation=image макс 10с
   const motionMaxDur = characterOrientation === 'image' ? 10 : 30
@@ -536,6 +598,26 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   useEffect(() => {
     if (veoForcesDuration8) setDuration(8)
   }, [veoForcesDuration8])
+
+    // Автокоррекция несовместимых комбинаций duration ↔ resolution
+  useEffect(() => {
+    if (!uiConfig?.pricingMatrix?.length) return
+    if (isMotion || (isKling && multiShots)) return
+
+    const curDur = veoForcesDuration8 ? 8 : duration
+    if (curDur !== undefined && resolution) {
+      const pairOk = isComboAllowed(uiConfig, 'duration', curDur, { resolution })
+      if (!pairOk) {
+        const okDur = caps.durations.find((d) =>
+          isComboAllowed(uiConfig, 'duration', d, { resolution }),
+        )
+        if (okDur !== undefined && okDur !== duration) {
+          setDuration(okDur)
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolution, uiConfig])
 
   /* ── Misc ── */
 
@@ -1381,6 +1463,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                       values={caps.durations}
                       value={duration ?? caps.durations[0]}
                       onChange={(v) => { setDuration(v); haptic('light') }}
+                      isDisabled={isDurationDisabled}
                     />
                   )}
                 </Field>
@@ -1419,6 +1502,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           label={meta.label}
                           sub={meta.sub}
                           tier={meta.tier}
+                          disabled={isResolutionDisabled(r)}
                           onClick={() => { setResolution(r); haptic('light') }}
                         />
                       )
@@ -2398,18 +2482,21 @@ function AROptBtn({ active, orient, label, onClick }: {
 }
 
 /* ─── Resolution (с подписью и индикатором уровня) ─── */
-function ResOptBtn({ active, label, sub, tier, onClick }: {
-  active: boolean; label: string; sub?: string; tier: number; onClick: () => void
+function ResOptBtn({ active, label, sub, tier, onClick, disabled }: {
+  active: boolean; label: string; sub?: string; tier: number; onClick: () => void; disabled?: boolean
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => { if (!disabled) onClick() }}
+      disabled={disabled}
       className={`flex flex-col items-center justify-center gap-1 py-2.5 px-2
-        rounded-[var(--radius-xs)] border cursor-pointer
-        transition-all duration-150 active:scale-[0.96]
-        ${active
-          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
+        rounded-[var(--radius-xs)] border
+        transition-all duration-150
+        ${disabled
+          ? 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-white/15 cursor-not-allowed opacity-50'
+          : active
+            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)] cursor-pointer active:scale-[0.96]'
+            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)] cursor-pointer active:scale-[0.96]'}`}
     >
       <div className="flex items-center gap-0.5">
         {[1, 2, 3].map((i) => (
@@ -2462,10 +2549,11 @@ function ToggleRow({ active, onLabel, offLabel, onChange }: {
 }
 
 /* ─── Duration slider ─── */
-function DurationSlider({ values, value, onChange }: {
+function DurationSlider({ values, value, onChange, isDisabled }: {
   values: number[]
   value: number
   onChange: (v: number) => void
+  isDisabled?: (v: number) => boolean
 }) {
   const sorted = useMemo(() => [...values].sort((a, b) => a - b), [values])
   const max = sorted.length - 1
@@ -2516,7 +2604,10 @@ function DurationSlider({ values, value, onChange }: {
           max={max}
           step={1}
           value={idx}
-          onChange={(e) => onChange(sorted[Number(e.target.value)])}
+          onChange={(e) => {
+            const v = sorted[Number(e.target.value)]
+            if (!(isDisabled?.(v) ?? false)) onChange(v)
+          }}
           className="absolute left-0 right-0 w-full h-9 opacity-0 cursor-pointer m-0 p-0"
           aria-label="Длительность"
         />
@@ -2524,17 +2615,25 @@ function DurationSlider({ values, value, onChange }: {
 
       {/* подписи значений */}
       <div className="flex justify-between px-0">
-        {sorted.map((v) => (
-          <button
-            key={v}
-            onClick={() => onChange(v)}
-            className={`text-[11px] font-medium tabular-nums transition-colors duration-150
-              cursor-pointer bg-transparent border-none p-0
-              ${v === sorted[idx] ? 'text-[var(--accent-yellow)]' : 'text-white/35'}`}
-          >
-            {v}с
-          </button>
-        ))}
+        {sorted.map((v) => {
+          const disabled = isDisabled?.(v) ?? false
+          return (
+            <button
+              key={v}
+              onClick={() => { if (!disabled) onChange(v) }}
+              disabled={disabled}
+              className={`text-[11px] font-medium tabular-nums transition-colors duration-150
+                bg-transparent border-none p-0
+                ${disabled
+                  ? 'text-white/15 cursor-not-allowed line-through'
+                  : v === sorted[idx]
+                    ? 'text-[var(--accent-yellow)] cursor-pointer'
+                    : 'text-white/35 cursor-pointer'}`}
+            >
+              {v}с
+            </button>
+          )
+        })}
       </div>
     </div>
   )
