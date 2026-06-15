@@ -484,7 +484,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     setInput('')
     setAudioUrl('')
 
-        // Suno
+    // Suno
     setCustomMode(false)
     setInstrumental(false)
     setStyle('')
@@ -622,7 +622,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
     const settings: Record<string, unknown> = {}
 
-        if (caps.type === 'suno') {
+    if (caps.type === 'suno') {
       if (caps.supportsCustomMode) settings.customMode = customMode
       if (caps.supportsInstrumental) settings.instrumental = instrumental
       // расширенные параметры — только в Custom Mode
@@ -667,6 +667,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     if (caps.supportsAudioInput && !finalPrompt) {
       finalPrompt = caps.type === 'elevenlabs-isolation' ? 'Audio isolation' : 'Speech to text'
     }
+    // 🆕 Suno extend без текста — заглушка, иначе бэк ругается "prompt is required"
+    if (caps.type === 'suno' && extendTrack && !finalPrompt) {
+      finalPrompt = 'Continue this track'
+    }
 
     const ok = await generate({ type: 'audio', model: slug, prompt: finalPrompt, settings })
 
@@ -688,7 +692,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     haptic, hapticNotification, generate,
   ])
 
-    const startExtend = useCallback((gen: any) => {
+  const startExtend = useCallback((gen: any) => {
     const aid = Array.isArray(gen.audioIds) ? gen.audioIds[0] : gen.audioIds
     if (!aid) { toast.error('Нет ID трека для продления'); return }
     setExtendTrack({ id: gen.id, audioId: String(aid) })
@@ -777,7 +781,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   /* ── 🆕 Активные бейджики для строки модели (как в Image) ── */
   const activeBadges = useMemo(() => {
     const out: { key: string; label: string; active?: boolean }[] = []
-        if (caps.type === 'suno') {
+    if (caps.type === 'suno') {
       if (customMode) out.push({ key: 'custom', label: 'Custom', active: true })
       if (instrumental) out.push({ key: 'instr', label: 'Инструментал', active: true })
       if (customMode && style.trim()) out.push({ key: 'style', label: style.trim(), active: true })
@@ -1073,7 +1077,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                   </div>
                 )}
 
-                                {gen.status === 'completed' &&
+                {gen.status === 'completed' &&
                   detectType(gen.modelSlug) === 'suno' &&
                   (Array.isArray(gen.audioIds) ? gen.audioIds.length > 0 : !!gen.audioIds) && (
                     <button
@@ -1144,7 +1148,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
       >
-                {extendTrack && caps.type === 'suno' && (
+        {extendTrack && caps.type === 'suno' && (
           <div className="flex items-center gap-2 py-2 px-3 rounded-[var(--radius-xs)] bg-[rgba(250,204,21,0.06)] border border-[rgba(250,204,21,0.2)]">
             <Clock size={14} className="text-[var(--accent-yellow)] shrink-0" />
             <div className="flex-1 min-w-0">
@@ -1367,7 +1371,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             </div>
 
             <div className="flex flex-col gap-5 p-5">
-                            {/* ═══ SUNO ═══ */}
+              {/* ═══ SUNO ═══ */}
               {caps.type === 'suno' && (
                 <>
                   {caps.supportsCustomMode && (
