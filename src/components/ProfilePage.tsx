@@ -20,12 +20,11 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useBilling } from '@/hooks'
+import { SUPPORT_TG_LINK } from '@/config/const'
 
 interface Props {
   onNavigate?: (page: string) => void
 }
-
-const SUPPORT_TG_LINK = 'https://t.me/d_igoshev'
 
 const planLabels: Record<string, string> = {
   free: 'Free',

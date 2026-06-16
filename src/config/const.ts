@@ -1,0 +1,1 @@
+export const SUPPORT_TG_LINK = 'https://t.me/d_igoshev'

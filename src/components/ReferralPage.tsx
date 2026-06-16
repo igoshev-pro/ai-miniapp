@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api';
 import { useTelegram } from '@/context/TelegramContext';
+import { SUPPORT_TG_LINK } from '@/config/const';
 
 interface ReferralData {
   referralCode: string;
@@ -135,6 +136,16 @@ export default function ReferralPage({ onBack }: Props) {
       webApp.openTelegramLink(shareUrl);
     } else {
       window.open(shareUrl, '_blank');
+    }
+  }
+
+  // 🆕 Открыть чат поддержки для вывода
+  function openSupportWithdraw() {
+    haptic?.('medium');
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(SUPPORT_TG_LINK);
+    } else {
+      window.open(SUPPORT_TG_LINK, '_blank');
     }
   }
 
@@ -299,10 +310,7 @@ export default function ReferralPage({ onBack }: Props) {
           <button
             className="ref-btn ref-btn-primary"
             disabled={data.cashbackBalance < minWd}
-            onClick={() => {
-              haptic?.('medium');
-              setShowWithdrawModal(true);
-            }}
+            onClick={openSupportWithdraw}
           >
             💸 Вывести
           </button>
@@ -378,8 +386,8 @@ export default function ReferralPage({ onBack }: Props) {
         </div>
       )}
 
-      {/* Модалка вывода */}
-      {showWithdrawModal && (
+      {/* Модалка вывода — ВРЕМЕННО ОТКЛЮЧЕНА (вывод через поддержку) */}
+      {/* {showWithdrawModal && (
         <div className="ref-modal-overlay" onClick={() => setShowWithdrawModal(false)}>
           <div className="ref-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ref-modal-header">
@@ -403,9 +411,7 @@ export default function ReferralPage({ onBack }: Props) {
                   min={minRub}
                   max={cashbackRub}
                 />
-                <div className="ref-form-hint">
-                  Доступно: {cashbackRub} ₽
-                </div>
+                <div className="ref-form-hint">Доступно: {cashbackRub} ₽</div>
               </div>
 
               <div className="ref-form-row">
@@ -474,7 +480,7 @@ export default function ReferralPage({ onBack }: Props) {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Модалка истории */}
       {showHistoryModal && (
