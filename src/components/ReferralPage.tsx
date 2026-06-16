@@ -324,6 +324,14 @@ export default function ReferralPage({ onBack }: Props) {
             📜 История выводов
           </button>
         </div>
+
+        {/* 🆕 Инструкция для обращения в поддержку */}
+        <p className="ref-cashback-hint">
+          ℹ️ В обращении в поддержку укажите свой <b>юзернейм</b>, номер{' '}
+          <b>карты</b> / <b>телефона для СБП</b> или <b>кошелёк для крипты</b>, а
+          также <b>сумму вывода</b>.
+        </p>
+
         {data.cashbackBalance < minWd && (
           <p className="ref-cashback-hint">Минимум для вывода: 1000 ₽</p>
         )}
