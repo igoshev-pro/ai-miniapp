@@ -1764,24 +1764,26 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             active={mode === m}
                             onClick={() => { setMode(m); haptic('light') }}
                           >
-                            {m === '720p' ? '720p HD' : m === '1080p' ? '1080p FHD' : m}
+                            {m === '720p' ? '720p HD · 9🔥/сек'
+                              : m === '1080p' ? '1080p FHD · 12.3🔥/сек'
+                                : m}
                           </OptBtn>
                         ))}
                       </Grid>
                     </Field>
                   )}
 
-                  {/* Инфо о длительности (авто из видео) */}
-                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5 text-[12px] text-white/50 flex items-center gap-2">
+                  <div className="bg-white/[0.03] ... flex items-center gap-2">
                     <Clock size={14} className="text-[var(--accent-yellow)]" />
                     {motionVideoDuration !== null ? (
-                      <>Длительность видео: <b className="text-white/70 mx-1">{motionEffectiveDuration}с</b>
+                      <>Длительность: <b className="text-white/70 mx-1">{motionEffectiveDuration}с</b>
+                        × {(mode || '720p') === '1080p' ? '12.3' : '9'}🔥/сек
                         {characterOrientation === 'image' && motionVideoDuration > 10 && (
-                          <span className="text-amber-400/70">(обрезано до 10с)</span>
+                          <span className="text-amber-400/70 ml-1">(обрезано до 10с)</span>
                         )}
                       </>
                     ) : (
-                      <>Длительность определится из загруженного видео</>
+                      <>Длительность определится из загруженного видео · {(mode || '720p') === '1080p' ? '12.3' : '9'}🔥/сек</>
                     )}
                   </div>
                 </>
