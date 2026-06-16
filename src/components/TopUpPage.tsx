@@ -23,8 +23,6 @@ const CUSTOM_MIN = 10
 const CUSTOM_MAX = 100000
 const QUICK_AMOUNTS = [50, 100, 500, 1000, 3000]
 
-// 🆕 Пакеты — только пресеты количества + флаги.
-// Цена считается ЕДИНОЙ тир-логикой (как кастом) → нет рассинхрона.
 const PKG_DEFS = [
   { id: 'pack_100',  tokens: 100 },
   { id: 'pack_300',  tokens: 300,  popular: true },
@@ -67,7 +65,6 @@ function perTok(r: number, t: number, c: Currency) {
 export function TopUpPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
-  // 🆕 для пакетов и кастома используем ОДИН метод purchaseCustomTokens
   const { isLoading, purchaseCustomTokens, applyPromo } = useBilling()
 
   const [sel, setSel] = useState<string | null>(null)
@@ -75,11 +72,31 @@ export function TopUpPage({ onBack }: Props) {
   const [promo, setPromo] = useState('')
   const [promoL, setPromoL] = useState(false)
   const [promoOk, setPromoOk] = useState(false)
-  const [provider, setProvider] = useState<Provider>('stars')
+  const [provider, setProvider] = useState<Provider>('tochka')
   const [customMode, setCustomMode] = useState(false)
   const [customTokens, setCustomTokens] = useState<number>(100)
 
   const customCalc = useMemo(() => calcCustomByTokens(customTokens), [customTokens])
+
+  // 🆕 Запущено ли внутри Telegram (Stars доступен только там)
+  const isTelegram = !!webApp
+
+  // 🆕 Доступные провайдеры с учётом окружения и валюты
+  const availableProviders = useMemo(() => {
+    return PROVIDERS.filter(p => {
+      if (p.id === 'freedompay') return false        // KZ скрыт пока
+      if (p.id === 'stars')      return isTelegram    // Stars — только в Telegram
+      if (p.id === 'tochka')     return cur === 'rub' // Карта РФ ₽ — только для рублей
+      return true                                     // heleket (crypto) — всегда
+    })
+  }, [isTelegram, cur])
+
+  // 🆕 Если выбранный провайдер стал недоступен — переключаемся на первый доступный
+  useEffect(() => {
+    if (!availableProviders.some(p => p.id === provider)) {
+      setProvider(availableProviders[0]?.id ?? 'heleket')
+    }
+  }, [availableProviders, provider])
 
   // useEffect(() => {
   //   if (!webApp?.BackButton) return
@@ -94,7 +111,6 @@ export function TopUpPage({ onBack }: Props) {
   const currencyForBackend = (): 'RUB' | 'USD' =>
     provider === 'stars' ? 'RUB' : (cur.toUpperCase() as 'RUB' | 'USD')
 
-  // Покупка выбранного пакета (через custom-эндпоинт по кол-ву спичек)
   const buy = useCallback(async () => {
     if (!pkg) { toast.warning('Выберите пакет'); return }
     haptic('medium')
@@ -108,7 +124,6 @@ export function TopUpPage({ onBack }: Props) {
     }
   }, [pkg, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp])
 
-  // Покупка произвольного количества
   const buyCustom = useCallback(async () => {
     if (!customCalc.valid) {
       toast.warning(`От ${CUSTOM_MIN} до ${CUSTOM_MAX.toLocaleString('ru-RU')} спичек`)
@@ -144,7 +159,7 @@ export function TopUpPage({ onBack }: Props) {
     }
   })()
 
-    return (
+  return (
     <div className="relative z-[1] px-4 pb-[100px]">
 
       <div className="flex items-center justify-between pt-4 pb-2 gap-3 animate-fade-in">
@@ -244,7 +259,7 @@ export function TopUpPage({ onBack }: Props) {
             )
           })}
 
-          {/* 🆕 Тайл «Своя сумма» — 6-я ячейка сетки */}
+          {/* Тайл «Своя сумма» — 6-я ячейка сетки */}
           <div
             onClick={() => { haptic('light'); setCustomMode(v => !v); setSel(null) }}
             className={`
@@ -262,7 +277,7 @@ export function TopUpPage({ onBack }: Props) {
           </div>
         </div>
 
-        {/* 🆕 Развёрнутая панель кастомной суммы — на всю ширину */}
+        {/* Развёрнутая панель кастомной суммы */}
         {customMode && (
           <div className="mb-3 p-3.5 rounded-[14px] bg-white/[.04] border border-amber-400/30 animate-fade-in">
             <div className="flex items-center gap-2 mb-3">
@@ -307,7 +322,6 @@ export function TopUpPage({ onBack }: Props) {
               </button>
             </div>
 
-            {/* Быстрый выбор */}
             <div className="flex flex-wrap gap-1.5 mb-3">
               {QUICK_AMOUNTS.map(a => (
                 <button
@@ -325,7 +339,6 @@ export function TopUpPage({ onBack }: Props) {
               ))}
             </div>
 
-            {/* Расчёт цены */}
             <div className="flex items-center justify-between p-3 rounded-[12px] bg-white/[.03] border border-white/[.05] mb-3">
               <div>
                 <div className="flex items-center gap-1.5 text-[18px] font-bold text-white">
@@ -371,7 +384,7 @@ export function TopUpPage({ onBack }: Props) {
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-              {isLoading ? (
+                            {isLoading ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <>
@@ -383,12 +396,18 @@ export function TopUpPage({ onBack }: Props) {
           </div>
         )}
 
+        {/* Способ оплаты — только доступные провайдеры */}
         <div className="mb-3">
           <div className="flex items-center gap-1.5 text-[13px] font-semibold text-white/60 mb-2">
             <CreditCard size={13} /> Способ оплаты
           </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {PROVIDERS.map(p => {
+          <div className={`grid gap-1.5 ${
+            availableProviders.length === 1 ? 'grid-cols-1'
+            : availableProviders.length === 2 ? 'grid-cols-2'
+            : availableProviders.length === 3 ? 'grid-cols-3'
+            : 'grid-cols-4'
+          }`}>
+            {availableProviders.map(p => {
               const isOn = provider === p.id
               const Icon = p.icon
               return (
