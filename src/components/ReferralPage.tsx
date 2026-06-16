@@ -13,7 +13,21 @@ interface ReferralData {
   totalEarned: number;
   cashbackBalance: number;
   cashbackEarnedTotal: number;
+  pendingWithdrawal?: number;
+  availableForWithdrawal?: number;
+
+  // 🆕 Курс и рублёвые эквиваленты
+  rubPerToken?: number;
+  cashbackBalanceRub?: number;
+  cashbackEarnedTotalRub?: number;
+  pendingWithdrawalRub?: number;
+
+  // Лимиты вывода
   minWithdrawal: number;
+  maxWithdrawal?: number;
+  minWithdrawalRub?: number;
+  maxWithdrawalRub?: number;
+
   referrals: Array<{
     id: string;
     firstName: string;
@@ -21,6 +35,7 @@ interface ReferralData {
     photoUrl: string | null;
     joinedAt: string;
     earned: number;
+    earnedRub?: number;
     hasPurchased: boolean;
   }>;
 }
@@ -72,30 +87,6 @@ export default function ReferralPage({ onBack }: Props) {
   const [wdError, setWdError] = useState('');
   const [wdSuccess, setWdSuccess] = useState('');
 
-  // ─── Telegram BackButton ─────────────────────────────────
-  // useEffect(() => {
-  //   if (!webApp?.BackButton) return;
-
-  //   // Если открыта модалка — back закрывает модалку, иначе — выход на главную
-  //   const handler = () => {
-  //     if (showWithdrawModal) {
-  //       setShowWithdrawModal(false);
-  //     } else if (showHistoryModal) {
-  //       setShowHistoryModal(false);
-  //     } else {
-  //       onBack?.();
-  //     }
-  //   };
-
-  //   webApp.BackButton.show();
-  //   webApp.BackButton.onClick(handler);
-
-  //   return () => {
-  //     webApp.BackButton.offClick(handler);
-  //     webApp.BackButton.hide();
-  //   };
-  // }, [webApp, onBack, showWithdrawModal, showHistoryModal]);
-
   // ─── Load data ───────────────────────────────────────────
   useEffect(() => {
     loadData();
@@ -116,6 +107,11 @@ export default function ReferralPage({ onBack }: Props) {
       setLoading(false);
     }
   }
+
+  // Курс: 1 спичка кэшбека = rubPerToken ₽ (по умолчанию 3)
+  const rubRate = data?.rubPerToken ?? 3;
+  const toRub = (tokens: number) =>
+    Math.round(tokens * rubRate * 100) / 100;
 
   function copyLink() {
     if (!data) return;
@@ -145,12 +141,16 @@ export default function ReferralPage({ onBack }: Props) {
     setWdError('');
     setWdSuccess('');
 
+    if (!data) return;
+
+    const min = data.minWithdrawal || 334;
     const amount = parseInt(wdAmount, 10);
-    if (!amount || amount < (data?.minWithdrawal || 100)) {
-      setWdError(`Минимум ${data?.minWithdrawal || 100} спичек`);
+
+    if (!amount || amount < min) {
+      setWdError(`Минимум ${min} 🔥 (${toRub(min)} ₽)`);
       return;
     }
-    if (amount > (data?.cashbackBalance || 0)) {
+    if (amount > (data.cashbackBalance || 0)) {
       setWdError('Недостаточно кэшбека на балансе');
       return;
     }
@@ -197,6 +197,11 @@ export default function ReferralPage({ onBack }: Props) {
       </div>
     );
   }
+
+  const minWd = data.minWithdrawal || 334;
+  const cashbackRub = data.cashbackBalanceRub ?? toRub(data.cashbackBalance);
+  const earnedRub =
+    data.cashbackEarnedTotalRub ?? toRub(data.cashbackEarnedTotal);
 
   return (
     <div className="ref-page">
@@ -251,12 +256,12 @@ export default function ReferralPage({ onBack }: Props) {
           <li>
             <span className="ref-step-num">5</span>
             <span>
-              Выводи кэшбек на карту/СБП/крипту от {data.minWithdrawal} ₽
+              Выводи кэшбек на карту/СБП/крипту от {toRub(minWd)} ₽
             </span>
           </li>
         </ol>
         <p className="ref-instruction-note">
-          * 1 спичка кэшбека = 1 ₽ при выводе
+          * 1 спичка кэшбека = {rubRate} ₽ при выводе
         </p>
       </div>
 
@@ -265,16 +270,26 @@ export default function ReferralPage({ onBack }: Props) {
         <div className="ref-cashback-header">
           <span className="ref-cashback-label">💰 Доступно к выводу</span>
           <span className="ref-cashback-total">
-            Всего заработано: {data.cashbackEarnedTotal} 🔥
+            Всего заработано: {data.cashbackEarnedTotal} 🔥 ({earnedRub} ₽)
           </span>
         </div>
         <div className="ref-cashback-value">
           {data.cashbackBalance} <span className="ref-cashback-unit">🔥</span>
         </div>
+        <div className="ref-cashback-rub">≈ {cashbackRub} ₽</div>
+
+        {typeof data.pendingWithdrawal === 'number' &&
+          data.pendingWithdrawal > 0 && (
+            <p className="ref-cashback-hint">
+              ⏳ В заявках на вывод: {data.pendingWithdrawal} 🔥 (
+              {data.pendingWithdrawalRub ?? toRub(data.pendingWithdrawal)} ₽)
+            </p>
+          )}
+
         <div className="ref-cashback-actions">
           <button
             className="ref-btn ref-btn-primary"
-            disabled={data.cashbackBalance < data.minWithdrawal}
+            disabled={data.cashbackBalance < minWd}
             onClick={() => {
               haptic?.('medium');
               setShowWithdrawModal(true);
@@ -292,9 +307,9 @@ export default function ReferralPage({ onBack }: Props) {
             📜 История выводов
           </button>
         </div>
-        {data.cashbackBalance < data.minWithdrawal && (
+        {data.cashbackBalance < minWd && (
           <p className="ref-cashback-hint">
-            Минимум для вывода: {data.minWithdrawal} 🔥
+            Минимум для вывода: {minWd} 🔥 ({toRub(minWd)} ₽)
           </p>
         )}
       </div>
@@ -372,17 +387,20 @@ export default function ReferralPage({ onBack }: Props) {
 
             <div className="ref-modal-body">
               <div className="ref-form-row">
-                <label>Сумма (🔥 = ₽)</label>
+                <label>Сумма в спичках (1 🔥 = {rubRate} ₽)</label>
                 <input
                   type="number"
                   value={wdAmount}
                   onChange={(e) => setWdAmount(e.target.value)}
-                  placeholder={`От ${data.minWithdrawal}`}
-                  min={data.minWithdrawal}
+                  placeholder={`От ${minWd}`}
+                  min={minWd}
                   max={data.cashbackBalance}
                 />
                 <div className="ref-form-hint">
-                  Доступно: {data.cashbackBalance} 🔥
+                  Доступно: {data.cashbackBalance} 🔥 ({cashbackRub} ₽)
+                  {wdAmount && parseInt(wdAmount, 10) > 0 && (
+                    <> · К выплате: {toRub(parseInt(wdAmount, 10))} ₽</>
+                  )}
                 </div>
               </div>
 
@@ -474,13 +492,15 @@ export default function ReferralPage({ onBack }: Props) {
                   <p>Заявок пока нет</p>
                 </div>
               ) : (
-                <div className="ref-wd-list">
+                                <div className="ref-wd-list">
                   {withdrawals.map((w) => {
                     const st = STATUS_LABELS[w.status];
                     return (
                       <div key={w.id} className="ref-wd-item">
                         <div className="ref-wd-row">
-                          <span className="ref-wd-amount">{w.amount} 🔥</span>
+                          <span className="ref-wd-amount">
+                            {w.amount} 🔥 ({w.amountRub} ₽)
+                          </span>
                           <span
                             className="ref-wd-status"
                             style={{ color: st.color }}
