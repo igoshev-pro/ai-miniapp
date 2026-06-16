@@ -7506,3 +7506,18 @@ body.tg-app .gen-settings-sheet {
     flex-direction: column;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   Кнопка "Вывести" (кэшбек) — убираем эффект при нажатии
+   ════════════════════════════════════════════════════════════════ */
+
+.ref-cashback-actions .ref-btn-primary:hover:not(:disabled),
+.ref-cashback-actions .ref-btn-primary:active:not(:disabled),
+.ref-cashback-actions .ref-btn-primary:focus:not(:disabled),
+.ref-cashback-actions .ref-btn-primary:focus-visible {
+  background: linear-gradient(135deg, #ff6b35, #f7931e);
+  filter: none;
+  transform: none;
+  opacity: 1;
+  outline: none;
+}
