@@ -314,7 +314,7 @@ export default function ReferralPage({ onBack }: Props) {
           >
             💸 Вывести
           </button>
-          <button
+          {/* <button
             className="ref-btn ref-btn-secondary"
             onClick={() => {
               haptic?.('light');
@@ -322,7 +322,7 @@ export default function ReferralPage({ onBack }: Props) {
             }}
           >
             📜 История выводов
-          </button>
+          </button> */}
         </div>
 
         {/* 🆕 Инструкция для обращения в поддержку */}
