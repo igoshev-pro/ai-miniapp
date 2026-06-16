@@ -14,8 +14,6 @@ import { calcCustomByTokens } from '@/lib/api/pricing'
 interface Props { onBack?: () => void }
 
 type Currency = 'rub' | 'usd'
-
-// 👇 Теперь только 4 активных провайдера
 type Provider = 'stars' | 'tochka' | 'freedompay' | 'heleket'
 
 const R = 75
@@ -25,19 +23,30 @@ const CUSTOM_MIN = 10
 const CUSTOM_MAX = 100000
 const QUICK_AMOUNTS = [50, 100, 500, 1000, 3000]
 
-const PKGS = [
-  { id: 'pack_100', tokens: 100, priceRub: 299, label: '100 спичек' },
-  { id: 'pack_300', tokens: 300, priceRub: 749, label: '300 спичек', popular: true },
-  { id: 'pack_700', tokens: 700, priceRub: 1490, label: '700 спичек' },
-  { id: 'pack_1500', tokens: 1500, priceRub: 2690, label: '1 500 спичек' },
-  { id: 'pack_5000', tokens: 5000, priceRub: 7490, label: '5 000 спичек', best: true },
+// 🆕 Пакеты — только пресеты количества + флаги.
+// Цена считается ЕДИНОЙ тир-логикой (как кастом) → нет рассинхрона.
+const PKG_DEFS = [
+  { id: 'pack_100',  tokens: 100 },
+  { id: 'pack_300',  tokens: 300,  popular: true },
+  { id: 'pack_700',  tokens: 700 },
+  { id: 'pack_1500', tokens: 1500 },
+  { id: 'pack_5000', tokens: 5000, best: true },
 ] as const
 
+const PKGS = PKG_DEFS.map((p) => {
+  const c = calcCustomByTokens(p.tokens)
+  return {
+    ...p,
+    priceRub: c.rub,
+    label: `${p.tokens.toLocaleString('ru-RU')} спичек`,
+  }
+})
+
 const PROVIDERS: { id: Provider; label: string; icon: typeof Star; sub: string }[] = [
-  { id: 'stars', label: 'Stars', icon: Star, sub: 'Telegram' },
-  { id: 'tochka', label: 'Карта', icon: CreditCard, sub: 'РФ ₽' },
-  { id: 'freedompay', label: 'Карта', icon: CreditCard, sub: 'KZ ₸' },
-  { id: 'heleket', label: 'Crypto', icon: Bitcoin, sub: 'USDT/BTC' },
+  { id: 'stars',      label: 'Stars',  icon: Star,       sub: 'Telegram' },
+  { id: 'tochka',     label: 'Карта',  icon: CreditCard, sub: 'РФ ₽'     },
+  { id: 'freedompay', label: 'Карта',  icon: CreditCard, sub: 'KZ ₸'     },
+  { id: 'heleket',    label: 'Crypto', icon: Bitcoin,    sub: 'USDT/BTC' },
 ]
 
 function disc(t: number, p: number) {
@@ -58,7 +67,8 @@ function perTok(r: number, t: number, c: Currency) {
 export function TopUpPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
-  const { isLoading, purchaseTokens, purchaseCustomTokens, applyPromo } = useBilling()
+  // 🆕 для пакетов и кастома используем ОДИН метод purchaseCustomTokens
+  const { isLoading, purchaseCustomTokens, applyPromo } = useBilling()
 
   const [sel, setSel] = useState<string | null>(null)
   const [cur, setCur] = useState<Currency>('rub')
@@ -81,26 +91,24 @@ export function TopUpPage({ onBack }: Props) {
 
   const pkg = PKGS.find(p => p.id === sel)
 
+  const currencyForBackend = (): 'RUB' | 'USD' =>
+    provider === 'stars' ? 'RUB' : (cur.toUpperCase() as 'RUB' | 'USD')
+
+  // Покупка выбранного пакета (через custom-эндпоинт по кол-ву спичек)
   const buy = useCallback(async () => {
-    if (!sel) { toast.warning('Выберите пакет'); return }
+    if (!pkg) { toast.warning('Выберите пакет'); return }
     haptic('medium')
 
-    // Stars всегда в RUB (Telegram сам конвертирует во внутреннюю валюту Stars)
-    const currencyForBackend: 'RUB' | 'USD' =
-      provider === 'stars' ? 'RUB' : (cur.toUpperCase() as 'RUB' | 'USD')
-
-    const url = await purchaseTokens(sel, provider, currencyForBackend)
+    const url = await purchaseCustomTokens(pkg.tokens, provider, currencyForBackend())
 
     if (url) {
-      if (webApp?.openLink) {
-        webApp.openLink(url)
-      } else {
-        window.open(url, '_blank')
-      }
+      if (webApp?.openLink) webApp.openLink(url)
+      else window.open(url, '_blank')
       hapticNotification('success')
     }
-  }, [sel, provider, cur, purchaseTokens, haptic, hapticNotification, webApp])
+  }, [pkg, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp])
 
+  // Покупка произвольного количества
   const buyCustom = useCallback(async () => {
     if (!customCalc.valid) {
       toast.warning(`От ${CUSTOM_MIN} до ${CUSTOM_MAX.toLocaleString('ru-RU')} спичек`)
@@ -108,17 +116,11 @@ export function TopUpPage({ onBack }: Props) {
     }
     haptic('medium')
 
-    const currencyForBackend: 'RUB' | 'USD' =
-      provider === 'stars' ? 'RUB' : (cur.toUpperCase() as 'RUB' | 'USD')
-
-    const url = await purchaseCustomTokens(customCalc.tokens, provider, currencyForBackend)
+    const url = await purchaseCustomTokens(customCalc.tokens, provider, currencyForBackend())
 
     if (url) {
-      if (webApp?.openLink) {
-        webApp.openLink(url)
-      } else {
-        window.open(url, '_blank')
-      }
+      if (webApp?.openLink) webApp.openLink(url)
+      else window.open(url, '_blank')
       hapticNotification('success')
     }
   }, [customCalc, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp])
@@ -135,14 +137,14 @@ export function TopUpPage({ onBack }: Props) {
 
   const providerNote = (() => {
     switch (provider) {
-      case 'stars': return 'Оплата через Telegram Stars. Зачисление мгновенное.'
-      case 'tochka': return 'Российская карта (₽) через Банк «Точка». Зачисление после подтверждения банка.'
+      case 'stars':      return 'Оплата через Telegram Stars. Зачисление мгновенное.'
+      case 'tochka':     return 'Российская карта (₽) через Банк «Точка». Зачисление после подтверждения банка.'
       case 'freedompay': return 'Карта Казахстана (₸) / международная. Зачисление мгновенное.'
-      case 'heleket': return 'Оплата криптовалютой (USDT/BTC/TRX и др.). Зачисление после подтверждения сети.'
+      case 'heleket':    return 'Оплата криптовалютой (USDT/BTC/TRX и др.). Зачисление после подтверждения сети.'
     }
   })()
 
-  return (
+    return (
     <div className="relative z-[1] px-4 pb-[100px]">
 
       <div className="flex items-center justify-between pt-4 pb-2 gap-3 animate-fade-in">
@@ -161,8 +163,9 @@ export function TopUpPage({ onBack }: Props) {
         {(['rub', 'usd'] as Currency[]).map(c => (
           <button key={c}
             onClick={() => { haptic('light'); setCur(c) }}
-            className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[10px] text-[13px] font-semibold transition-all active:scale-[.97] border-none ${cur === c ? 'bg-white/[.08] text-white shadow-[0_1px_4px_rgba(0,0,0,.2)]' : 'bg-transparent text-white/40'
-              }`}
+            className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[10px] text-[13px] font-semibold transition-all active:scale-[.97] border-none ${
+              cur === c ? 'bg-white/[.08] text-white shadow-[0_1px_4px_rgba(0,0,0,.2)]' : 'bg-transparent text-white/40'
+            }`}
           >
             {c === 'rub' ? '₽ Рубли' : '$ USD'}
           </button>
@@ -240,150 +243,145 @@ export function TopUpPage({ onBack }: Props) {
               </div>
             )
           })}
-        </div>
 
-        {/* ─── Своя сумма ─────────────────────────────── */}
-        <div className="mb-4">
-          <button
+          {/* 🆕 Тайл «Своя сумма» — 6-я ячейка сетки */}
+          <div
             onClick={() => { haptic('light'); setCustomMode(v => !v); setSel(null) }}
             className={`
-              w-full flex items-center justify-between gap-2 px-3.5 py-3
-              rounded-[14px] border-[1.5px] transition-all active:scale-[.99]
-              ${customMode
-                ? 'bg-amber-400/[.06] border-amber-400/40'
-                : 'bg-white/[.04] border-white/[.06]'}
+              relative rounded-[14px] p-3.5 cursor-pointer transition-all
+              flex flex-col items-center justify-center text-center
+              bg-white/[.04] border-[1.5px] border-dashed
+              ${customMode ? 'border-amber-400/50 bg-amber-400/[.06]' : 'border-white/[.12]'}
             `}
           >
-            <div className="flex items-center gap-2 text-white">
-              <Sliders size={16} className={customMode ? 'text-amber-400' : 'text-white/50'} />
-              <span className="text-[14px] font-semibold">Своя сумма</span>
+            <Sliders size={20} className={customMode ? 'text-amber-400 mb-1.5' : 'text-white/45 mb-1.5'} />
+            <div className="text-[14px] font-semibold text-white">Своя сумма</div>
+            <div className="text-[11px] text-white/35 mt-0.5">
+              {customMode ? 'Открыто ниже' : 'Указать вручную'}
             </div>
-            <span className="text-[12px] text-white/35">
-              {customMode ? 'Скрыть' : 'Указать вручную'}
-            </span>
-          </button>
+          </div>
+        </div>
 
-          {customMode && (
-            <div className="mt-2 p-3.5 rounded-[14px] bg-white/[.04] border border-white/[.06] animate-fade-in">
-              {/* Поле ввода + степпер */}
-              <div className="flex items-center gap-2 mb-3">
-                <button
-                  onClick={() => { haptic('light'); setCustomTokens(t => Math.max(CUSTOM_MIN, t - 50)) }}
-                  className="w-10 h-10 shrink-0 flex items-center justify-center rounded-[10px] bg-white/[.06] border border-white/[.08] text-white/70 active:scale-95"
-                >
-                  <Minus size={16} />
-                </button>
+        {/* 🆕 Развёрнутая панель кастомной суммы — на всю ширину */}
+        {customMode && (
+          <div className="mb-3 p-3.5 rounded-[14px] bg-white/[.04] border border-amber-400/30 animate-fade-in">
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => { haptic('light'); setCustomTokens(t => Math.max(CUSTOM_MIN, t - 50)) }}
+                className="w-10 h-10 shrink-0 flex items-center justify-center rounded-[10px] bg-white/[.06] border border-white/[.08] text-white/70 active:scale-95"
+              >
+                <Minus size={16} />
+              </button>
 
-                <div className="flex-1 relative">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={CUSTOM_MIN}
-                    max={CUSTOM_MAX}
-                    value={customTokens}
-                    onChange={e => {
-                      const v = parseInt(e.target.value, 10)
-                      setCustomTokens(Number.isFinite(v) ? v : 0)
-                    }}
-                    onBlur={() => {
-                      setCustomTokens(t => Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, Math.floor(t) || CUSTOM_MIN)))
-                    }}
-                    className="
-                      w-full bg-white/[.06] border border-white/[.08] rounded-[10px]
-                      px-3.5 py-2.5 pr-16 text-white text-[16px] font-semibold
-                      text-center outline-none
-                      [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
-                    "
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-white/35 pointer-events-none">
-                    спичек
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => { haptic('light'); setCustomTokens(t => Math.min(CUSTOM_MAX, t + 50)) }}
-                  className="w-10 h-10 shrink-0 flex items-center justify-center rounded-[10px] bg-white/[.06] border border-white/[.08] text-white/70 active:scale-95"
-                >
-                  <Plus size={16} />
-                </button>
+              <div className="flex-1 relative">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={CUSTOM_MIN}
+                  max={CUSTOM_MAX}
+                  value={customTokens}
+                  onChange={e => {
+                    const v = parseInt(e.target.value, 10)
+                    setCustomTokens(Number.isFinite(v) ? v : 0)
+                  }}
+                  onBlur={() => {
+                    setCustomTokens(t => Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, Math.floor(t) || CUSTOM_MIN)))
+                  }}
+                  className="
+                    w-full bg-white/[.06] border border-white/[.08] rounded-[10px]
+                    px-3.5 py-2.5 pr-16 text-white text-[16px] font-semibold
+                    text-center outline-none
+                    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none
+                  "
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-white/35 pointer-events-none">
+                  спичек
+                </span>
               </div>
-
-              {/* Быстрый выбор */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {QUICK_AMOUNTS.map(a => (
-                  <button
-                    key={a}
-                    onClick={() => { haptic('light'); setCustomTokens(a) }}
-                    className={`
-                      px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all active:scale-95
-                      ${customTokens === a
-                        ? 'bg-amber-400/15 border border-amber-400/40 text-amber-400'
-                        : 'bg-white/[.05] border border-white/[.06] text-white/50'}
-                    `}
-                  >
-                    {a.toLocaleString('ru-RU')}
-                  </button>
-                ))}
-              </div>
-
-              {/* Расчёт цены */}
-              <div className="flex items-center justify-between p-3 rounded-[12px] bg-white/[.03] border border-white/[.05] mb-3">
-                <div>
-                  <div className="flex items-center gap-1.5 text-[18px] font-bold text-white">
-                    <Flame size={15} className="text-red-400" />
-                    {customCalc.tokens.toLocaleString('ru-RU')}
-                  </div>
-                  <div className="text-[11px] text-white/30 mt-0.5">
-                    {customCalc.pricePerToken.toFixed(2)} ₽ / спичка
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-[18px] font-bold text-white">
-                    {cur === 'usd' && '$'}{fmtP(customCalc.rub, cur)}{cur === 'rub' && ' ₽'}
-                  </div>
-                  {customCalc.discountPct > 0 && (
-                    <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                      <span className="text-[11px] text-white/25 line-through">
-                        {cur === 'usd' && '$'}{fmtP(customCalc.baseRub, cur)}{cur === 'rub' && ' ₽'}
-                      </span>
-                      <span className="flex items-center gap-[2px] text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/15 px-1.5 py-[1px] rounded">
-                        <TrendingDown size={9} /> −{customCalc.discountPct}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {!customCalc.valid && (
-                <div className="text-[11px] text-red-400/80 mb-2 text-center">
-                  Допустимо от {CUSTOM_MIN} до {CUSTOM_MAX.toLocaleString('ru-RU')} спичек
-                </div>
-              )}
 
               <button
-                onClick={buyCustom}
-                disabled={!customCalc.valid || isLoading}
-                className="
-                  w-full flex items-center justify-center gap-2
-                  bg-amber-400 text-black text-[15px] font-semibold
-                  border-none rounded-xl py-3 cursor-pointer
-                  transition-opacity
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                "
+                onClick={() => { haptic('light'); setCustomTokens(t => Math.min(CUSTOM_MAX, t + 50)) }}
+                className="w-10 h-10 shrink-0 flex items-center justify-center rounded-[10px] bg-white/[.06] border border-white/[.08] text-white/70 active:scale-95"
               >
-                {isLoading ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <>
-                    <Zap size={16} />
-                    Оплатить {cur === 'usd' ? '$' : ''}{fmtP(customCalc.rub, cur)}{cur === 'rub' ? ' ₽' : ''}
-                  </>
-                )}
+                <Plus size={16} />
               </button>
             </div>
-          )}
-        </div>
+
+            {/* Быстрый выбор */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {QUICK_AMOUNTS.map(a => (
+                <button
+                  key={a}
+                  onClick={() => { haptic('light'); setCustomTokens(a) }}
+                  className={`
+                    px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all active:scale-95
+                    ${customTokens === a
+                      ? 'bg-amber-400/15 border border-amber-400/40 text-amber-400'
+                      : 'bg-white/[.05] border border-white/[.06] text-white/50'}
+                  `}
+                >
+                  {a.toLocaleString('ru-RU')}
+                </button>
+              ))}
+            </div>
+
+            {/* Расчёт цены */}
+            <div className="flex items-center justify-between p-3 rounded-[12px] bg-white/[.03] border border-white/[.05] mb-3">
+              <div>
+                <div className="flex items-center gap-1.5 text-[18px] font-bold text-white">
+                  <Flame size={15} className="text-red-400" />
+                  {customCalc.tokens.toLocaleString('ru-RU')}
+                </div>
+                <div className="text-[11px] text-white/30 mt-0.5">
+                  {customCalc.pricePerToken.toFixed(2)} ₽ / спичка
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[18px] font-bold text-white">
+                  {cur === 'usd' && '$'}{fmtP(customCalc.rub, cur)}{cur === 'rub' && ' ₽'}
+                </div>
+                {customCalc.discountPct > 0 && (
+                  <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                    <span className="text-[11px] text-white/25 line-through">
+                      {cur === 'usd' && '$'}{fmtP(customCalc.baseRub, cur)}{cur === 'rub' && ' ₽'}
+                    </span>
+                    <span className="flex items-center gap-[2px] text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/15 px-1.5 py-[1px] rounded">
+                      <TrendingDown size={9} /> −{customCalc.discountPct}%
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {!customCalc.valid && (
+              <div className="text-[11px] text-red-400/80 mb-2 text-center">
+                Допустимо от {CUSTOM_MIN} до {CUSTOM_MAX.toLocaleString('ru-RU')} спичек
+              </div>
+            )}
+
+            <button
+              onClick={buyCustom}
+              disabled={!customCalc.valid || isLoading}
+              className="
+                w-full flex items-center justify-center gap-2
+                bg-amber-400 text-black text-[15px] font-semibold
+                border-none rounded-xl py-3 cursor-pointer
+                transition-opacity
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+            >
+              {isLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <>
+                  <Zap size={16} />
+                  Оплатить {cur === 'usd' ? '$' : ''}{fmtP(customCalc.rub, cur)}{cur === 'rub' ? ' ₽' : ''}
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         <div className="mb-3">
           <div className="flex items-center gap-1.5 text-[13px] font-semibold text-white/60 mb-2">
@@ -415,6 +413,7 @@ export function TopUpPage({ onBack }: Props) {
           </div>
         </div>
 
+        {/* Кнопка оплаты пакета — скрыта в режиме «Своя сумма» */}
         {!customMode && (
           <button onClick={buy} disabled={!sel || isLoading}
             className="
@@ -463,7 +462,7 @@ export function TopUpPage({ onBack }: Props) {
           >
             {promoL ? <Loader2 size={14} className="animate-spin" />
               : promoOk ? <Check size={14} />
-                : <ChevronRight size={14} />}
+              : <ChevronRight size={14} />}
           </button>
         </div>
         {promoOk && (
