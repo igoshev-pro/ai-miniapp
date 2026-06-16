@@ -130,6 +130,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
   const [inputImages, setInputImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
+  const uploadingRef = useRef(false) // 🆕 синхронный лок от двойной загрузки
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
@@ -349,8 +350,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   }, [input])
 
   // ─── Upload image ─────────────────────────────────────────
-  const handleImageUpload = useCallback(async (file: File) => {
+    const handleImageUpload = useCallback(async (file: File) => {
     if (!file) return
+    if (uploadingRef.current) return // 🆕 уже идёт загрузка — игнор повторного вызова
     if (!file.type.match(/image\/(jpeg|png|webp)/)) {
       toast.error('Поддерживаются только JPEG, PNG, WebP')
       return
@@ -364,6 +366,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
+    uploadingRef.current = true // 🆕 синхронно блокируем повторный вызов
     setUploadingImage(true)
     try {
       const formData = new FormData()
@@ -396,6 +399,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       console.error('[Upload]', err)
       toast.error(err.message || 'Ошибка загрузки изображения')
     } finally {
+      uploadingRef.current = false // 🆕 снимаем лок
       setUploadingImage(false)
     }
   }, [inputImages, caps.maxInputImages, haptic])
