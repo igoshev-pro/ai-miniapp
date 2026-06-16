@@ -36,6 +36,7 @@ export const ENDPOINTS = {
   BILLING_PAY_SUBSCRIPTION: '/billing/pay/subscription',
   BILLING_PROMO: '/billing/promo',
   BILLING_TRANSACTIONS: '/billing/transactions',
+  BILLING_PAY_TOKENS_CUSTOM: '/billing/pay/tokens-custom',
 
   // Favorites
   FAVORITES: '/favorites',
@@ -52,7 +53,7 @@ export const ENDPOINTS = {
   // Upload
   UPLOAD_AUDIO: '/upload/audio',
   UPLOAD_IMAGE: '/upload/image',
-  UPLOAD_DOCUMENT: '/upload/document', 
+  UPLOAD_DOCUMENT: '/upload/document',
 
   // ============ ADMIN ============
   ADMIN_CHECK: '/admin/check',

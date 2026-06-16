@@ -1,0 +1,38 @@
+// src/lib/pricing.ts
+// Зеркало backend/custom-tokens.pricing.ts — для живого превью цены.
+// USD-курс берём 90, чтобы совпадал с тем, что реально спишет бэкенд.
+
+export const BASE_PRICE = 3
+export const USD_RATE = 90 // ⚠️ совпадает с RUB_TO_USD_RATE на бэке
+export const CUSTOM_MIN_TOKENS = 10
+export const CUSTOM_MAX_TOKENS = 100000
+
+const TOKEN_TIERS: { min: number; price: number }[] = [
+  { min: 4000, price: 2.5 },
+  { min: 3529, price: 2.55 },
+  { min: 3077, price: 2.6 },
+  { min: 2642, price: 2.65 },
+  { min: 2222, price: 2.7 },
+  { min: 1818, price: 2.75 },
+  { min: 1429, price: 2.8 },
+  { min: 1053, price: 2.85 },
+  { min: 690, price: 2.9 },
+  { min: 339, price: 2.95 },
+  { min: 0, price: 3.0 },
+]
+
+export function pricePerTokenByTokens(tokens: number): number {
+  for (const t of TOKEN_TIERS) if (tokens >= t.min) return t.price
+  return BASE_PRICE
+}
+
+export function calcCustomByTokens(tokensRaw: number) {
+  const tokens = Math.max(0, Math.floor(Number(tokensRaw) || 0))
+  const pricePerToken = pricePerTokenByTokens(tokens)
+  const rub = Math.round(tokens * pricePerToken)
+  const baseRub = tokens * BASE_PRICE
+  const discountPct =
+    baseRub > 0 ? Math.round(((baseRub - rub) / baseRub) * 100) : 0
+  const valid = tokens >= CUSTOM_MIN_TOKENS && tokens <= CUSTOM_MAX_TOKENS
+  return { tokens, pricePerToken, rub, baseRub, discountPct, valid }
+}

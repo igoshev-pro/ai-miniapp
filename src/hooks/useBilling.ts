@@ -235,6 +235,40 @@ export function useBilling() {
     [],
   )
 
+    // ─── 🆕 Купить произвольное число спичек ───────────────
+  const purchaseCustomTokens = useCallback(
+    async (
+      tokens: number,
+      provider: PaymentProvider = 'stars',
+      currency: PaymentCurrency = 'RUB',
+    ): Promise<string | null> => {
+      try {
+        setIsLoading(true)
+
+        const { data } = await apiClient.post<ApiResponse<PaymentData>>(
+          ENDPOINTS.BILLING_PAY_TOKENS_CUSTOM,
+          { tokens, provider, currency },
+        )
+
+        const paymentUrl = data.data?.paymentUrl
+        if (paymentUrl) return paymentUrl
+
+        toast.success('Оплата обрабатывается...')
+        return null
+      } catch (err) {
+        if (isApiError(err)) {
+          toast.error(err.message || 'Ошибка оплаты')
+        } else {
+          toast.error('Ошибка соединения')
+        }
+        return null
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [],
+  )
+
   // ─── Купить подписку ──────────────────────────────────
   const subscribe = useCallback(
     async (
@@ -369,6 +403,7 @@ export function useBilling() {
     loadPackages,
     loadPlans,
     purchaseTokens,
+    purchaseCustomTokens, // 🆕
     subscribe,
     applyPromo,
     loadTransactions,
