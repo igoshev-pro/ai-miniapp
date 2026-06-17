@@ -17,7 +17,7 @@ interface Props { onBack?: () => void }
 type Currency = 'rub' | 'usd'
 type Provider = 'stars' | 'tochka' | 'freedompay' | 'heleket'
 
-// 🔧 ИСПРАВЛЕНО: R = 90 (совпадает с RUB_TO_USD_RATE на беке)
+// 🔧 R = 90 (совпадает с RUB_TO_USD_RATE на беке)
 const R = 90
 const BASE = 3
 
@@ -82,11 +82,11 @@ export function TopUpPage({ onBack }: Props) {
 
   const isTelegram = !!webApp
 
+  // 🔧 FreedomPay включён. Stars только в TG, Tochka только для RUB
   const availableProviders = useMemo(() => {
     return PROVIDERS.filter(p => {
-      if (p.id === 'freedompay') return false
-      if (p.id === 'stars')      return isTelegram
-      if (p.id === 'tochka')     return cur === 'rub'
+      if (p.id === 'stars')  return isTelegram
+      if (p.id === 'tochka') return cur === 'rub'
       return true
     })
   }, [isTelegram, cur])
@@ -165,7 +165,7 @@ export function TopUpPage({ onBack }: Props) {
         </div>
       </div>
 
-      <div className="flex gap-1 p-[3px] mb-3.5 bg-white/[.04] border border-white/[.06] rounded-xl animate-fade-in">
+            <div className="flex gap-1 p-[3px] mb-3.5 bg-white/[.04] border border-white/[.06] rounded-xl animate-fade-in">
         {(['rub', 'usd'] as Currency[]).map(c => (
           <button key={c}
             onClick={() => { haptic('light'); setCur(c) }}
@@ -268,7 +268,7 @@ export function TopUpPage({ onBack }: Props) {
           </div>
         </div>
 
-                {/* Панель кастомной суммы */}
+        {/* Панель кастомной суммы */}
         {customMode && (
           <div className="mb-3 p-3.5 rounded-[14px] bg-white/[.04] border border-amber-400/30 animate-fade-in">
             <div className="flex items-center gap-2 mb-3">

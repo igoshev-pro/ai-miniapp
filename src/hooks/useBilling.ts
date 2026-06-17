@@ -29,14 +29,47 @@ export interface TokenPackage {
   popular?: boolean
 }
 
+// 🆕 Free-модель из плана (соответствует ответу бека billing.service.ts)
+export interface SubFreeModel {
+  name: string
+  slug: string
+  limit: string
+  isUnlimited: boolean
+  requiredParams?: Record<string, any> | null
+}
+
+// 🆕 Фичи плана
+export interface SubFeatures {
+  maxDailyGenerations: number
+  priorityQueue: boolean
+  exclusiveModels: boolean
+  noWatermark: boolean
+  maxContextMessages: number
+}
+
+// 🔧 Расширенный тип под ответ бекенда (billing.service.ts → getSubscriptionPlans)
 export interface SubscriptionPlan {
   id: string
-  plan: 'basic' | 'pro' | 'unlimited'
+  plan: string
   name: string
+  description?: string
   price: number
+  priceRub: number
+  currency: string
+  currencySymbol?: string
   period: string
-  features: string[]
   tokensPerMonth: number
+  bonusTokens: number
+  totalTokens?: number
+  modelsAccess?: 'limited' | 'full'
+  freeModels?: SubFreeModel[]
+  features?: SubFeatures
+  capabilities?: string[]
+  color?: string
+  icon?: string
+  isPopular?: boolean
+  tokenPriceRub?: number
+  tokenPriceUsd?: number
 }
 
 export interface Transaction {
@@ -93,7 +126,6 @@ interface PaymentData {
   status?: string
 }
 
-// 🔧 ИСПРАВЛЕНО: поле bonusTokens вместо tokensAdded (соответствует ответу бека)
 interface PromoData {
   success: boolean
   effectLabel: string
@@ -142,21 +174,87 @@ const fallbackPackages: TokenPackage[] = [
   { id: 'p5', name: 'Максимум', tokens: 4000, price: 2499, currency: '₽', bonus: 1200 },
 ]
 
+// 🔧 Fallback подписок синхронизирован с FALLBACK_SUBSCRIPTION_PLANS на беке
 const fallbackPlans: SubscriptionPlan[] = [
   {
-    id: 's1', plan: 'basic', name: 'Basic', price: 299, period: '/мес',
-    tokensPerMonth: 500,
-    features: ['500 спичек/мес', 'Текст: без лимита', 'Изображения: 50', 'Видео: 5'],
+    id: 'basic', plan: 'basic', name: 'Basic',
+    price: 450, priceRub: 450, currency: 'RUB', period: '/мес',
+    tokensPerMonth: 150, bonusTokens: 0, totalTokens: 150,
+    modelsAccess: 'limited',
+    freeModels: [],
+    capabilities: [
+      '1 500 запросов в текст',
+      'Генерация 125 изображений',
+      'Генерация 25 видео',
+      'Генерация 36 песен',
+    ],
+    color: '#60a5fa',
+    icon: 'Zap',
+    isPopular: false,
   },
   {
-    id: 's2', plan: 'pro', name: 'Pro', price: 699, period: '/мес',
-    tokensPerMonth: 2000,
-    features: ['2 000 спичек/мес', 'Текст: без лимита', 'Изображения: 500', 'Видео: 50', 'Аудио: 200', 'Приоритетная очередь'],
+    id: 'plus', plan: 'plus', name: 'Plus',
+    price: 990, priceRub: 990, currency: 'RUB', period: '/мес',
+    tokensPerMonth: 330, bonusTokens: 0, totalTokens: 330,
+    modelsAccess: 'full',
+    freeModels: [
+      { name: 'gpt-oss-120b', slug: 'gpt-oss-120b', limit: '10/час, 60/сутки', isUnlimited: false },
+      { name: 'DeepSeek V3.2', slug: 'deepseek-v3.2', limit: '10/час, 60/сутки', isUnlimited: false },
+      { name: 'xAI: Grok 4.1 Fast', slug: 'grok-4.1-fast', limit: '10/час, 60/сутки', isUnlimited: false },
+    ],
+    capabilities: [
+      'Бесплатная генерация текста 10/час, 60/сутки',
+      'Генерация 275 изображений',
+      'Генерация 55 видео',
+      'Генерация 82 песен',
+    ],
+    color: '#fbbf24',
+    icon: 'Star',
+    isPopular: true,
   },
   {
-    id: 's3', plan: 'unlimited', name: 'Unlimited', price: 1999, period: '/мес',
-    tokensPerMonth: 10000,
-    features: ['10 000 спичек/мес', 'Всё без лимита', 'API доступ', 'Приоритетная поддержка'],
+    id: 'max', plan: 'max', name: 'Max',
+    price: 2490, priceRub: 2490, currency: 'RUB', period: '/мес',
+    tokensPerMonth: 830, bonusTokens: 50, totalTokens: 880,
+    modelsAccess: 'full',
+    freeModels: [
+      { name: 'gpt-oss-120b', slug: 'gpt-oss-120b', limit: 'Безлимит', isUnlimited: true },
+      { name: 'DeepSeek V3.2', slug: 'deepseek-v3.2', limit: 'Безлимит', isUnlimited: true },
+      { name: 'xAI: Grok 4.1 Fast', slug: 'grok-4.1-fast', limit: 'Безлимит', isUnlimited: true },
+    ],
+    capabilities: [
+      'Безлимитная генерация текста',
+      'Генерация 733 изображений',
+      'Генерация 146 видео',
+      'Генерация 220 песен',
+    ],
+    color: '#f97316',
+    icon: 'Rocket',
+    isPopular: false,
+  },
+  {
+    id: 'ultimate', plan: 'ultimate', name: 'Ultimate',
+    price: 5990, priceRub: 5990, currency: 'RUB', period: '/мес',
+    tokensPerMonth: 1997, bonusTokens: 220, totalTokens: 2217,
+    modelsAccess: 'full',
+    freeModels: [
+      { name: 'GPT Image 1.5 Lite', slug: 'gpt-image-1.5-lite', limit: '10/час, 60/сутки', isUnlimited: false },
+      { name: 'Imagen 4', slug: 'imagen-4', limit: '10/час, 60/сутки', isUnlimited: false },
+      { name: 'Midjourney обычный', slug: 'midjourney', limit: '10/час, 60/сутки', isUnlimited: false, requiredParams: { mode: 'draft' } },
+      { name: 'gpt-oss-120b', slug: 'gpt-oss-120b', limit: 'Безлимит', isUnlimited: true },
+      { name: 'DeepSeek V3.2', slug: 'deepseek-v3.2', limit: 'Безлимит', isUnlimited: true },
+      { name: 'xAI: Grok 4.1 Fast', slug: 'grok-4.1-fast', limit: 'Безлимит', isUnlimited: true },
+    ],
+    capabilities: [
+      'Безлимитная генерация текста',
+      'Бесплатная генерация изображений 10/час, 60/сутки',
+      'Генерация 369 изображений',
+      'Генерация 220 видео',
+      'Генерация 554 песен',
+    ],
+    color: '#c084fc',
+    icon: 'Diamond',
+    isPopular: false,
   },
 ]
 
@@ -185,14 +283,17 @@ export function useBilling() {
   }, [])
 
   // ─── Загрузить планы подписок ─────────────────────────
-  const loadPlans = useCallback(async () => {
+  // 🔧 Передаём currency как query param чтобы бек вернул цены в нужной валюте
+  const loadPlans = useCallback(async (currency: PaymentCurrency = 'RUB') => {
     try {
       const { data } = await apiClient.get<ApiResponse<SubscriptionPlan[]>>(
         ENDPOINTS.BILLING_PLANS,
+        { params: { currency } },
       )
       const p = data.data || []
-      setPlans(p.length > 0 ? p : fallbackPlans)
-      return p.length > 0 ? p : fallbackPlans
+      const result = p.length > 0 ? p : fallbackPlans
+      setPlans(result)
+      return result
     } catch {
       setPlans(fallbackPlans)
       return fallbackPlans
@@ -309,7 +410,6 @@ export function useBilling() {
   )
 
   // ─── Применить промокод ───────────────────────────────
-  // 🔧 ИСПРАВЛЕНО: проверяем bonusTokens (ответ бека) вместо tokensAdded
   const applyPromo = useCallback(
     async (code: string): Promise<boolean> => {
       try {
@@ -321,7 +421,6 @@ export function useBilling() {
 
         const promoData = data.data
 
-        // Бек возвращает: { success, effectLabel, bonusTokens, newBalance }
         if (promoData?.bonusTokens > 0) {
           toast.success(
             promoData.effectLabel
@@ -329,14 +428,13 @@ export function useBilling() {
               : `+${promoData.bonusTokens} спичек!`
           )
 
-          // Обновляем профиль пользователя чтобы баланс обновился в UI
           try {
             const profile = await apiClient.get<ApiResponse<any>>(ENDPOINTS.USER_ME)
             if (profile.data.data) {
               setUser(profile.data.data)
             }
           } catch {
-            // Не критично — баланс обновится при следующей загрузке
+            // не критично
           }
 
           return true
