@@ -66,7 +66,14 @@ export const ENDPOINTS = {
   ADMIN_USER_BALANCE: (id: string) => `/admin/users/${id}/adjust-balance`,
   ADMIN_USER_DELETE: (id: string) => `/admin/users/${id}`,
 
-  // Admin Models
+  // 🆕 Admin Category Covers
+  ADMIN_CATEGORY_COVERS: '/admin/category-covers',
+  ADMIN_CATEGORY_COVER: (categoryId: string) =>
+    `/admin/category-covers/${categoryId}`,
+
+  // 🆕 Public category covers
+  CATEGORY_COVERS: '/categories/covers',
+
   // Admin Models
   ADMIN_MODELS: '/admin/models',
   ADMIN_MODEL: (slug: string) => `/admin/models/${slug}`,

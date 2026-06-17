@@ -3,6 +3,7 @@
 import { ChevronRight } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useModels } from '@/hooks'
+import { useCategoryCovers } from '@/hooks/useCategoryCovers' // 🆕
 
 interface Props {
   onViewAll: () => void
@@ -12,12 +13,13 @@ interface Props {
 export function Categories({ onViewAll, onCategoryTap }: Props) {
   const { haptic } = useTelegram()
   const { models, categories } = useModels()
+  const { covers } = useCategoryCovers() // 🆕
 
   const categoriesData = [
-    { id: 'text', title: 'Текстовые ИИ', description: 'ChatGPT, Claude, Gemini и другие', coverUrl: '/covers/text.webp' },
-    { id: 'image', title: 'Генерация картинок', description: 'Midjourney, DALL-E, Flux и другие', coverUrl: '/covers/image.webp' },
-    { id: 'video', title: 'Генерация видео', description: 'Sora, Kling, Runway и другие', coverUrl: '/covers/video.webp' },
-    { id: 'audio', title: 'Генерация аудио', description: 'Suno, ElevenLabs', coverUrl: '/covers/audio.webp' },
+    { id: 'text', title: 'Текстовые ИИ', description: 'ChatGPT, Claude, Gemini и другие', coverUrl: covers.text },
+    { id: 'image', title: 'Генерация картинок', description: 'Midjourney, DALL-E, Flux и другие', coverUrl: covers.image },
+    { id: 'video', title: 'Генерация видео', description: 'Sora, Kling, Runway и другие', coverUrl: covers.video },
+    { id: 'audio', title: 'Генерация аудио', description: 'Suno, ElevenLabs', coverUrl: covers.audio },
   ].map((c) => ({
     ...c,
     modelCount: models.filter((m) => m.category === c.id).length,
@@ -94,7 +96,7 @@ export function Categories({ onViewAll, onCategoryTap }: Props) {
               />
             </div>
 
-            {/* Body */}
+                        {/* Body */}
             <div className="p-3.5 pb-4 flex flex-col gap-2.5 flex-1">
               <div className="text-[14px] font-bold text-[var(--accent-red)]">
                 {cat.title}

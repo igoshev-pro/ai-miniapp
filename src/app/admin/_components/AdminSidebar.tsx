@@ -13,6 +13,7 @@ import {
   Plug,
   Settings,
   Flame,
+  ImageIcon, // 🆕
 } from 'lucide-react'
 import type { AdminRole } from '@/hooks/useAdminAuth'
 
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/promo-codes', label: 'Промокоды', icon: Ticket },
   { href: '/admin/transactions', label: 'Транзакции', icon: Receipt },
 //   { href: '/admin/providers', label: 'Провайдеры', icon: Plug },
+{ href: '/admin/category-covers', label: 'Обложки категорий', icon: ImageIcon }, // 🆕
   {
     href: '/admin/settings',
     label: 'Настройки',

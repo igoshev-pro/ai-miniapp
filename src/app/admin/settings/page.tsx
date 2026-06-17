@@ -9,7 +9,8 @@ import {
   Shield, 
   Database,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  ImageIcon
 } from 'lucide-react'
 
 interface SettingCard {
@@ -28,6 +29,15 @@ const SETTINGS: SettingCard[] = [
     icon: Flame,
     title: 'Токеномика',
     description: 'Курс спичек, бонусы при регистрации, пачки покупок, рефералка',
+    badge: 'Активно',
+    badgeColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    ready: true,
+  },
+  {
+    href: '/admin/category-covers',
+    icon: ImageIcon,
+    title: 'Обложки категорий',
+    description: 'Изображения для 4 типов нейросетей на главной странице',
     badge: 'Активно',
     badgeColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
     ready: true,
