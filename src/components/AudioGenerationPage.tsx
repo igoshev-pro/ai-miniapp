@@ -73,7 +73,7 @@ const EXAMPLES: Record<string, string[]> = {
     'Электронный бит в стиле synthwave, ретро 80-х',
     'Джаз в стиле smooth jazz, саксофон, расслабляющий вечер',
   ],
-    'elevenlabs-tts': [
+  'elevenlabs-tts': [
     'Добро пожаловать в наш подкаст! Сегодня мы обсудим последние новости технологий.',
     'Привет! Как дела? Я так рад тебя видеть!',
     'В далёкой-далёкой галактике, где звёзды сияли ярче обычного...',
@@ -105,7 +105,7 @@ const FALLBACK_BY_TYPE: Record<AudioType, AudioCaps> = {
     supportsStability: false, supportsSimilarity: false,
     supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
-    // multilingual v2 — НЕ принимает language_code (озвучивает на языке текста)
+  // multilingual v2 — НЕ принимает language_code (озвучивает на языке текста)
   'elevenlabs-tts': {
     type: 'elevenlabs-tts', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
     supportsDuration: false, durationRange: [0, 0], durationStep: 0,
@@ -331,7 +331,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [uiConfig, slug])
 
-    /* ── Унифицированный флаг TTS (multilingual + turbo) ── */
+  /* ── Унифицированный флаг TTS (multilingual + turbo) ── */
   const isTTS =
     caps.type === 'elevenlabs-tts' || caps.type === 'elevenlabs-tts-turbo'
 
@@ -344,7 +344,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       if (caps.supportsCustomMode) p.customMode = customMode
       if (caps.supportsInstrumental) p.instrumental = instrumental
     }
-        if (isTTS) {
+    if (isTTS) {
       if (caps.supportsVoice && voiceId) p.voiceId = voiceId
       if (caps.supportsLanguage && language) p.language = language
     }
@@ -359,9 +359,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       if (caps.supportsLoop) p.loop = loop
     }
     if (caps.supportsAudioInput && audioUrl) p.hasInputAudio = true
-    // приблизительная длина текста для TTS (по символам)
-        // приблизительная длина текста для TTS (по символам)
-    if (isTTS && input) p.chars = input.length
+    // 🆕 Длина текста для посимвольной тарификации (ElevenLabs TTS/Dialogue)
+    if ((isTTS || caps.type === 'elevenlabs-dialogue') && input) {
+      p.textLength = input.length
+    }
     return p
   }, [
     caps, isTTS, duration, customMode, instrumental,
@@ -416,6 +417,25 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
   const showPriceLoader =
     !isConfigReady || (isCalculating && !lastPriceRef.current && !price)
+
+  // 🆕 Является ли модель посимвольной (ElevenLabs TTS/Dialogue)
+  const isCharBasedModel = useMemo(() => {
+    return (
+      slug.includes('elevenlabs-tts-multilingual') ||
+      slug.includes('elevenlabs-tts-turbo') ||
+      slug.includes('elevenlabs-text-to-dialogue') ||
+      slug.includes('dialogue')
+    )
+  }, [slug])
+
+  // 🆕 Цена за 1000 символов (для подписи в UI)
+  const pricePerKChars = useMemo<number | null>(() => {
+    if (!isCharBasedModel) return null
+    if (slug.includes('turbo')) return 2.7
+    if (slug.includes('multilingual')) return 5.4
+    if (slug.includes('dialogue')) return 6.7
+    return null
+  }, [isCharBasedModel, slug])
 
   // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
   const hasPriceVariants = useMemo(() => {
@@ -665,17 +685,21 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
         }
       }
     }
-        if (isTTS) {
+    if (isTTS) {
       if (caps.supportsVoice) settings.voiceId = voiceId
       // language шлём ТОЛЬКО для turbo (multilingual вернёт 422)
       if (caps.supportsLanguage && language) settings.language = language
       if (caps.supportsStability) settings.stability = stability / 100
       if (caps.supportsSimilarity) settings.similarity = similarity / 100
       if (caps.supportsSpeed) settings.speed = speed / 100
+      // 🆕 Длина текста для посимвольной тарификации
+      if (isCharBasedModel) settings.textLength = prompt.length
     }
     if (caps.type === 'elevenlabs-dialogue') {
       if (caps.supportsStability) settings.stability = stability / 100
       if (caps.supportsLanguage && language) settings.language = language
+      // 🆕 Длина текста для посимвольной тарификации
+      if (isCharBasedModel) settings.textLength = prompt.length
     }
     if (caps.type === 'elevenlabs-sfx') {
       if (caps.supportsDuration) settings.duration = duration
@@ -706,7 +730,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
   }, [
-     input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps, isTTS,
+    input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps, isTTS,
     customMode, instrumental, style, duration,
     title, negativeTags, vocalGender, styleWeight, weirdnessConstraint, audioWeight,
     voiceId, language, stability, similarity, speed,
@@ -794,7 +818,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   const emptyText = (() => {
     switch (caps.type) {
       case 'suno': return 'Опишите музыку, которую хотите создать. Генерация занимает до 2 минут.'
-           case 'elevenlabs-tts': return 'Введите текст для озвучки. Язык определяется автоматически по тексту. Выберите голос в настройках.'
+      case 'elevenlabs-tts': return 'Введите текст для озвучки. Язык определяется автоматически по тексту. Выберите голос в настройках.'
       case 'elevenlabs-tts-turbo': return 'Введите текст для озвучки. Выберите голос и язык в настройках.'
       case 'elevenlabs-dialogue': return 'Напишите диалог «Имя: текст». Нажмите на имя ниже для быстрой вставки.'
       case 'elevenlabs-sfx': return 'Опишите звуковой эффект, который нужно сгенерировать.'
@@ -816,7 +840,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
         out.push({ key: 'vg', label: vocalGender === 'm' ? '♂' : '♀', active: true })
       }
     }
-   if (isTTS) {
+    if (isTTS) {
       out.push({ key: 'voice', label: voiceId })
       if (caps.supportsLanguage) {
         out.push({ key: 'lang', label: caps.languages.find((l) => l.code === language)?.label || language })
@@ -954,8 +978,17 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             `}
           >
             {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-            {showFromPrefix && <span className="text-white/35">от</span>}
-            {formatCost(displayedCost)} 🔥
+            {/* 🆕 Посимвольная модель — фиксированная подпись */}
+            {isCharBasedModel && pricePerKChars != null ? (
+              <span>
+                {pricePerKChars} 🔥 / 1000 симв.
+              </span>
+            ) : (
+              <>
+                {showFromPrefix && <span className="text-white/35">от</span>}
+                {formatCost(displayedCost)} 🔥
+              </>
+            )}
           </span>
 
           <ChevronDown
@@ -1367,7 +1400,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                 <div className="text-[15px] font-semibold text-white flex items-center gap-1.5">
                   <Music size={14} /> {currentModel?.name ?? 'Настройки'}
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px]">
+                                <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
                   <span
                     className={`
@@ -1376,11 +1409,24 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                     `}
                   >
                     {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-                    {showFromPrefix && <span className="text-white/35">от</span>}
-                    {formatCost(displayedCost)} 🔥
+                    {/* 🆕 Посимвольная модель */}
+                    {isCharBasedModel && pricePerKChars != null ? (
+                      <span>{pricePerKChars} 🔥 / 1000 симв.</span>
+                    ) : (
+                      <>
+                        {showFromPrefix && <span className="text-white/35">от</span>}
+                        {formatCost(displayedCost)} 🔥
+                      </>
+                    )}
                   </span>
-                  {matchedLabel && !isFallbackPrice && (
+                  {matchedLabel && !isFallbackPrice && !isCharBasedModel && (
                     <span className="text-white/40">· {matchedLabel}</span>
+                  )}
+                  {/* 🆕 Для посимвольных — текущая стоимость текста */}
+                  {isCharBasedModel && input.length > 0 && (
+                    <span className="text-white/40">
+                      · {input.length} симв ≈ {formatCost(displayedCost)} 🔥
+                    </span>
                   )}
                 </div>
               </div>
@@ -1578,10 +1624,12 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                   {caps.supportsSpeed && (
                     <Slider
                       label="Скорость"
+                      hint="1× = 100% (обычная скорость)"
                       value={speed}
                       onChange={setSpeed}
                       min={50} max={200} step={5} unit="%"
-                      minLabel="0.5x" maxLabel="2x"
+                      minLabel="0.5×"
+                      maxLabel="2×"
                     />
                   )}
                 </>
