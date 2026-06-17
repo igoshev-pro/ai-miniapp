@@ -1,17 +1,21 @@
 // src/components/SubscriptionPage.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   Crown, Check, Zap, Loader2, Star, Sparkles, Rocket, Diamond,
   MessageSquare, Image as ImageIcon, Video, Music,
   Lock, Unlock, Gift, Clock, ChevronDown, ChevronUp,
+  CreditCard, Bitcoin,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'
 
 interface Props { onBack?: () => void }
 type Currency = 'rub' | 'usd'
+type Provider = 'stars' | 'tochka' | 'freedompay' | 'heleket'
+
+// 🔧 ИСПРАВЛЕНО: RATE = 90 (совпадает с беком)
 const RATE = 90
 
 interface PlanData {
@@ -92,6 +96,13 @@ const PLANS: PlanData[] = [
   },
 ]
 
+// 🆕 Конфигурация провайдеров (аналогично TopUpPage)
+const PROVIDERS: { id: Provider; label: string; icon: any; sub: string }[] = [
+  { id: 'stars',      label: 'Stars',  icon: Star,        sub: 'Telegram' },
+  { id: 'tochka',     label: 'Карта',  icon: CreditCard,  sub: 'РФ ₽'     },
+  { id: 'heleket',    label: 'Crypto', icon: Bitcoin,     sub: 'USDT/BTC' },
+]
+
 function fmtPrice(r: number, c: Currency) {
   if (c === 'rub') return r.toLocaleString('ru-RU')
   const u = r / RATE
@@ -106,25 +117,46 @@ export function SubscriptionPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { subscription } = useUser()
   const { subscribe } = useBilling()
+
   const [busy, setBusy] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [cur, setCur] = useState<Currency>('rub')
+  // 🆕 Состояние провайдера
+  const [provider, setProvider] = useState<Provider>('tochka')
+
   const plan = subscription.plan
 
-  // useEffect(() => {
-  //   if (!webApp?.BackButton) return
-  //   webApp.BackButton.show()
-  //   const h = () => onBack?.()
-  //   webApp.BackButton.onClick(h)
-  //   return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
-  // }, [webApp, onBack])
+  // 🆕 Stars только в Telegram, tochka только для рублей
+  const isTelegram = !!webApp
 
+  const availableProviders = useMemo(() => {
+    return PROVIDERS.filter(p => {
+      if (p.id === 'stars')  return isTelegram
+      if (p.id === 'tochka') return cur === 'rub'
+      return true
+    })
+  }, [isTelegram, cur])
+
+  // 🆕 Если выбранный провайдер стал недоступен — переключаемся
+  useEffect(() => {
+    if (!availableProviders.some(p => p.id === provider)) {
+      setProvider(availableProviders[0]?.id ?? 'heleket')
+    }
+  }, [availableProviders, provider])
+
+  // 🔧 ИСПРАВЛЕНО: передаём provider и currency в subscribe
   const go = useCallback(async (id: string) => {
     if (id === plan) return
-    haptic('medium'); setBusy(id)
-    const url = await subscribe(id); setBusy(null)
-    if (url) { webApp?.openLink ? webApp.openLink(url) : window.open(url, '_blank'); hapticNotification('success') }
-  }, [plan, haptic, hapticNotification, subscribe, webApp])
+    haptic('medium')
+    setBusy(id)
+    const currency = cur === 'rub' ? 'RUB' : 'USD'
+    const url = await subscribe(id, provider, currency)
+    setBusy(null)
+    if (url) {
+      webApp?.openLink ? webApp.openLink(url) : window.open(url, '_blank')
+      hapticNotification('success')
+    }
+  }, [plan, cur, provider, haptic, hapticNotification, subscribe, webApp])
 
   return (
     <div className="relative z-[1] px-4 pb-[100px]">
@@ -148,7 +180,7 @@ export function SubscriptionPage({ onBack }: Props) {
         ))}
       </div>
 
-      {/* ── Current ── */}
+      {/* ── Current plan ── */}
       <div className="text-center p-3.5 bg-white/[.03] border border-white/[.06] rounded-xl mb-4 animate-fade-in">
         <div className="text-[11px] text-white/35 mb-1">Текущий план</div>
         <div className="text-[16px] font-semibold text-white">
@@ -159,6 +191,41 @@ export function SubscriptionPage({ onBack }: Props) {
             Активна до {new Date(subscription.expiresAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
           </div>
         )}
+      </div>
+
+      {/* ── 🆕 Способ оплаты ── */}
+      <div className="mb-4 animate-fade-in">
+        <div className="flex items-center gap-1.5 text-[13px] font-semibold text-white/60 mb-2">
+          <CreditCard size={13} /> Способ оплаты
+        </div>
+        <div className={`grid gap-1.5 ${
+          availableProviders.length === 1 ? 'grid-cols-1'
+          : availableProviders.length === 2 ? 'grid-cols-2'
+          : 'grid-cols-3'
+        }`}>
+          {availableProviders.map(p => {
+            const isOn = provider === p.id
+            const Icon = p.icon
+            return (
+              <button
+                key={p.id}
+                onClick={() => { haptic('light'); setProvider(p.id) }}
+                className={`
+                  flex flex-col items-center justify-center gap-1 py-2.5 px-1
+                  rounded-[10px] border-[1.5px] transition-all active:scale-[.97]
+                  ${isOn
+                    ? 'bg-amber-400/[.08] border-amber-400/40 text-white'
+                    : 'bg-white/[.04] border-white/[.06] text-white/50'
+                  }
+                `}
+              >
+                <Icon size={16} className={isOn ? 'text-amber-400' : ''} />
+                <div className="text-[11px] font-semibold leading-none">{p.label}</div>
+                <div className="text-[9px] text-white/35 leading-none">{p.sub}</div>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Plans ── */}
@@ -179,7 +246,7 @@ export function SubscriptionPage({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Top */}
+              {/* Top row */}
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-[13px] flex items-center justify-center shrink-0"
                   style={{ background: p.gradient, color: p.color }}>{p.icon}</div>
@@ -224,10 +291,11 @@ export function SubscriptionPage({ onBack }: Props) {
                 ))}
               </div>
 
-              {/* Free models */}
+                            {/* Free models */}
               {p.freeModels.length > 0 && (
                 <>
-                  <button onClick={e => { e.stopPropagation(); haptic('light'); setExpanded(prev => prev === p.id ? null : p.id) }}
+                  <button
+                    onClick={e => { e.stopPropagation(); haptic('light'); setExpanded(prev => prev === p.id ? null : p.id) }}
                     className="flex items-center gap-1.5 w-full px-3 py-2 rounded-lg border border-white/[.06] bg-white/[.02] text-white/50 text-[12px] font-medium transition-all active:bg-white/[.05]">
                     <Zap size={13} style={{ color: p.color }} />
                     <span className="flex-1 text-left">Бесплатный доступ к моделям ({p.freeModels.length})</span>
@@ -239,7 +307,9 @@ export function SubscriptionPage({ onBack }: Props) {
                         <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[.02] border border-white/[.04]">
                           <span className="text-[12px] font-medium text-white/70">{m.name}</span>
                           <span className={`flex items-center gap-1 text-[10px] font-medium px-2 py-[3px] rounded whitespace-nowrap ${m.limit === 'Безлимит' ? 'text-green-400 bg-green-400/[.08]' : 'text-white/35 bg-white/[.04]'}`}>
-                            {m.limit === 'Безлимит' ? <><Sparkles size={10} /> Безлимит</> : <><Clock size={10} /> {m.limit}</>}
+                            {m.limit === 'Безлимит'
+                              ? <><Sparkles size={10} /> Безлимит</>
+                              : <><Clock size={10} /> {m.limit}</>}
                           </span>
                         </div>
                       ))}
@@ -249,12 +319,16 @@ export function SubscriptionPage({ onBack }: Props) {
               )}
 
               {/* Button */}
-              <button onClick={() => go(p.id)} disabled={isCur || busy === p.id}
+              <button
+                onClick={() => go(p.id)}
+                disabled={isCur || busy === p.id}
                 className={`w-full flex items-center justify-center gap-1.5 py-[13px] rounded-xl border-none text-[14px] font-semibold transition-all active:scale-[.98] active:opacity-90 disabled:opacity-60 ${isCur ? 'bg-white/[.06] !text-white/40 cursor-default active:!scale-100 active:!opacity-100' : 'text-black cursor-pointer'}`}
                 style={!isCur ? { background: p.color } : undefined}>
-                {busy === p.id ? <Loader2 size={16} className="animate-spin" />
-                  : isCur ? <><Check size={14} /> Текущий план</>
-                  : <>Подключить за {cur === 'usd' ? '$' : ''}{fmtPrice(p.priceRub, cur)}{cur === 'rub' ? ' ₽' : ''}</>}
+                {busy === p.id
+                  ? <Loader2 size={16} className="animate-spin" />
+                  : isCur
+                    ? <><Check size={14} /> Текущий план</>
+                    : <>Подключить за {cur === 'usd' ? '$' : ''}{fmtPrice(p.priceRub, cur)}{cur === 'rub' ? ' ₽' : ''}</>}
               </button>
             </div>
           )

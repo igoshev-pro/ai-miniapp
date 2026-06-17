@@ -1,3 +1,4 @@
+// src/components/TopUpPage.tsx
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
@@ -16,7 +17,8 @@ interface Props { onBack?: () => void }
 type Currency = 'rub' | 'usd'
 type Provider = 'stars' | 'tochka' | 'freedompay' | 'heleket'
 
-const R = 75
+// 🔧 ИСПРАВЛЕНО: R = 90 (совпадает с RUB_TO_USD_RATE на беке)
+const R = 90
 const BASE = 3
 
 const CUSTOM_MIN = 10
@@ -78,33 +80,22 @@ export function TopUpPage({ onBack }: Props) {
 
   const customCalc = useMemo(() => calcCustomByTokens(customTokens), [customTokens])
 
-  // 🆕 Запущено ли внутри Telegram (Stars доступен только там)
   const isTelegram = !!webApp
 
-  // 🆕 Доступные провайдеры с учётом окружения и валюты
   const availableProviders = useMemo(() => {
     return PROVIDERS.filter(p => {
-      if (p.id === 'freedompay') return false        // KZ скрыт пока
-      if (p.id === 'stars')      return isTelegram    // Stars — только в Telegram
-      if (p.id === 'tochka')     return cur === 'rub' // Карта РФ ₽ — только для рублей
-      return true                                     // heleket (crypto) — всегда
+      if (p.id === 'freedompay') return false
+      if (p.id === 'stars')      return isTelegram
+      if (p.id === 'tochka')     return cur === 'rub'
+      return true
     })
   }, [isTelegram, cur])
 
-  // 🆕 Если выбранный провайдер стал недоступен — переключаемся на первый доступный
   useEffect(() => {
     if (!availableProviders.some(p => p.id === provider)) {
       setProvider(availableProviders[0]?.id ?? 'heleket')
     }
   }, [availableProviders, provider])
-
-  // useEffect(() => {
-  //   if (!webApp?.BackButton) return
-  //   webApp.BackButton.show()
-  //   const h = () => onBack?.()
-  //   webApp.BackButton.onClick(h)
-  //   return () => { webApp.BackButton.offClick(h); webApp.BackButton.hide() }
-  // }, [webApp, onBack])
 
   const pkg = PKGS.find(p => p.id === sel)
 
@@ -259,7 +250,7 @@ export function TopUpPage({ onBack }: Props) {
             )
           })}
 
-          {/* Тайл «Своя сумма» — 6-я ячейка сетки */}
+          {/* Тайл «Своя сумма» */}
           <div
             onClick={() => { haptic('light'); setCustomMode(v => !v); setSel(null) }}
             className={`
@@ -277,7 +268,7 @@ export function TopUpPage({ onBack }: Props) {
           </div>
         </div>
 
-        {/* Развёрнутая панель кастомной суммы */}
+                {/* Панель кастомной суммы */}
         {customMode && (
           <div className="mb-3 p-3.5 rounded-[14px] bg-white/[.04] border border-amber-400/30 animate-fade-in">
             <div className="flex items-center gap-2 mb-3">
@@ -384,7 +375,7 @@ export function TopUpPage({ onBack }: Props) {
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
-                            {isLoading ? (
+              {isLoading ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <>
@@ -396,7 +387,7 @@ export function TopUpPage({ onBack }: Props) {
           </div>
         )}
 
-        {/* Способ оплаты — только доступные провайдеры */}
+        {/* Способ оплаты */}
         <div className="mb-3">
           <div className="flex items-center gap-1.5 text-[13px] font-semibold text-white/60 mb-2">
             <CreditCard size={13} /> Способ оплаты
@@ -457,6 +448,7 @@ export function TopUpPage({ onBack }: Props) {
         )}
       </div>
 
+      {/* Промокод */}
       <div className="mb-5 animate-fade-in [animation-delay:.2s]">
         <div className="flex items-center gap-1.5 text-[14px] font-semibold text-white/60 mb-2.5">
           <Tag size={14} /> Промокод
@@ -491,6 +483,7 @@ export function TopUpPage({ onBack }: Props) {
         )}
       </div>
 
+      {/* Футер */}
       <div className="text-center px-5 py-4 animate-fade-in [animation-delay:.2s]">
         <div className="text-[12px] text-white/30 mb-1.5">
           {providerNote}

@@ -14,8 +14,8 @@ export type PaymentProvider =
   | 'cryptomus'   // оставлен для обратной совместимости (на UI не показываем)
   | 'stars'
   | 'freedompay'
-  | 'tochka'      // 👈 NEW
-  | 'heleket'     // 👈 NEW
+  | 'tochka'
+  | 'heleket'
 
 export type PaymentCurrency = 'RUB' | 'USD'
 
@@ -93,8 +93,12 @@ interface PaymentData {
   status?: string
 }
 
+// 🔧 ИСПРАВЛЕНО: поле bonusTokens вместо tokensAdded (соответствует ответу бека)
 interface PromoData {
-  tokensAdded: number
+  success: boolean
+  effectLabel: string
+  bonusTokens: number
+  newBalance: number
   message?: string
 }
 
@@ -235,7 +239,7 @@ export function useBilling() {
     [],
   )
 
-    // ─── 🆕 Купить произвольное число спичек ───────────────
+  // ─── Купить произвольное число спичек ───────────────
   const purchaseCustomTokens = useCallback(
     async (
       tokens: number,
@@ -305,6 +309,7 @@ export function useBilling() {
   )
 
   // ─── Применить промокод ───────────────────────────────
+  // 🔧 ИСПРАВЛЕНО: проверяем bonusTokens (ответ бека) вместо tokensAdded
   const applyPromo = useCallback(
     async (code: string): Promise<boolean> => {
       try {
@@ -315,16 +320,23 @@ export function useBilling() {
         )
 
         const promoData = data.data
-        if (promoData?.tokensAdded) {
-          toast.success(promoData.message || `+${promoData.tokensAdded} спичек!`)
 
+        // Бек возвращает: { success, effectLabel, bonusTokens, newBalance }
+        if (promoData?.bonusTokens > 0) {
+          toast.success(
+            promoData.effectLabel
+              ? promoData.effectLabel
+              : `+${promoData.bonusTokens} спичек!`
+          )
+
+          // Обновляем профиль пользователя чтобы баланс обновился в UI
           try {
             const profile = await apiClient.get<ApiResponse<any>>(ENDPOINTS.USER_ME)
             if (profile.data.data) {
               setUser(profile.data.data)
             }
           } catch {
-            // Не критично
+            // Не критично — баланс обновится при следующей загрузке
           }
 
           return true
@@ -403,7 +415,7 @@ export function useBilling() {
     loadPackages,
     loadPlans,
     purchaseTokens,
-    purchaseCustomTokens, // 🆕
+    purchaseCustomTokens,
     subscribe,
     applyPromo,
     loadTransactions,
