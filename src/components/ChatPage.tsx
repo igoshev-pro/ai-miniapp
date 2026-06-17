@@ -1128,8 +1128,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 <span className="text-[10px] text-[var(--gray-600)]">
                   {formatTime(msg.createdAt)}
                 </span>
-                {msg.role === 'assistant' && msg.content && (
-                  <div className="flex gap-1">
+                {msg.content && (
+                  <div className="flex gap-1 items-center">
                     <button
                       className="
                         w-6 h-6 rounded-[6px] border-none
@@ -1139,10 +1139,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                         active:scale-[0.88] active:bg-white/[0.08] active:text-[var(--gray-400)]
                       "
                       onClick={() => copyMessage(msg.id, msg.content)}
+                      title="Копировать"
                     >
                       {copiedId === msg.id ? <Check size={12} /> : <Copy size={12} />}
                     </button>
-                    {msg.tokensUsed && (
+                    {msg.role === 'assistant' && msg.tokensUsed && (
                       <span className="text-[10px] text-white/30 ml-1">
                         {msg.tokensUsed} 🔥
                       </span>
