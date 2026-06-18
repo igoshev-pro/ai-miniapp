@@ -249,11 +249,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   )
   const isFreeForUser = freeAccess.isFree
 
-  const freeLimitLabel = useMemo(
-    () => formatFreeLimit(currentModel?.freeLimit),
-    [currentModel],
-  )
-
   const matchedLabel = (() => {
     if (!isConfigReady) return undefined
     if (price && !isCalculating) return price.matchedRule?.label
@@ -1461,8 +1456,4 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       </div>
     </div>
   )
-}
-
-function formatFreeLimit(freeLimit: { hourlyLimit: number | null; dailyLimit: number | null; requiredParams?: Record<string, any> | null } | null | undefined): any {
-  throw new Error('Function not implemented.')
 }
