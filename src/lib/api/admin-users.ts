@@ -7,6 +7,29 @@ import type {
   UserRole,
 } from '@/types/admin-user'
 
+// 🆕 Расширенный тип данных пользователя для админки
+export interface AdminUserSubscriptionInfo {
+  plan: string
+  planName: string | null
+  expiresAt: string | null
+  isActive: boolean
+  tokensPerMonth: number
+  bonusTokens: number
+  modelsAccess: 'limited' | 'full'
+  source: 'admin' | 'payment' | 'promo' | null
+  startedAt: string | null
+  adminReason: string | null
+  freeModels: Array<{
+    modelSlug: string
+    displayName: string
+    hourlyLimit: number | null
+    dailyLimit: number | null
+    hourlyUsed: number
+    dailyUsed: number
+    requiredParams?: Record<string, any> | null
+  }>
+}
+
 export interface AdminUserDetails {
   user: AdminUser
   stats: {
@@ -14,16 +37,35 @@ export interface AdminUserDetails {
     transactionsCount: number
     invitedCount: number
   }
+  subscription: AdminUserSubscriptionInfo | null // 🆕
   recentTransactions: any[]
   recentGenerations: any[]
   referrer: AdminUser | null
   invitedUsers: AdminUser[]
 }
 
+// 🆕 Тело запроса на установку/снятие подписки
+export interface SetSubscriptionBody {
+  plan: string // 'free' | 'basic' | 'plus' | 'max' | 'ultimate'
+  durationDays?: number
+  expiresAt?: string
+  grantTokens?: boolean
+  reason?: string
+}
+
+export interface SetSubscriptionResponse {
+  user: AdminUser
+  subscription: {
+    plan: string
+    expiresAt: string | null
+    grantedTokens: number
+    grantedBonusTokens: number
+  }
+}
+
 export type BalanceType = 'tokenBalance' | 'bonusTokens' | 'cashbackBalance'
 
 function unwrap<T>(res: any): T {
-  // бек возвращает { success, data }
   return res?.data?.data ?? res?.data ?? res
 }
 
@@ -71,5 +113,14 @@ export const adminUsersApi = {
   async remove(id: string) {
     const res = await apiClient.delete(ENDPOINTS.ADMIN_USER_DELETE(id))
     return unwrap<{ deleted: boolean; userId: string }>(res)
+  },
+
+  // 🆕 Установка/снятие подписки
+  async setSubscription(
+    id: string,
+    body: SetSubscriptionBody,
+  ): Promise<SetSubscriptionResponse> {
+    const res = await apiClient.put(ENDPOINTS.ADMIN_USER_SUBSCRIPTION(id), body)
+    return unwrap<SetSubscriptionResponse>(res)
   },
 }

@@ -65,6 +65,7 @@ export const ENDPOINTS = {
   ADMIN_USER_BAN: (id: string) => `/admin/users/${id}/ban`,
   ADMIN_USER_BALANCE: (id: string) => `/admin/users/${id}/adjust-balance`,
   ADMIN_USER_DELETE: (id: string) => `/admin/users/${id}`,
+  ADMIN_USER_SUBSCRIPTION: (id: string) => `/admin/users/${id}/subscription`, // 🆕
 
   // 🆕 Admin Category Covers
   ADMIN_CATEGORY_COVERS: '/admin/category-covers',

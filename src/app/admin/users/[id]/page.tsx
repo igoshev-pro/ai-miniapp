@@ -28,6 +28,7 @@ export default function AdminUserDetailPage() {
   const [showRole, setShowRole] = useState(false)
   const [showBalance, setShowBalance] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [showSubscription, setShowSubscription] = useState(false) // 🆕
 
   const load = useCallback(async () => {
     if (!userId) return
