@@ -1,7 +1,7 @@
 // src/components/ui/MediaResult.tsx
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import {
   Download, RefreshCw, Loader2, AlertCircle, Share2,
   ChevronLeft, ChevronRight, Star, ExternalLink, DownloadCloud,
@@ -12,17 +12,21 @@ import { useGeneration } from '@/hooks'
 import { toast } from '@/stores/toast.store'
 import { useAuthStore } from '@/stores'
 
+
 interface Props {
   generation: Generation
   onRetry?: () => void
 }
 
+
 /* ─── Helpers ─── */
+
 
 function isTelegramEnv(): boolean {
   const tg = (window as any).Telegram?.WebApp
   return !!tg?.initData && tg.initData.length > 0
 }
+
 
 /** Нативный Telegram downloadFile (Bot API 6.4+). Возвращает true если вызов прошёл. */
 function downloadFileNative(url: string, filename: string): boolean {
@@ -38,6 +42,7 @@ function downloadFileNative(url: string, filename: string): boolean {
   return false
 }
 
+
 function triggerBlobDownload(blob: Blob, filename: string) {
   const blobUrl = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -49,6 +54,7 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
 }
+
 
 /**
  * Скачивание через blob (для веб-браузера).
@@ -76,6 +82,7 @@ async function downloadFileBlob(url: string, filename: string): Promise<boolean>
   return false
 }
 
+
 function getFileExtension(url: string, type: string): string {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/)
   if (match) return match[1].toLowerCase()
@@ -85,7 +92,9 @@ function getFileExtension(url: string, type: string): string {
   return 'bin'
 }
 
+
 /* ─── Component ─── */
+
 
 export function MediaResult({ generation, onRetry }: Props) {
   const { haptic } = useTelegram()
@@ -104,11 +113,9 @@ export function MediaResult({ generation, onRetry }: Props) {
 
   /** Единая точка скачивания одного файла. */
   const downloadOne = useCallback(async (url: string, filename: string): Promise<boolean> => {
-    // В Telegram — сразу нативный downloadFile (blob/<a download> в WebView ТГ не работает)
     if (isTelegramEnv()) {
       const native = downloadFileNative(url, filename)
       if (native) return true
-      // если downloadFile недоступен в этой версии клиента — пробуем blob, потом ссылку
       const ok = await downloadFileBlob(url, filename)
       if (ok) return true
       try {
@@ -120,7 +127,6 @@ export function MediaResult({ generation, onRetry }: Props) {
       return false
     }
 
-    // В обычном браузере — blob, при неудаче открыть в новой вкладке
     const ok = await downloadFileBlob(url, filename)
     if (ok) return true
     window.open(url, '_blank', 'noopener,noreferrer')
@@ -182,18 +188,11 @@ export function MediaResult({ generation, onRetry }: Props) {
     haptic('light')
   }, [urls.length, haptic])
 
+
   /* ─── Pending / Processing ─── */
   if (status === 'pending' || status === 'processing') {
     return (
-      <div
-        className="
-          flex flex-col items-center justify-center gap-2.5
-          py-8 px-5
-          rounded-[14px]
-          border border-white/[0.06]
-          bg-white/[0.02]
-        "
-      >
+      <div className="flex flex-col items-center justify-center gap-2.5 py-8 px-5 rounded-[14px] border border-white/[0.06] bg-white/[0.02]">
         <Loader2 size={28} className="text-amber-400 animate-spin" />
         <div className="text-[14px] font-medium text-white/80">
           {status === 'pending' ? 'В очереди...' : 'Генерация...'}
@@ -223,16 +222,7 @@ export function MediaResult({ generation, onRetry }: Props) {
   /* ─── Failed ─── */
   if (status === 'failed') {
     return (
-      <div
-        className="
-          flex flex-col items-center justify-center gap-2
-          py-7 px-5
-          rounded-[14px]
-          border border-red-500/20
-          bg-red-500/[0.04]
-          text-red-400
-        "
-      >
+      <div className="flex flex-col items-center justify-center gap-2 py-7 px-5 rounded-[14px] border border-red-500/20 bg-red-500/[0.04] text-red-400">
         <AlertCircle size={28} />
         <div className="text-[13px] font-medium text-center max-w-[280px]">
           {error || 'Ошибка генерации'}
@@ -244,15 +234,7 @@ export function MediaResult({ generation, onRetry }: Props) {
         )}
         {onRetry && (
           <button
-            className="
-              mt-2 inline-flex items-center gap-1.5
-              py-2 px-4 rounded-[10px]
-              border border-white/[0.08] bg-white/[0.04]
-              text-[12.5px] text-white/70
-              cursor-pointer transition-all duration-150
-              active:scale-[0.97] active:bg-white/[0.08]
-              font-[inherit]
-            "
+            className="mt-2 inline-flex items-center gap-1.5 py-2 px-4 rounded-[10px] border border-white/[0.08] bg-white/[0.04] text-[12.5px] text-white/70 cursor-pointer transition-all duration-150 active:scale-[0.97] active:bg-white/[0.08] font-[inherit]"
             onClick={() => { haptic('medium'); onRetry() }}
           >
             <RefreshCw size={13} /> Попробовать снова
@@ -265,16 +247,7 @@ export function MediaResult({ generation, onRetry }: Props) {
   /* ─── Completed но нет URL ─── */
   if (status === 'completed' && urls.length === 0) {
     return (
-      <div
-        className="
-          flex flex-col items-center justify-center gap-2
-          py-7 px-5
-          rounded-[14px]
-          border border-amber-500/20
-          bg-amber-500/[0.04]
-          text-amber-400
-        "
-      >
+      <div className="flex flex-col items-center justify-center gap-2 py-7 px-5 rounded-[14px] border border-amber-500/20 bg-amber-500/[0.04] text-amber-400">
         <AlertCircle size={28} />
         <div className="text-[13px] font-medium text-white/80 text-center">
           Генерация завершена, но результат не получен
@@ -282,15 +255,7 @@ export function MediaResult({ generation, onRetry }: Props) {
         <div className="text-[10px] text-white/30 font-mono">ID: {generation.id}</div>
         {onRetry && (
           <button
-            className="
-              mt-2 inline-flex items-center gap-1.5
-              py-2 px-4 rounded-[10px]
-              border border-white/[0.08] bg-white/[0.04]
-              text-[12.5px] text-white/70
-              cursor-pointer transition-all duration-150
-              active:scale-[0.97] active:bg-white/[0.08]
-              font-[inherit]
-            "
+            className="mt-2 inline-flex items-center gap-1.5 py-2 px-4 rounded-[10px] border border-white/[0.08] bg-white/[0.04] text-[12.5px] text-white/70 cursor-pointer transition-all duration-150 active:scale-[0.97] active:bg-white/[0.08] font-[inherit]"
             onClick={() => { haptic('medium'); onRetry() }}
           >
             <RefreshCw size={13} /> Попробовать снова
@@ -316,11 +281,7 @@ export function MediaResult({ generation, onRetry }: Props) {
                 href={activeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="
-                  inline-flex items-center gap-1
-                  text-[12px] text-amber-400 underline
-                  decoration-dotted underline-offset-2
-                "
+                className="inline-flex items-center gap-1 text-[12px] text-amber-400 underline decoration-dotted underline-offset-2"
               >
                 <ExternalLink size={12} /> Открыть ссылку
               </a>
@@ -340,48 +301,21 @@ export function MediaResult({ generation, onRetry }: Props) {
             <>
               <button
                 onClick={goPrev}
-                className="
-                  absolute top-1/2 left-2 -translate-y-1/2
-                  w-8 h-8 rounded-full
-                  bg-black/55 backdrop-blur-md
-                  border border-white/10
-                  flex items-center justify-center
-                  text-white/85 cursor-pointer
-                  transition active:scale-[0.92]
-                "
+                className="absolute top-1/2 left-2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/55 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/85 cursor-pointer transition active:scale-[0.92]"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={goNext}
-                className="
-                  absolute top-1/2 right-2 -translate-y-1/2
-                  w-8 h-8 rounded-full
-                  bg-black/55 backdrop-blur-md
-                  border border-white/10
-                  flex items-center justify-center
-                  text-white/85 cursor-pointer
-                  transition active:scale-[0.92]
-                "
+                className="absolute top-1/2 right-2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/55 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/85 cursor-pointer transition active:scale-[0.92]"
               >
                 <ChevronRight size={16} />
               </button>
-              <div
-                className="
-                  absolute bottom-2 left-1/2 -translate-x-1/2
-                  flex items-center gap-1
-                  py-1 px-2 rounded-full
-                  bg-black/55 backdrop-blur-md
-                  border border-white/10
-                "
-              >
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 py-1 px-2 rounded-full bg-black/55 backdrop-blur-md border border-white/10">
                 {urls.map((_, i) => (
                   <span
                     key={i}
-                    className={`
-                      w-1.5 h-1.5 rounded-full transition-all
-                      ${i === currentIndex ? 'bg-amber-400 w-3' : 'bg-white/30'}
-                    `}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentIndex ? 'bg-amber-400 w-3' : 'bg-white/30'}`}
                   />
                 ))}
               </div>
@@ -391,29 +325,11 @@ export function MediaResult({ generation, onRetry }: Props) {
       )}
 
       {/* ── Video ── */}
-      {type === 'video' && (
-        <div className="rounded-[14px] overflow-hidden bg-black border border-white/[0.06]">
-          <video
-            key={activeUrl}
-            src={activeUrl}
-            controls
-            playsInline
-            preload="metadata"
-            className="block w-full h-auto max-h-[60vh]"
-          />
-        </div>
-      )}
+      {type === 'video' && <VideoPlayer url={activeUrl} />}
 
       {/* ── Audio ── */}
       {type === 'audio' && (
-        <div
-          className="
-            rounded-[14px] overflow-hidden
-            border border-white/[0.06]
-            bg-white/[0.02]
-            p-2
-          "
-        >
+        <div className="rounded-[14px] overflow-hidden border border-white/[0.06] bg-white/[0.02] p-2">
           <audio
             key={activeUrl}
             src={activeUrl}
@@ -425,13 +341,7 @@ export function MediaResult({ generation, onRetry }: Props) {
       )}
 
       {/* ── Actions bar ── */}
-      <div
-        className="
-          flex items-center gap-1
-          py-1
-        "
-      >
-        {/* Favorite */}
+      <div className="flex items-center gap-1 py-1">
         <ActionBtn
           active={!!generation.isFavorite}
           title={generation.isFavorite ? 'В избранном' : 'В избранное'}
@@ -440,7 +350,6 @@ export function MediaResult({ generation, onRetry }: Props) {
           <Star size={15} fill={generation.isFavorite ? 'currentColor' : 'none'} />
         </ActionBtn>
 
-        {/* Download current */}
         <ActionBtn
           title={hasMultiple ? `Скачать ${currentIndex + 1} из ${urls.length}` : 'Скачать'}
           disabled={downloading}
@@ -452,7 +361,6 @@ export function MediaResult({ generation, onRetry }: Props) {
           }
         </ActionBtn>
 
-        {/* Download all */}
         {hasMultiple && (
           <ActionBtn
             title={`Скачать все (${urls.length})`}
@@ -463,31 +371,15 @@ export function MediaResult({ generation, onRetry }: Props) {
           </ActionBtn>
         )}
 
-        {/* Share */}
         <ActionBtn title="Скопировать ссылку" onClick={handleCopyLink}>
           <Share2 size={15} />
         </ActionBtn>
 
-        {/* Pager (когда несколько результатов) */}
         {hasMultiple && (
-          <div
-            className="
-              ml-auto inline-flex items-center
-              h-8 rounded-[10px]
-              border border-white/[0.08]
-              bg-white/[0.04]
-              text-white/65
-              overflow-hidden
-            "
-          >
+          <div className="ml-auto inline-flex items-center h-8 rounded-[10px] border border-white/[0.08] bg-white/[0.04] text-white/65 overflow-hidden">
             <button
               onClick={goPrev}
-              className="
-                w-7 h-8 flex items-center justify-center
-                cursor-pointer transition
-                active:bg-white/[0.08]
-                border-r border-white/[0.06]
-              "
+              className="w-7 h-8 flex items-center justify-center cursor-pointer transition active:bg-white/[0.08] border-r border-white/[0.06]"
             >
               <ChevronLeft size={14} />
             </button>
@@ -496,12 +388,7 @@ export function MediaResult({ generation, onRetry }: Props) {
             </span>
             <button
               onClick={goNext}
-              className="
-                w-7 h-8 flex items-center justify-center
-                cursor-pointer transition
-                active:bg-white/[0.08]
-                border-l border-white/[0.06]
-              "
+              className="w-7 h-8 flex items-center justify-center cursor-pointer transition active:bg-white/[0.08] border-l border-white/[0.06]"
             >
               <ChevronRight size={14} />
             </button>
@@ -511,6 +398,74 @@ export function MediaResult({ generation, onRetry }: Props) {
     </div>
   )
 }
+
+
+/* ─── Video Player с авто-fallback на прокси бэка ─── */
+
+function VideoPlayer({ url }: { url: string }) {
+  const [useProxy, setUseProxy] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  // Прокси через бэкенд — гарантированно отдаёт правильный Content-Type
+  // и корректно обрабатывает Range requests (нужно для Telegram WebView iOS)
+  const proxyUrl = useMemo(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || ''
+    return `${API}/upload/download?url=${encodeURIComponent(url)}&filename=video.mp4&inline=1`
+  }, [url])
+
+  const src = useProxy ? proxyUrl : url
+
+  // При смене URL — сбрасываем состояние
+  useEffect(() => {
+    setUseProxy(false)
+    setFailed(false)
+  }, [url])
+
+  const handleError = useCallback(() => {
+    if (!useProxy) {
+      console.warn('[VideoPlayer] Direct playback failed, switching to proxy')
+      setUseProxy(true)
+    } else {
+      console.error('[VideoPlayer] Proxy playback also failed')
+      setFailed(true)
+    }
+  }, [useProxy])
+
+  if (failed) {
+    return (
+      <div className="rounded-[14px] border border-amber-500/20 bg-amber-500/[0.04] p-5 flex flex-col items-center gap-2">
+        <AlertCircle size={24} className="text-amber-400" />
+        <div className="text-[13px] text-white/70 text-center max-w-[280px]">
+          Видео не воспроизводится в этом браузере.
+          Попробуйте скачать или открыть в другом приложении.
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[12px] text-amber-400 underline underline-offset-2 inline-flex items-center gap-1 mt-1"
+        >
+          <ExternalLink size={12} /> Открыть в браузере
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-[14px] overflow-hidden bg-black border border-white/[0.06]">
+      <video
+        key={src}
+        src={src}
+        controls
+        playsInline
+        preload="metadata"
+        onError={handleError}
+        className="block w-full h-auto max-h-[60vh]"
+      />
+    </div>
+  )
+}
+
 
 /* ─── Action button ─── */
 
