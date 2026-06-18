@@ -2472,7 +2472,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && !isKling && !isMotion && !isSeedance && !isSora && caps.supportsImageInput && (
+              {!isVeo && !isKling && !isKling25 && !isMotion && !isSeedance && !isSora && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
