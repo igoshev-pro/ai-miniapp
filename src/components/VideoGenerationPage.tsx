@@ -2541,6 +2541,24 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
+              {/* 🆕 Кнопка ОК — завершает настройки */}
+              <button
+                className="
+                  mt-1 w-full py-3 rounded-[var(--radius-xs)]
+                  bg-[var(--accent-yellow)] text-black
+                  text-[14px] font-semibold
+                  flex items-center justify-center gap-2
+                  cursor-pointer transition-all duration-150
+                  active:scale-[0.98] active:bg-[var(--accent-yellow-bright)]
+                  [-webkit-tap-highlight-color:transparent]
+                "
+                onClick={() => {
+                  setShowSettings(false)
+                  haptic('light')
+                }}
+              >
+                <Check size={16} /> Готово
+              </button>
             </div>
           </div>
         </>
