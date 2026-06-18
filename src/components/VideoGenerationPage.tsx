@@ -356,10 +356,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   // 🆕 Множественные референс-фото для Seedance (1.5: до 2, 2/2-fast: до 10)
   const [seedanceImages, setSeedanceImages] = useState<string[]>([])
+  // 🆕 Множественные референс-фото для Sora 2 / Sora 2 Pro (до 10)
+  const [soraImages, setSoraImages] = useState<string[]>([])
 
   const [uploading, setUploading] = useState(false)
-  // 🆕 добавлен target 'seedance'
-  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance'>('single')
+  // 🆕 добавлены target 'seedance' и 'sora'
+  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora'>('single')
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
@@ -383,7 +385,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast'
   const isSeedance = isSeedance15 || isSeedance2
 
-    /* ── UI config ── */
+  // 🆕 Sora 2 / Sora 2 Pro — поддерживают до 10 референс-изображений
+  const isSora = slug === 'sora-2' || slug === 'sora-2-pro'
+
+  /* ── UI config ── */
 
   const { config: uiConfig, isLoading: isLoadingConfig } = useModelUIConfig(slug)
 
@@ -438,6 +443,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const seedanceMaxImages = isSeedance15
     ? 2
     : (caps.maxInputImages > 1 ? caps.maxInputImages : 10)
+
+  // 🆕 Максимум фото для Sora из caps (с защитным fallback)
+  const soraMaxImages = caps.maxInputImages > 0 ? caps.maxInputImages : 10
 
   const isI2V = !isVeo && caps.supportsImageInput && caps.maxInputImages > 0
   const requiresInputImage =
@@ -501,6 +509,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } else if (isSeedance && (seedanceImages.length > 0 || imgUrl)) {
       // 🆕 для Seedance учитываем и галерею, и legacy imgUrl
       p.hasInputImage = true
+    } else if (isSora && (soraImages.length > 0 || imgUrl)) {
+      // 🆕 для Sora учитываем галерею
+      p.hasInputImage = true
     } else if (imgUrl) {
       p.hasInputImage = true
     }
@@ -513,7 +524,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
-    isSeedance2, refVideos, seedanceImages, isSeedance, isMotion, motionEffectiveDuration,
+    isSeedance2, refVideos, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, // 🆕
   ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
@@ -664,6 +675,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setRefAudios([])
     setSeedanceImages([]) // 🆕
 
+    // 🆕 Sora reset
+    setSoraImages([])
+
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig, slug])
@@ -781,6 +795,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             if (prev.length >= seedanceMaxImages) return prev
             return [...prev, url]
           })
+        } else if (target === 'sora') {
+          // 🆕 множественные фото для Sora
+          setSoraImages((prev) => {
+            if (prev.length >= soraMaxImages) return prev
+            return [...prev, url]
+          })
         }
 
         haptic('light')
@@ -791,7 +811,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         setUploading(false)
       }
     },
-    [haptic, caps.maxInputImages, slug, seedanceMaxImages],
+    [haptic, caps.maxInputImages, slug, seedanceMaxImages, soraMaxImages], // 🆕
   )
 
   const uploadVideo = useCallback(
@@ -905,7 +925,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [haptic])
 
   const triggerUpload = useCallback(
-    (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance', elementIdx?: number) => {
+    (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora', elementIdx?: number) => {
       uploadTarget.current = target
       if (target === 'element' && elementIdx !== undefined) {
         elementUploadIdxRef.current = elementIdx
@@ -968,7 +988,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       const badEl = elements.find(
         (el) => el.name.trim() && el.urls.length > 0 && el.urls.length < 2,
       )
-            if (badEl) {
+      if (badEl) {
         toast.warning(`Элемент "${badEl.name}" требует 2-4 изображения`)
         return
       }
@@ -1082,6 +1102,16 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         if (refVideos.length) s.videoUrls = refVideos
         if (refAudios.length) s.audioUrls = refAudios
       }
+    } else if (isSora) {
+      // 🆕 Sora 2 / Pro — массив референсов
+      if (soraImages.length > 0) {
+        s.imageUrls = soraImages.slice(0, soraMaxImages)
+      } else if (imgUrl) {
+        s.imageUrls = [imgUrl]
+      }
+      if (caps.supportsResizeMode && (soraImages.length > 0 || imgUrl)) {
+        s.resizeMode = resizeMode
+      }
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
       if (caps.supportsResizeMode && imgUrl) s.resizeMode = resizeMode
@@ -1106,6 +1136,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isMotion, motionVideoUrl, motionEffectiveDuration, characterOrientation,
     isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refAudios,
     seedanceImages, seedanceMaxImages, // 🆕
+    isSora, soraImages, soraMaxImages, // 🆕
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -1167,12 +1198,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       badges.push({ key: 'sound', label: sndOn ? '🔊' : '🔇', accent: sndOn })
     }
     if (isI2V) {
-      // 🆕 для Seedance показываем количество фото
-      const cnt = isSeedance ? seedanceImages.length : (imgUrl ? 1 : 0)
+      // 🆕 для Seedance и Sora показываем количество фото
+      const cnt = isSeedance
+        ? seedanceImages.length
+        : isSora
+          ? soraImages.length
+          : (imgUrl ? 1 : 0)
+      const isMulti = (isSeedance || isSora) && cnt > 1
       badges.push({
         key: 'img2vid',
         label: cnt > 0
-          ? (isSeedance && cnt > 1 ? `📸 ${cnt} фото` : '📸 Фото')
+          ? (isMulti ? `📸 ${cnt} фото` : '📸 Фото')
           : 'img2vid',
         accent: cnt > 0,
       })
@@ -1220,6 +1256,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isKling25, cfgScale,
     isMotion, motionVideoUrl, characterOrientation,
     isSeedance, seedanceImages, // 🆕
+    isSora, soraImages, // 🆕
   ])
 
   const getGenCost = (gen: any): number | undefined => {
@@ -1516,7 +1553,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   relative overflow-hidden
                 "
               >
-                                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
+                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
                 <Loader2 size={36} className="text-[var(--accent-yellow)] animate-spin relative z-10" strokeWidth={1.5} />
                 <div className="text-[13px] font-medium text-white/70 relative z-10">
                   Создаём видео...
@@ -2058,7 +2095,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           setEndFrame('')
                         }}
                       />
-                                            <FrameSlot
+                      <FrameSlot
                         label="Конечный кадр (опц.)"
                         url={endFrame}
                         uploading={uploading && uploadTarget.current === 'end'}
@@ -2375,6 +2412,65 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </>
               )}
 
+              {/* ═══ SORA 2 / SORA 2 PRO ═══ */}
+              {isSora && (
+                <Field
+                  label={
+                    <>
+                      <ImageIcon size={12} /> Референс-изображения ({soraImages.length}/{soraMaxImages})
+                    </>
+                  }
+                >
+                  <div className="grid grid-cols-4 gap-2">
+                    {soraImages.map((url, idx) => (
+                      <div key={url + idx} className="relative aspect-square rounded-[10px]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt=""
+                          className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
+                        />
+                        <span className="absolute bottom-1 left-1 text-[9px] font-semibold bg-black/70 text-white px-1.5 py-0.5 rounded">
+                          #{idx + 1}
+                        </span>
+                        <button
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                          onClick={() =>
+                            setSoraImages((p) => p.filter((_, i) => i !== idx))
+                          }
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    {soraImages.length < soraMaxImages && (
+                      <button
+                        className="
+                          aspect-square rounded-[10px]
+                          border-[1.5px] border-dashed border-white/[0.12]
+                          bg-white/[0.03] text-white/30
+                          flex flex-col items-center justify-center gap-1 text-[10px]
+                          cursor-pointer transition-all active:bg-white/[0.07]
+                          disabled:opacity-50
+                        "
+                        onClick={() => triggerUpload('sora')}
+                        disabled={uploading}
+                      >
+                        {uploading && uploadTarget.current === 'sora' ? (
+                          <Loader2 size={20} className="animate-spin" />
+                        ) : (
+                          <Upload size={20} />
+                        )}
+                        <span>Добавить</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                    До {soraMaxImages} референсов. Без фото — генерация по тексту.
+                  </div>
+                </Field>
+              )}
+
               {/* ─── Обычные модели: одиночное изображение ─── */}
               {!isVeo && !isKling && !isMotion && !isSeedance && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
@@ -2423,7 +2519,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Resize Mode ─── */}
-              {caps.supportsResizeMode && imgUrl && (
+              {caps.supportsResizeMode && (imgUrl || soraImages.length > 0) && (
                 <Field label={<><Scissors size={12} /> Вписывание фото</>}>
                   <Grid cols={2}>
                     <OptBtn
@@ -2558,6 +2654,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 onRemove: () => setSeedanceImages((p) => p.filter((_, i) => i !== idx)),
               }),
             )
+          } else if (isSora) {
+            // 🆕 чипы из множественной галереи Sora
+            soraImages.forEach((url, idx) =>
+              chips.push({
+                url,
+                label: `Реф ${idx + 1}`,
+                onRemove: () => setSoraImages((p) => p.filter((_, i) => i !== idx)),
+              }),
+            )
           } else if (imgUrl) {
             chips.push({ url: imgUrl, label: 'Изображение', onRemove: () => setImgUrl('') })
           }
@@ -2599,14 +2704,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           )
         })()}
 
-                <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           {/* Кнопка загрузки */}
           {((isVeo && veoMode !== 'text') ||
             (!isVeo && !isKling && !isMotion && !isSeedance && caps.supportsImageInput) ||
             (isKling25) ||
             (isSeedance)) && (
-            <button
-              className="
+              <button
+                className="
                 w-9 h-9 rounded-full
                 border border-[var(--border-glass)]
                 bg-[var(--bg-glass)]
@@ -2620,18 +2725,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 active:scale-90
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
-              onClick={() => {
-                if (isVeo && veoMode === 'frames') triggerUpload('start')
-                else if (isVeo && veoMode === 'reference') triggerUpload('ref')
-                else if (isKling25) triggerUpload('single')
-                else if (isSeedance) triggerUpload('seedance') // 🆕
-                else triggerUpload('single')
-              }}
-              disabled={uploading}
-            >
-              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
-            </button>
-          )}
+                onClick={() => {
+                  if (isVeo && veoMode === 'frames') triggerUpload('start')
+                  else if (isVeo && veoMode === 'reference') triggerUpload('ref')
+                  else if (isKling25) triggerUpload('single')
+                  else if (isSeedance) triggerUpload('seedance') // 🆕
+                  else if (isSora) triggerUpload('sora')
+                  else triggerUpload('single')
+                }}
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+              </button>
+            )}
 
           <textarea
             ref={inputRef}
