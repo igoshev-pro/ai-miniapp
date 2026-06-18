@@ -424,10 +424,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       modes: modeBackend.length ? modeBackend : fb.modes,
       supportsImageInput: inputCap.acceptsImages === true || fb.supportsImageInput,
       maxInputImages: inputCap.maxInputImages ?? fb.maxInputImages,
-      supportsSound:
-        hasParam(uiConfig, 'sound') ||
-        hasParam(uiConfig, 'generateAudio') ||
-        fb.supportsSound,
+      supportsSound: isVeoSlug(slug)
+        ? false
+        : (hasParam(uiConfig, 'sound') ||
+          hasParam(uiConfig, 'generateAudio') ||
+          fb.supportsSound),
       supportsRemoveWatermark:
         hasParam(uiConfig, 'removeWatermark') || fb.supportsRemoveWatermark,
       supportsResizeMode: hasParam(uiConfig, 'resizeMode'),
