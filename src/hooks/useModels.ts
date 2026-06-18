@@ -19,8 +19,8 @@ interface BackendModel {
   provider?: string
   description?: string
 
-  // 🆕 реальные поля цены из бэка
-  tokenCost?: number    
+  // реальные поля цены из бэка
+  tokenCost?: number
   preview?: {
     avgCostInTokens?: number
     minCostInTokens?: number
@@ -30,9 +30,9 @@ interface BackendModel {
       pricePerMillionOutput?: number
       avgTokensPerRequest?: number
     }
-  }          // спички за единицу
-  minTokenCost?: number           // минимальная стоимость генерации
-  fixedCostPerGeneration?: number // фикс. цена за генерацию (image/video/audio)
+  }
+  minTokenCost?: number
+  fixedCostPerGeneration?: number
   costPerMillionInputTokens?: number
   costPerMillionOutputTokens?: number
 
@@ -43,6 +43,14 @@ interface BackendModel {
   supportsVision?: boolean
   limits?: any
   defaultParams?: any
+
+  // 🆕 Бесплатный доступ по подписке (из ModelsService.mapToDto)
+  isFreeInPlan?: boolean
+  freeLimit?: {
+    hourlyLimit: number | null
+    dailyLimit: number | null
+    requiredParams?: Record<string, any> | null
+  } | null
 }
 
 interface ModelsResponse {
@@ -59,16 +67,11 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
   const supportsVision =
     m.supportsVision === true || hasCapability(m.capabilities, 'vision')
 
-    console.log('[RAW]', m.slug, JSON.stringify(m))
-
   const webSearch =
     hasCapability(m.capabilities, 'web_search') ||
     hasCapability(m.capabilities, 'web-search') ||
-    hasCapability(m.capabilities, 'web_search') ||
     hasCapability(m.capabilities, 'search')
 
-  // 🆕 Расчёт минимальной цены по приоритету реальных полей бэка:
-  // minTokenCost → fixedCostPerGeneration → tokenCost → -1 ("?")
   const rawCost = pickCost(m)
 
   return {
@@ -82,20 +85,23 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
     hasVariants: m.hasVariants ?? false,
     supportsVision,
     webSearch,
+
+    // 🆕 пробрасываем free-доступ
+    isFreeInPlan: !!m.isFreeInPlan,
+    freeLimit: m.freeLimit ?? null,
   }
 }
 
-// 🆕 Хелпер выбора цены
 function pickCost(m: BackendModel): number {
   const candidates = [
-    m.preview?.minCostInTokens,   // 1️⃣ минимальная цена в спичках — главное
-    m.preview?.avgCostInTokens,   // 2️⃣ средняя цена
-    m.tokenCost,                  // 3️⃣ фолбэк — цена за токен
+    m.preview?.minCostInTokens,
+    m.preview?.avgCostInTokens,
+    m.tokenCost,
   ]
   for (const c of candidates) {
     if (typeof c === 'number' && c > 0) return c
   }
-  return -1 // → "?"
+  return -1
 }
 
 function guessProvider(slug: string): string {
@@ -104,7 +110,7 @@ function guessProvider(slug: string): string {
   if (slug.includes('claude')) return 'Anthropic'
   if (slug.includes('gemini') || slug.includes('imagen') || slug.includes('veo'))
     return 'Google'
-  if (slug.includes('deepseek')) return 'DeepSeek';
+  if (slug.includes('deepseek')) return 'DeepSeek'
   if (slug.includes('grok')) return 'xAI'
   if (slug.includes('perplexity')) return 'Perplexity'
   if (slug.includes('qwen')) return 'Alibaba'
@@ -135,7 +141,6 @@ export function useModels() {
 
     try {
       const { data } = await apiClient.get<ModelsResponse>(ENDPOINTS.MODELS)
-
       const rawModels: BackendModel[] = data?.data || []
 
       if (rawModels.length > 0) {

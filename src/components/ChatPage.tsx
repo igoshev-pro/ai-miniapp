@@ -20,6 +20,7 @@ import {
   FileText,
   FileSpreadsheet,
   FileType,
+  Gift,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites, useModels } from '@/hooks'
@@ -39,6 +40,8 @@ import { MessageContent } from '@/components/ui/MessageContent'
 import { allModels as fallbackModels, formatCost } from '@/lib/data'
 import { toast } from '@/stores/toast.store'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PriceTag } from './ui/PriceTag'
+import { formatFreeBadge, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
 // ─── Типы для прикреплённых изображений ───
 interface ImageAttachment {
@@ -174,6 +177,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
   const supportsVision = currentModel?.supportsVision ?? false
+
+  // 🆕 Free-доступ по подписке (для текстовых моделей requiredParams обычно нет)
+  const freeAccess = useMemo(
+    () => getFreeAccessInfo(currentModel || {}, {}),
+    [currentModel],
+  )
+  const isFreeForUser = freeAccess.isFree
 
   const isCurrentChatFavorite = useMemo(() => {
     if (!activeChatId || activeChatId.startsWith('pending-')) return false
@@ -571,7 +581,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       return
     }
 
-    if (balance < modelCost) {
+    // 🆕 Для бесплатных моделей пропускаем проверку баланса
+    if (!isFreeForUser && balance < modelCost) {
       toast.warning(`Недостаточно спичек. Нужно ${modelCost}, у вас ${balance}`)
       hapticNotification('error')
       return
@@ -723,6 +734,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     modelSlug,
     supportsVision,
     selectedModelName,
+    isFreeForUser,
     haptic,
     hapticNotification,
   ])
@@ -853,21 +865,30 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         >
           <MessageSquare size={14} className="text-[var(--gray-500)] shrink-0" />
           <span className="truncate">{selectedModelName}</span>
-          <span className="text-[11px] text-white/40 ml-auto shrink-0">
-            от {formatCost(modelCost)} 🔥
-          </span>
-          <ChevronDown
-            size={14}
-            className={`
-              text-[var(--gray-500)] transition-transform duration-200 shrink-0
-              ${showModelPicker ? 'rotate-180' : ''}
-            `}
-          />
-        </button>
+          {isFreeForUser ? (
+            <span
+              className="
+                text-[11px] font-semibold ml-auto shrink-0
+                text-emerald-400 inline-flex items-center gap-1
+              "
+              title={
+                freeAccess.limit === 'unlimited'
+                  ? 'Безлимитно по подписке'
+                  : `Лимит: ${freeAccess.hourlyLimit ?? '∞'}/час, ${freeAccess.dailyLimit ?? '∞'}/сутки`
+              }
+            >
+              <Gift size={11} />
+              {formatFreeBadge(freeAccess)}
+            </span>
+          ) : (
+            <span className="text-[11px] text-white/40 ml-auto shrink-0">
+              от {formatCost(modelCost)} 🔥
+            </span>
+          )}
 
-        {activeChatId && !activeChatId.startsWith('pending-') && (
-          <button
-            className={`
+          {activeChatId && !activeChatId.startsWith('pending-') && (
+            <button
+              className={`
               w-9 h-9 rounded-[9px]
               border border-[var(--border-glass)]
               backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
@@ -876,23 +897,23 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               shrink-0 [-webkit-tap-highlight-color:transparent]
               active:scale-[0.9]
               ${isCurrentChatFavorite
-                ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-                : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
-              }
+                  ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                  : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
+                }
             `}
-            onClick={() => {
-              haptic('light')
-              toggleFavorite('conversation', activeChatId, selectedModelName)
-            }}
-          >
-            <Star size={16} fill={isCurrentChatFavorite ? 'currentColor' : 'none'} />
-          </button>
-        )}
+              onClick={() => {
+                haptic('light')
+                toggleFavorite('conversation', activeChatId, selectedModelName)
+              }}
+            >
+              <Star size={16} fill={isCurrentChatFavorite ? 'currentColor' : 'none'} />
+            </button>
+          )}
 
-        {/* Model dropdown */}
-        {showModelPicker && (
-          <div
-            className="
+          {/* Model dropdown */}
+          {showModelPicker && (
+            <div
+              className="
               fade-in
               absolute top-[calc(100%+2px)] left-4 right-4 z-50
               rounded-[var(--radius-sm)]
@@ -901,14 +922,14 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
               overflow-hidden max-h-[400px] overflow-y-auto
             "
-          >
-            {textModels.map((m: any) => {
-              const mVision = m.supportsVision
-              const mWebSearch = m.webSearch
-              return (
-                <button
-                  key={m.id}
-                  className={`
+            >
+              {textModels.map((m: any) => {
+                const mVision = m.supportsVision
+                const mWebSearch = m.webSearch
+                return (
+                  <button
+                    key={m.id}
+                    className={`
                     flex items-center justify-between w-full
                     py-[11px] px-3.5
                     border-none bg-transparent
@@ -920,61 +941,84 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                     active:bg-white/[0.04]
                     ${selectedModelName === m.name ? 'text-white' : ''}
                   `}
-                  onClick={() => {
-                    setSelectedModelName(m.name)
-                    setShowModelPicker(false)
-                    haptic('light')
-                  }}
-                >
-                  <div className="flex flex-col gap-[1px] min-w-0">
-                    <span className="font-semibold flex items-center gap-1.5 flex-wrap">
-                      <span className="truncate">{m.name}</span>
+                    onClick={() => {
+                      setSelectedModelName(m.name)
+                      setShowModelPicker(false)
+                      haptic('light')
+                    }}
+                  >
+                    <div className="flex flex-col gap-[1px] min-w-0">
+                      <span className="font-semibold flex items-center gap-1.5 flex-wrap">
+                        <span className="truncate">{m.name}</span>
 
-                      {/* 👁 Vision */}
-                      {mVision && (
-                        <span
-                          className="
+                        {/* 👁 Vision */}
+                        {mVision && (
+                          <span
+                            className="
                             inline-flex items-center
                             text-[9px] px-1 py-px rounded
                             bg-[rgba(56,189,248,0.14)] text-sky-400 font-bold
                           "
-                          title="Понимает изображения"
-                        >
-                          <Eye size={9} />
-                        </span>
-                      )}
+                            title="Понимает изображения"
+                          >
+                            <Eye size={9} />
+                          </span>
+                        )}
 
-                      {/* 🌐 Web Search */}
-                      {mWebSearch && (
-                        <span
-                          className="
+                        {/* 🌐 Web Search */}
+                        {mWebSearch && (
+                          <span
+                            className="
                             inline-flex items-center
                             text-[9px] px-1 py-px rounded
                             bg-[rgba(52,211,153,0.14)] text-emerald-400 font-bold
                           "
-                          title="Поиск в интернете"
-                        >
-                          <Globe size={9} />
-                        </span>
+                            title="Поиск в интернете"
+                          >
+                            <Globe size={9} />
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[11px] text-[var(--gray-600)]">
+                        {m.provider}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {(() => {
+                        const mFree = getFreeAccessInfo(m, {})
+                        if (mFree.isFree) {
+                          return (
+                            <span
+                              className="
+                              text-[11px] font-semibold
+                              text-emerald-400 inline-flex items-center gap-0.5
+                            "
+                              title={
+                                mFree.limit === 'unlimited'
+                                  ? 'Безлимитно по подписке'
+                                  : `Лимит: ${mFree.hourlyLimit ?? '∞'}/час`
+                              }
+                            >
+                              <Gift size={10} />
+                              {formatFreeBadge(mFree)}
+                            </span>
+                          )
+                        }
+                        return (
+                          <span className="text-[11px] text-white/40">
+                            от {formatCost(m.cost)} 🔥
+                          </span>
+                        )
+                      })()}
+                      {selectedModelName === m.name && (
+                        <Check size={14} className="text-[var(--accent-yellow)]" />
                       )}
-                    </span>
-                    <span className="text-[11px] text-[var(--gray-600)]">
-                      {m.provider}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[11px] text-white/40">
-                      от {formatCost(m.cost)} 🔥
-                    </span>
-                    {selectedModelName === m.name && (
-                      <Check size={14} className="text-[var(--accent-yellow)]" />
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
       </div>
 
       {/* ── Messages ── */}

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, Send, Check, X, Image as ImageIcon,
   Settings, Wand2, Maximize2, Layers, Loader2,
-  Shuffle, Upload, Trash2, Zap, Sparkles,
+  Shuffle, Upload, Trash2, Zap, Sparkles, Gift,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -13,6 +13,8 @@ import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 import { useAuthStore } from '@/stores/auth.store'
+import { PriceTag } from './ui/PriceTag'
+import { formatFreeBadge, formatFreeLabel, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
 interface Props {
   initialModel?: string
@@ -240,6 +242,18 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     return modelMinCost
   })()
 
+  // 🆕 Free-доступ с учётом текущих параметров (важно для Midjourney с requiredParams: { mode: 'draft' })
+  const freeAccess = useMemo(
+    () => getFreeAccessInfo(currentModel || {}, paramValues),
+    [currentModel, paramValues],
+  )
+  const isFreeForUser = freeAccess.isFree
+
+  const freeLimitLabel = useMemo(
+    () => formatFreeLimit(currentModel?.freeLimit),
+    [currentModel],
+  )
+
   const matchedLabel = (() => {
     if (!isConfigReady) return undefined
     if (price && !isCalculating) return price.matchedRule?.label
@@ -350,7 +364,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   }, [input])
 
   // ─── Upload image ─────────────────────────────────────────
-    const handleImageUpload = useCallback(async (file: File) => {
+  const handleImageUpload = useCallback(async (file: File) => {
     if (!file) return
     if (uploadingRef.current) return // 🆕 уже идёт загрузка — игнор повторного вызова
     if (!file.type.match(/image\/(jpeg|png|webp)/)) {
@@ -431,7 +445,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
-    if (balance < displayedCost) {
+    // 🆕 Бесплатные модели по подписке — пропускаем проверку баланса
+    if (!isFreeForUser && balance < displayedCost) {
       toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
       return
@@ -475,7 +490,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   }, [
     input, negativePrompt, balance, displayedCost, selectedModelSlug,
     priceParams, outputFormat, seed, inputImages, caps,
-    requiresInputImage, haptic, hapticNotification, generate,
+    requiresInputImage, isFreeForUser, // 🆕
+    haptic, hapticNotification, generate,
   ])
 
   const insertExample = () => {
@@ -601,26 +617,35 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           </div>
 
           {/* Цена — справа, рядом с бейджиками */}
-          <span
-            className={`
-              text-[11px] shrink-0 inline-flex items-center gap-1
-              transition-opacity duration-200
-              ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
-              ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
-            `}
-          >
-            {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-            {showFromPrefix && <span className="text-white/35">от</span>}
-            {formatCost(displayedCost)} 🔥
-          </span>
-
-          <ChevronDown
-            size={14}
-            className={`
-              text-[var(--gray-500)] transition-transform duration-200 shrink-0
-              ${showModelPicker ? 'rotate-180' : ''}
-            `}
-          />
+          {isFreeForUser ? (
+            <span
+              className="
+                text-[11px] shrink-0 inline-flex items-center gap-1
+                text-emerald-400 font-semibold
+              "
+              title={
+                freeAccess.limit === 'unlimited'
+                  ? 'Безлимитно по подписке'
+                  : `Лимит: ${freeAccess.hourlyLimit ?? '∞'}/час, ${freeAccess.dailyLimit ?? '∞'}/сутки`
+              }
+            >
+              <Gift size={11} />
+              {formatFreeBadge(freeAccess)}
+            </span>
+          ) : (
+            <span
+              className={`
+                text-[11px] shrink-0 inline-flex items-center gap-1
+                transition-opacity duration-200
+                ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
+                ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
+              `}
+            >
+              {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+              {showFromPrefix && <span className="text-white/35">от</span>}
+              {formatCost(displayedCost)} 🔥
+            </span>
+          )}
         </button>
 
         {/* Шестерёнка — справа, открывает настройки */}
@@ -686,9 +711,36 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-white/40">
-                    от {formatCost(m.cost)} 🔥
-                  </span>
+                  {(() => {
+                    const mFree = getFreeAccessInfo(m, undefined)
+                    const hasReqParams =
+                      !!m.freeLimit?.requiredParams &&
+                      Object.keys(m.freeLimit.requiredParams).length > 0
+
+                    if (mFree.isFree && !hasReqParams) {
+                      return (
+                        <span className="text-[11px] font-semibold text-emerald-400 inline-flex items-center gap-0.5">
+                          <Gift size={10} />
+                          {formatFreeBadge(mFree)}
+                        </span>
+                      )
+                    }
+                    if (m.isFreeInPlan && hasReqParams) {
+                      return (
+                        <span
+                          className="text-[10px] font-medium text-emerald-400/80"
+                          title="Бесплатно в определённом режиме"
+                        >
+                          В режиме
+                        </span>
+                      )
+                    }
+                    return (
+                      <span className="text-[11px] text-white/40">
+                        от {formatCost(m.cost)} 🔥
+                      </span>
+                    )
+                  })()}
                   {selectedModelSlug === m.slug && (
                     <Check size={14} className="text-[var(--accent-yellow)]" />
                   )}
@@ -898,21 +950,27 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
-                  <span
-                    className={`
-                      font-semibold inline-flex items-center gap-1
-                      ${!isFallbackPrice
-                        ? 'text-[var(--accent-yellow)]'
-                        : 'text-white/50'
-                      }
-                    `}
-                  >
-                    {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-                    {showFromPrefix && <span className="text-white/35">от</span>}
-                    {formatCost(displayedCost)} 🔥
-                  </span>
-                  {matchedLabel && !isFallbackPrice && (
-                    <span className="text-white/40">· {matchedLabel}</span>
+                  {isFreeForUser ? (
+                    <span className="font-semibold inline-flex items-center gap-1 text-emerald-400">
+                      <Gift size={11} />
+                      {formatFreeLabel(freeAccess)}
+                    </span>
+                  ) : (
+                    <>
+                      <span
+                        className={`
+                          font-semibold inline-flex items-center gap-1
+                          ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/50'}
+                        `}
+                      >
+                        {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+                        {showFromPrefix && <span className="text-white/35">от</span>}
+                        {formatCost(displayedCost)} 🔥
+                      </span>
+                      {matchedLabel && !isFallbackPrice && (
+                        <span className="text-white/40">· {matchedLabel}</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -979,10 +1037,10 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                   </div>
                   <div
                     className={`grid gap-1.5 ${caps.modes.length === 2
-                        ? 'grid-cols-2'
-                        : caps.modes.length === 3
-                          ? 'grid-cols-3'
-                          : 'grid-cols-2'
+                      ? 'grid-cols-2'
+                      : caps.modes.length === 3
+                        ? 'grid-cols-3'
+                        : 'grid-cols-2'
                       }`}
                   >
                     {caps.modes.map((m) => (
@@ -1403,4 +1461,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       </div>
     </div>
   )
+}
+
+function formatFreeLimit(freeLimit: { hourlyLimit: number | null; dailyLimit: number | null; requiredParams?: Record<string, any> | null } | null | undefined): any {
+  throw new Error('Function not implemented.')
 }

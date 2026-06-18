@@ -6,7 +6,7 @@ import {
   Clock, Maximize2, Loader2, Upload, Image as ImageIcon,
   Sparkles, Layers, Volume2, VolumeX, ShieldOff, Film, Images,
   Type, Rocket, Gauge, Crown, Scissors,
-  Plus, Trash2, Tag, FileText,   // 🆕 kling
+  Plus, Trash2, Tag, FileText, Gift,  // 🆕 kling
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -15,6 +15,7 @@ import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 import { useAuthStore } from '@/stores'
+import { formatFreeBadge, formatFreeLabel, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
 /* ─── Props ─── */
 
@@ -516,6 +517,23 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     debounceMs: 300,
   })
 
+  // 🆕 Free-доступ с учётом параметров (для видео обычно без requiredParams, но логика общая)
+  const freeAccessParams = useMemo(
+    () => ({
+      mode,
+      resolution,
+      aspectRatio,
+      duration,
+    }),
+    [mode, resolution, aspectRatio, duration],
+  )
+
+  const freeAccess = useMemo(
+    () => getFreeAccessInfo(model || {}, freeAccessParams),
+    [model, freeAccessParams],
+  )
+  const isFreeForUser = freeAccess.isFree
+
   /* ── Cached price ── */
 
   const lastPriceRef = useRef<{ cost: number; label?: string; fallback: boolean } | null>(null)
@@ -968,7 +986,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }
     }
 
-    if (balance < displayedCost) {
+    // 🆕 Бесплатные модели — без проверки баланса
+    if (!isFreeForUser && balance < displayedCost) {
       toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
       return
@@ -1071,10 +1090,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       hapticNotification('success')
       setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
-  }, [
+    }, [
     input, balance, displayedCost, slug, imgUrl,
     duration, aspectRatio, resolution, mode, sound, removeWatermark, resizeMode,
-    caps, requiresInputImage, haptic, hapticNotification, generate,
+    caps, requiresInputImage, isFreeForUser, // 🆕
+    haptic, hapticNotification, generate,
     isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
     veoMaxRefImages,
     isKling, multiShots, shots, elements,
@@ -1268,18 +1288,32 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             ))}
           </div>
 
-          <span
-            className={`
-              text-[11px] shrink-0 inline-flex items-center gap-1
-              transition-opacity duration-200
-              ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
-              ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
-            `}
-          >
-            {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-            {showFromPrefix && <span className="text-white/35">от</span>}
-            {formatCost(displayedCost)} 🔥
-          </span>
+          {isFreeForUser ? (
+            <span
+              className="text-[11px] shrink-0 inline-flex items-center gap-1 text-emerald-400 font-semibold"
+              title={
+                freeAccess.limit === 'unlimited'
+                  ? 'Безлимитно по подписке'
+                  : `Лимит: ${freeAccess.hourlyLimit ?? '∞'}/час`
+              }
+            >
+              <Gift size={11} />
+              {formatFreeBadge(freeAccess)}
+            </span>
+          ) : (
+            <span
+              className={`
+                text-[11px] shrink-0 inline-flex items-center gap-1
+                transition-opacity duration-200
+                ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
+                ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
+              `}
+            >
+              {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+              {showFromPrefix && <span className="text-white/35">от</span>}
+              {formatCost(displayedCost)} 🔥
+            </span>
+          )}
 
           <ChevronDown
             size={14}
@@ -1355,9 +1389,26 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[11px] text-white/40">
-                    от {formatCost(m.cost)} 🔥
-                  </span>
+                  {(() => {
+                    const mFree = getFreeAccessInfo(m, undefined)
+                    const hasReqParams =
+                      !!m.freeLimit?.requiredParams &&
+                      Object.keys(m.freeLimit.requiredParams).length > 0
+
+                    if (mFree.isFree && !hasReqParams) {
+                      return (
+                        <span className="text-[11px] font-semibold text-emerald-400 inline-flex items-center gap-0.5">
+                          <Gift size={10} />
+                          {formatFreeBadge(mFree)}
+                        </span>
+                      )
+                    }
+                    return (
+                      <span className="text-[11px] text-white/40">
+                        от {formatCost(m.cost)} 🔥
+                      </span>
+                    )
+                  })()}
                   {slug === m.slug && <Check size={14} className="text-[var(--accent-yellow)]" />}
                 </div>
               </button>
@@ -1494,18 +1545,27 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
-                  <span
-                    className={`
-                      font-semibold inline-flex items-center gap-1
-                      ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/50'}
-                    `}
-                  >
-                    {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-                    {showFromPrefix && <span className="text-white/35">от</span>}
-                    {formatCost(displayedCost)} 🔥
-                  </span>
-                  {matchedLabel && !isFallbackPrice && (
-                    <span className="text-white/40">· {matchedLabel}</span>
+                  {isFreeForUser ? (
+                    <span className="font-semibold inline-flex items-center gap-1 text-emerald-400">
+                      <Gift size={11} />
+                      {formatFreeLabel(freeAccess)}
+                    </span>
+                  ) : (
+                    <>
+                      <span
+                        className={`
+                          font-semibold inline-flex items-center gap-1
+                          ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/50'}
+                        `}
+                      >
+                        {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+                        {showFromPrefix && <span className="text-white/35">от</span>}
+                        {formatCost(displayedCost)} 🔥
+                      </span>
+                      {matchedLabel && !isFallbackPrice && (
+                        <span className="text-white/40">· {matchedLabel}</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

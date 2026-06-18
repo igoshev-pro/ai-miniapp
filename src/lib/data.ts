@@ -10,7 +10,15 @@ export interface ModelItem {
   cost: number          // минимальная стоимость в спичках (от). -1 = неизвестно ("?")
   hasVariants?: boolean // true = показывать "от X 🔥"
   supportsVision?: boolean
-  webSearch?: boolean    // 🆕 умеет искать в интернете (🌐)
+  webSearch?: boolean    // умеет искать в интернете (🌐)
+
+  // 🆕 Бесплатный доступ по подписке
+  isFreeInPlan?: boolean
+  freeLimit?: {
+    hourlyLimit: number | null
+    dailyLimit: number | null
+    requiredParams?: Record<string, any> | null
+  } | null
 }
 
 export const allModels: ModelItem[] = [

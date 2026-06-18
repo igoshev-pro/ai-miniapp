@@ -2,6 +2,8 @@
 
 import { create } from 'zustand'
 
+export type SubscriptionPlan = 'free' | 'basic' | 'plus' | 'max' | 'ultimate'
+
 export interface UserProfile {
   id: string
   telegramId: number | null
@@ -14,11 +16,10 @@ export interface UserProfile {
   role: 'user' | 'premium' | 'admin' | 'super_admin'
   tokenBalance: number
   bonusTokens: number
-  // ✅ Добавляем cashbackBalance — третий кошелёк пользователя
   cashbackBalance: number
   totalBalance: number
   subscription: {
-    plan: 'free' | 'basic' | 'pro' | 'unlimited'
+    plan: SubscriptionPlan
     expiresAt: string | null
     isActive: boolean
   }
@@ -31,7 +32,6 @@ interface UserState {
   isLoaded: boolean
 
   setUser: (user: UserProfile) => void
-  // ✅ Добавляем cashbackBalance третьим аргументом (необязательный для обратной совместимости)
   updateBalance: (tokenBalance: number, bonusTokens: number, cashbackBalance?: number) => void
   clear: () => void
 }
@@ -53,7 +53,6 @@ export const useUserStore = create<UserState>((set) => ({
       isLoaded: true,
     }),
 
-  // ✅ cashbackBalance опциональный: если не передан — берём текущий из стора
   updateBalance: (tokenBalance, bonusTokens, cashbackBalance) =>
     set((s) => {
       if (!s.user) return { user: null }

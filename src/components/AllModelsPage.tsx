@@ -10,12 +10,15 @@ import {
   Star,
   Eye,
   Globe,
+  Gift,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useFavorites } from '@/hooks'
 import { useModels } from '@/hooks'
 import { formatCost, type ModelItem } from '@/lib/data'
 import { useState } from 'react'
+import { PriceTag } from './ui/PriceTag'
+import { formatFreeBadge, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -60,7 +63,7 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
     const matchCategory = activeFilter ? m.category === activeFilter : true
     const matchSearch = search
       ? m.name.toLowerCase().includes(search.toLowerCase()) ||
-        m.provider.toLowerCase().includes(search.toLowerCase())
+      m.provider.toLowerCase().includes(search.toLowerCase())
       : true
     return matchCategory && matchSearch
   })
@@ -68,11 +71,11 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
   const grouped = activeFilter
     ? [{ category: activeFilter, models: filteredModels }]
     : (['text', 'image', 'video', 'audio'] as const)
-        .map((cat) => ({
-          category: cat,
-          models: filteredModels.filter((m) => m.category === cat),
-        }))
-        .filter((g) => g.models.length > 0)
+      .map((cat) => ({
+        category: cat,
+        models: filteredModels.filter((m) => m.category === cat),
+      }))
+      .filter((g) => g.models.length > 0)
 
   return (
     <div className="models-page">
@@ -122,10 +125,9 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
               cursor-pointer transition-all duration-200
               font-[inherit] whitespace-nowrap
               active:scale-[0.96]
-              ${
-                activeFilter === null
-                  ? 'bg-yellow-400 text-[#0a0a0a] border-transparent font-bold [&_svg]:text-[#0a0a0a]'
-                  : 'bg-[var(--bg-glass)] backdrop-blur-[20px] border-white/[0.08] text-neutral-500'
+              ${activeFilter === null
+                ? 'bg-yellow-400 text-[#0a0a0a] border-transparent font-bold [&_svg]:text-[#0a0a0a]'
+                : 'bg-[var(--bg-glass)] backdrop-blur-[20px] border-white/[0.08] text-neutral-500'
               }
             `}
             onClick={() => {
@@ -145,10 +147,9 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
                 cursor-pointer transition-all duration-200
                 font-[inherit] whitespace-nowrap
                 active:scale-[0.96]
-                ${
-                  activeFilter === cat.id
-                    ? 'bg-yellow-400 text-[#0a0a0a] border-transparent font-bold [&_svg]:text-[#0a0a0a]'
-                    : 'bg-[var(--bg-glass)] backdrop-blur-[20px] border-white/[0.08] text-neutral-500'
+                ${activeFilter === cat.id
+                  ? 'bg-yellow-400 text-[#0a0a0a] border-transparent font-bold [&_svg]:text-[#0a0a0a]'
+                  : 'bg-[var(--bg-glass)] backdrop-blur-[20px] border-white/[0.08] text-neutral-500'
                 }
               `}
               onClick={() => {
@@ -159,9 +160,8 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
               {categoryIcons[cat.id]}
               {cat.label}
               <span
-                className={`text-[10px] ${
-                  activeFilter === cat.id ? 'opacity-60' : 'opacity-70'
-                }`}
+                className={`text-[10px] ${activeFilter === cat.id ? 'opacity-60' : 'opacity-70'
+                  }`}
               >
                 {cat.count}
               </span>
@@ -248,14 +248,14 @@ function ModelCard({
         {modelIcons[model.category]}
       </div>
 
-            {/* Body */}
+      {/* Body */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-bold text-white lg:text-[15px]">
             {model.name}
           </span>
 
-          {/* 🆕 Бэйджи возможностей */}
+          {/* Бэйджи возможностей */}
           {model.supportsVision && (
             <span
               className="
@@ -283,17 +283,75 @@ function ModelCard({
             </span>
           )}
 
-          {/* Цена */}
-          <span
-            className="
-              text-[11px] font-semibold text-yellow-400
-              bg-yellow-400/[0.08] px-[7px] py-px
-              rounded-[5px] whitespace-nowrap shrink-0
-              tracking-[0.2px]
-            "
-          >
-            {model.category === 'text' ? 'от ' : ''}{formatCost(model.cost)} 🔥
-          </span>
+          {/* 🆕 Цена / бесплатно по подписке */}
+          {(() => {
+            // В списке моделей params неизвестны → не сможем сопоставить
+            // requiredParams (как у midjourney). Поэтому показываем бейдж
+            // "Бесплатно" только для моделей без requiredParams.
+            const hasRequiredParams =
+              !!model.freeLimit?.requiredParams &&
+              Object.keys(model.freeLimit.requiredParams).length > 0
+
+            const freeInfo = getFreeAccessInfo(model, undefined)
+            const showFreeBadge = freeInfo.isFree && !hasRequiredParams
+
+            if (showFreeBadge) {
+              return (
+                <span
+                  className="
+                    inline-flex items-center gap-0.5
+                    text-[11px] font-semibold
+                    text-emerald-400 bg-emerald-500/[0.12]
+                    border border-emerald-500/[0.25]
+                    px-[7px] py-px rounded-[5px]
+                    whitespace-nowrap shrink-0
+                  "
+                  title={
+                    freeInfo.limit === 'unlimited'
+                      ? 'Безлимитно по вашей подписке'
+                      : `Лимит: ${freeInfo.hourlyLimit ?? '∞'}/час, ${freeInfo.dailyLimit ?? '∞'}/сутки`
+                  }
+                >
+                  <Gift size={10} />
+                  {formatFreeBadge(freeInfo)}
+                </span>
+              )
+            }
+
+            // Если есть requiredParams — показываем подсказку
+            if (hasRequiredParams && model.isFreeInPlan) {
+              return (
+                <span
+                  className="
+                    inline-flex items-center gap-0.5
+                    text-[10px] font-semibold
+                    text-emerald-400/80 bg-emerald-500/[0.08]
+                    border border-emerald-500/[0.2]
+                    px-1.5 py-px rounded-[5px] shrink-0
+                  "
+                  title="Бесплатно в определённом режиме"
+                >
+                  <Gift size={9} />
+                  В режиме
+                </span>
+              )
+            }
+
+            // Обычная цена
+            return (
+              <span
+                className="
+                  text-[11px] font-semibold text-yellow-400
+                  bg-yellow-400/[0.08] px-[7px] py-px
+                  rounded-[5px] whitespace-nowrap shrink-0
+                  tracking-[0.2px]
+                "
+              >
+                {model.category === 'text' ? 'от ' : ''}
+                {formatCost(model.cost)} 🔥
+              </span>
+            )
+          })()}
         </div>
         <div
           className="
@@ -321,10 +379,9 @@ function ModelCard({
             flex items-center justify-center
             cursor-pointer transition-all duration-150
             active:scale-[0.85]
-            ${
-              fav
-                ? 'text-yellow-400 [&_svg]:fill-yellow-400'
-                : 'text-white/25'
+            ${fav
+              ? 'text-yellow-400 [&_svg]:fill-yellow-400'
+              : 'text-white/25'
             }
           `}
           onClick={(e) => {

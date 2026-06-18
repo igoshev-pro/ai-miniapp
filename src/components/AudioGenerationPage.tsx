@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, Send, Check, X, Music, Settings, Wand2,
-  Clock, Loader2, Upload, Mic, Volume2, Zap, MessageSquare,
+  Clock, Loader2, Upload, Mic, Volume2, Zap, MessageSquare, Gift,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -12,6 +12,7 @@ import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
 import { apiClient } from '@/lib/api'
+import { formatFreeBadge, formatFreeLabel, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
 /* ─── Props ─── */
 
@@ -374,6 +375,25 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     debounceMs: 300,
   })
 
+  // 🆕 Free-доступ. Параметры аудио (voiceId, language, duration) обычно не входят
+  // в requiredParams, но передадим их на случай если бэк добавит ограничения.
+  const freeAccessParams = useMemo(
+    () => ({
+      voiceId,
+      language,
+      duration,
+      customMode,
+      instrumental,
+    }),
+    [voiceId, language, duration, customMode, instrumental],
+  )
+
+  const freeAccess = useMemo(
+    () => getFreeAccessInfo(currentModel || {}, freeAccessParams),
+    [currentModel, freeAccessParams],
+  )
+  const isFreeForUser = freeAccess.isFree
+
   /* ── Cached price (без прыжков) ── */
 
   const lastPriceRef = useRef<{ cost: number; label?: string; fallback: boolean } | null>(null)
@@ -652,7 +672,8 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       toast.warning('Введите текст')
       return
     }
-    if (balance < displayedCost) {
+        // 🆕 Бесплатные модели по подписке — пропускаем проверку баланса
+    if (!isFreeForUser && balance < displayedCost) {
       toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
       return
@@ -729,12 +750,12 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       hapticNotification('success')
       setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
-  }, [
+    }, [
     input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps, isTTS,
     customMode, instrumental, style, duration,
     title, negativeTags, vocalGender, styleWeight, weirdnessConstraint, audioWeight,
     voiceId, language, stability, similarity, speed,
-    loop, promptInfluence,
+    loop, promptInfluence, isFreeForUser, // 🆕
     haptic, hapticNotification, generate,
   ])
 
@@ -969,27 +990,39 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
           </div>
 
           {/* Цена — справа, рядом с бейджиками */}
-          <span
-            className={`
-              text-[11px] shrink-0 inline-flex items-center gap-1
-              transition-opacity duration-200
-              ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
-              ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
-            `}
-          >
-            {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-            {/* 🆕 Посимвольная модель — фиксированная подпись */}
-            {isCharBasedModel && pricePerKChars != null ? (
-              <span>
-                {pricePerKChars} 🔥 / 1000 симв.
-              </span>
-            ) : (
-              <>
-                {showFromPrefix && <span className="text-white/35">от</span>}
-                {formatCost(displayedCost)} 🔥
-              </>
-            )}
-          </span>
+          {isFreeForUser ? (
+            <span
+              className="text-[11px] shrink-0 inline-flex items-center gap-1 text-emerald-400 font-semibold"
+              title={
+                freeAccess.limit === 'unlimited'
+                  ? 'Безлимитно по подписке'
+                  : `Лимит: ${freeAccess.hourlyLimit ?? '∞'}/час`
+              }
+            >
+              <Gift size={11} />
+              {formatFreeBadge(freeAccess)}
+            </span>
+          ) : (
+            <span
+              className={`
+                text-[11px] shrink-0 inline-flex items-center gap-1
+                transition-opacity duration-200
+                ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/40'}
+                ${isCalculating && lastPriceRef.current ? 'opacity-60' : 'opacity-100'}
+              `}
+            >
+              {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+              {/* Посимвольная модель — фиксированная подпись */}
+              {isCharBasedModel && pricePerKChars != null ? (
+                <span>{pricePerKChars} 🔥 / 1000 симв.</span>
+              ) : (
+                <>
+                  {showFromPrefix && <span className="text-white/35">от</span>}
+                  {formatCost(displayedCost)} 🔥
+                </>
+              )}
+            </span>
+          )}
 
           <ChevronDown
             size={14}
@@ -1060,10 +1093,27 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                     {m.provider} {typeLabel(m.slug)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[11px] text-white/40">
-                    от {formatCost(m.cost)} 🔥
-                  </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                  {(() => {
+                    const mFree = getFreeAccessInfo(m, undefined)
+                    const hasReqParams =
+                      !!m.freeLimit?.requiredParams &&
+                      Object.keys(m.freeLimit.requiredParams).length > 0
+
+                    if (mFree.isFree && !hasReqParams) {
+                      return (
+                        <span className="text-[11px] font-semibold text-emerald-400 inline-flex items-center gap-0.5">
+                          <Gift size={10} />
+                          {formatFreeBadge(mFree)}
+                        </span>
+                      )
+                    }
+                    return (
+                      <span className="text-[11px] text-white/40">
+                        от {formatCost(m.cost)} 🔥
+                      </span>
+                    )
+                  })()}
                   {slug === m.slug && <Check size={14} className="text-[var(--accent-yellow)]" />}
                 </div>
               </button>
@@ -1402,31 +1452,38 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                 </div>
                                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="text-[var(--gray-500)]">Цена:</span>
-                  <span
-                    className={`
-                      font-semibold inline-flex items-center gap-1
-                      ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/50'}
-                    `}
-                  >
-                    {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
-                    {/* 🆕 Посимвольная модель */}
-                    {isCharBasedModel && pricePerKChars != null ? (
-                      <span>{pricePerKChars} 🔥 / 1000 симв.</span>
-                    ) : (
-                      <>
-                        {showFromPrefix && <span className="text-white/35">от</span>}
-                        {formatCost(displayedCost)} 🔥
-                      </>
-                    )}
-                  </span>
-                  {matchedLabel && !isFallbackPrice && !isCharBasedModel && (
-                    <span className="text-white/40">· {matchedLabel}</span>
-                  )}
-                  {/* 🆕 Для посимвольных — текущая стоимость текста */}
-                  {isCharBasedModel && input.length > 0 && (
-                    <span className="text-white/40">
-                      · {input.length} симв ≈ {formatCost(displayedCost)} 🔥
+                  {isFreeForUser ? (
+                    <span className="font-semibold inline-flex items-center gap-1 text-emerald-400">
+                      <Gift size={11} />
+                      {formatFreeLabel(freeAccess)}
                     </span>
+                  ) : (
+                    <>
+                      <span
+                        className={`
+                          font-semibold inline-flex items-center gap-1
+                          ${!isFallbackPrice ? 'text-[var(--accent-yellow)]' : 'text-white/50'}
+                        `}
+                      >
+                        {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
+                        {isCharBasedModel && pricePerKChars != null ? (
+                          <span>{pricePerKChars} 🔥 / 1000 симв.</span>
+                        ) : (
+                          <>
+                            {showFromPrefix && <span className="text-white/35">от</span>}
+                            {formatCost(displayedCost)} 🔥
+                          </>
+                        )}
+                      </span>
+                      {matchedLabel && !isFallbackPrice && !isCharBasedModel && (
+                        <span className="text-white/40">· {matchedLabel}</span>
+                      )}
+                      {isCharBasedModel && input.length > 0 && (
+                        <span className="text-white/40">
+                          · {input.length} симв ≈ {formatCost(displayedCost)} 🔥
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

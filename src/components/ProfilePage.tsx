@@ -29,8 +29,22 @@ interface Props {
 const planLabels: Record<string, string> = {
   free: 'Free',
   basic: 'Basic',
-  pro: 'Pro',
-  unlimited: 'Unlimited',
+  plus: 'Plus',
+  max: 'Max',
+  ultimate: 'Ultimate',
+  // legacy
+  pro: 'Plus',
+  unlimited: 'Ultimate',
+}
+
+const planColors: Record<string, string> = {
+  free: 'rgba(255,255,255,0.08)',
+  basic: '#60a5fa',
+  plus: '#fbbf24',
+  max: '#f97316',
+  ultimate: '#c084fc',
+  pro: '#fbbf24',
+  unlimited: '#c084fc',
 }
 
 export function ProfilePage({ onNavigate }: Props) {
@@ -86,6 +100,28 @@ export function ProfilePage({ onNavigate }: Props) {
   const avatar = user?.photoUrl || tgUser?.photo_url || null
   const currentPlan = subscription.plan
   const planActive = subscription.isActive
+  const planLabel = planLabels[currentPlan] || 'Free'
+  const planColor = planColors[currentPlan] || planColors.free
+  const isPaidPlan = currentPlan !== 'free'
+
+  // 🆕 Форматирование даты окончания подписки
+  const formatExpiryDate = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+
+  // 🆕 Сколько дней осталось до окончания
+  const daysUntilExpiry = (iso: string) => {
+    const d = new Date(iso)
+    const now = new Date()
+    const diffMs = d.getTime() - now.getTime()
+    const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    return days > 0 ? days : 0
+  }
 
   return (
     <div className="profile-page">
@@ -107,9 +143,16 @@ export function ProfilePage({ onNavigate }: Props) {
           <div className="profile-user__name">{displayName}</div>
           <div className="profile-user__username">@{username}</div>
         </div>
-        <div className="profile-user__plan-badge">
+        <div
+          className="profile-user__plan-badge"
+          style={{
+            background: isPaidPlan ? `${planColor}26` : undefined, // 26 = 15% alpha
+            color: isPaidPlan ? planColor : undefined,
+            borderColor: isPaidPlan ? `${planColor}66` : undefined,
+          }}
+        >
           <Crown size={12} />
-          {planLabels[currentPlan]}
+          {planLabel}
         </div>
       </div>
 
@@ -159,21 +202,40 @@ export function ProfilePage({ onNavigate }: Props) {
         <div className="profile-plan-card">
           <div className="profile-plan-card__info">
             <div className="profile-plan-card__name">
-              {planLabels[currentPlan]}
-              {planActive && currentPlan !== 'free' && (
-                <span className="profile-plan-card__active">Активна</span>
+              {isPaidPlan ? (
+                <>
+                  Тариф{' '}
+                  <span style={{ color: planColor }}>{planLabel}</span>
+                  {planActive && (
+                    <span className="profile-plan-card__active">Активен</span>
+                  )}
+                </>
+              ) : (
+                <>Без подписки</>
               )}
             </div>
-            {subscription.expiresAt && (
+
+            {isPaidPlan && subscription.expiresAt ? (
               <div className="profile-plan-card__expiry">
-                Следующее списание:{' '}
-                {new Date(subscription.expiresAt).toLocaleDateString('ru-RU', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+                Действует до{' '}
+                <strong style={{ color: 'var(--text-primary, #fff)' }}>
+                  {formatExpiryDate(subscription.expiresAt)}
+                </strong>
+                <span
+                  style={{
+                    marginLeft: 6,
+                    fontSize: 11,
+                    opacity: 0.6,
+                  }}
+                >
+                  · осталось {daysUntilExpiry(subscription.expiresAt)} дн.
+                </span>
               </div>
-            )}
+            ) : !isPaidPlan ? (
+              <div className="profile-plan-card__expiry">
+                Откройте больше возможностей с подпиской
+              </div>
+            ) : null}
           </div>
           <button
             className="profile-plan-card__btn"
@@ -182,7 +244,7 @@ export function ProfilePage({ onNavigate }: Props) {
               onNavigate?.('subscription')
             }}
           >
-            Сменить
+            {isPaidPlan ? 'Сменить' : 'Подключить'}
           </button>
         </div>
       </div>
