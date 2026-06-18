@@ -2980,10 +2980,56 @@ function ToggleRow({
   onChange: (v: boolean) => void
 }) {
   return (
-    <div className="grid grid-cols-2 gap-1.5">
-      <OptBtn active={active} onClick={() => onChange(true)}>{onLabel}</OptBtn>
-      <OptBtn active={!active} onClick={() => onChange(false)}>{offLabel}</OptBtn>
-    </div>
+    <button
+      onClick={() => onChange(!active)}
+      className={`
+        relative w-full h-11 rounded-[var(--radius-xs)]
+        border transition-all duration-300
+        [-webkit-tap-highlight-color:transparent]
+        overflow-hidden
+        ${active
+          ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.25)]'
+          : 'bg-white/[0.03] border-white/[0.06]'
+        }
+      `}
+    >
+      {/* Скользящий индикатор */}
+      <div
+        className={`
+          absolute top-1 bottom-1 w-[calc(50%-4px)]
+          rounded-[8px]
+          transition-all duration-300 ease-out
+          ${active
+            ? 'left-[calc(50%+0px)] bg-[rgba(250,204,21,0.18)] shadow-[0_2px_8px_rgba(250,204,21,0.15)]'
+            : 'left-1 bg-white/[0.06]'
+          }
+        `}
+      />
+
+      {/* Лейблы */}
+      <div className="relative grid grid-cols-2 h-full items-center">
+        <span
+          className={`
+            flex items-center justify-center gap-1.5
+            text-[12px] font-medium leading-none
+            transition-colors duration-200
+            ${!active ? 'text-white/85' : 'text-white/35'}
+          `}
+        >
+          {offLabel}
+        </span>
+        <span
+          className={`
+            flex items-center justify-center gap-1.5
+            text-[12px] font-medium leading-none
+            transition-colors duration-200
+            ${active ? 'text-[var(--accent-yellow)]' : 'text-white/35'}
+          `}
+        >
+          {onLabel}
+        </span>
+      </div>
+    </button>
   )
 }
 
