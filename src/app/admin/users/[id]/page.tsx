@@ -8,12 +8,13 @@ import {
   Loader2, Mail, MessageCircle, Globe, Calendar, Activity,
   Coins, Gift, TrendingUp, Users as UsersIcon,
 } from 'lucide-react'
-import { adminUsersApi, type AdminUserDetails } from '@/lib/api/admin-users'
+import { adminUsersApi, SetSubscriptionBody, type AdminUserDetails } from '@/lib/api/admin-users'
 import type { AdminUser, UserRole } from '@/types/admin-user'
 import { BanUserModal } from '../../_components/BanUserModal'
 import { ChangeRoleModal } from '../../_components/ChangeRoleModal'
 import { AdjustBalanceModal } from '../../_components/AdjustBalanceModal'
 import { DeleteUserModal } from '../../_components/DeleteUserModal'
+import { SetSubscriptionModal } from '../../_components/models/SetSubscriptionModal'
 
 export default function AdminUserDetailPage() {
   const params = useParams<{ id: string }>()
@@ -34,7 +35,7 @@ export default function AdminUserDetailPage() {
     if (!userId) return
     setLoading(true)
     setError(null)
-    
+
     try {
       const res = await adminUsersApi.getById(userId)
       setData(res)
@@ -91,6 +92,13 @@ export default function AdminUserDetailPage() {
     )
   }
 
+    const handleSetSubscription = async (body: SetSubscriptionBody): Promise<void> => {
+    if (!data) return
+    await adminUsersApi.setSubscription(userId, body)
+    // Перезагружаем карточку, чтобы получить свежий subscription объект с фри-моделями, source и expiresAt
+    await load()
+  }
+
   if (error || !data) {
     return (
       <div className="p-6 max-w-3xl mx-auto">
@@ -141,7 +149,7 @@ export default function AdminUserDetailPage() {
             )}
           </div>
 
-                    {/* Info */}
+          {/* Info */}
           <div className="flex-1 min-w-[240px]">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h1 className="text-2xl font-bold text-white">{fullName}</h1>
@@ -251,11 +259,10 @@ export default function AdminUserDetailPage() {
             <button
               onClick={() => setShowBan(true)}
               disabled={!user.isBanned && isAdminRole}
-              className={`px-3 py-2 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
-                user.isBanned
+              className={`px-3 py-2 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${user.isBanned
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
                   : 'border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20'
-              }`}
+                }`}
             >
               {user.isBanned ? <ShieldCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
               {user.isBanned ? 'Разбанить' : 'Забанить'}
@@ -335,28 +342,96 @@ export default function AdminUserDetailPage() {
       </div>
 
       {/* Subscription */}
-      {user.subscriptionPlan && user.subscriptionPlan !== 'free' && (
-        <div className="mb-6 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-500/10 to-pink-500/10 p-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <div className="text-xs text-purple-300 uppercase tracking-wider font-bold mb-1">
-                Активная подписка
-              </div>
-              <div className="text-lg font-bold text-white capitalize">
-                {user.subscriptionPlan}
-              </div>
+      <div className="mb-6 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-500/10 to-pink-500/10 p-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-xl bg-purple-500/20 border border-purple-500/30">
+              <Crown className="w-5 h-5 text-purple-300" />
             </div>
-            {user.subscriptionExpiresAt && (
-              <div className="text-right">
-                <div className="text-xs text-zinc-500">Действует до</div>
-                <div className="text-sm text-white font-semibold">
-                  {new Date(user.subscriptionExpiresAt).toLocaleDateString('ru-RU')}
-                </div>
+            <div className="min-w-0">
+              <div className="text-xs text-purple-300 uppercase tracking-wider font-bold mb-0.5">
+                Подписка
               </div>
-            )}
+              {data.subscription?.isActive ? (
+                <>
+                  <div className="text-lg font-bold text-white capitalize flex items-center gap-2 flex-wrap">
+                    {data.subscription.planName || data.subscription.plan}
+                    {data.subscription.source && (
+                      <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-300 border border-zinc-700">
+                        {data.subscription.source}
+                      </span>
+                    )}
+                  </div>
+                  {data.subscription.expiresAt && (
+                    <div className="text-xs text-zinc-400 mt-0.5">
+                      до {new Date(data.subscription.expiresAt).toLocaleString('ru-RU')}
+                    </div>
+                  )}
+                  {data.subscription.adminReason && (
+                    <div className="text-[11px] text-zinc-500 mt-1 italic">
+                      «{data.subscription.adminReason}»
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-lg font-bold text-zinc-400">Free</div>
+              )}
+            </div>
           </div>
+
+          <button
+            onClick={() => setShowSubscription(true)}
+            className="px-3 py-2 rounded-xl border border-purple-500/40 bg-purple-500/10 text-sm font-semibold text-purple-200 hover:bg-purple-500/20 flex items-center gap-2"
+          >
+            <Crown className="w-4 h-4" />
+            {data.subscription?.isActive ? 'Изменить' : 'Выдать план'}
+          </button>
         </div>
-      )}
+
+        {/* Free models usage */}
+        {data.subscription?.isActive && data.subscription.freeModels.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-purple-500/20">
+            <div className="text-[10px] uppercase tracking-wider text-purple-300/70 font-bold mb-2">
+              Использование free-моделей
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {data.subscription.freeModels.map((fm) => {
+                const hourlyText =
+                  fm.hourlyLimit === null
+                    ? '∞/час'
+                    : `${fm.hourlyUsed}/${fm.hourlyLimit} час`
+                const dailyText =
+                  fm.dailyLimit === null
+                    ? '∞/сутки'
+                    : `${fm.dailyUsed}/${fm.dailyLimit} сутки`
+                return (
+                  <div
+                    key={fm.modelSlug}
+                    className="text-xs bg-zinc-950/50 border border-zinc-800/60 rounded-lg p-2"
+                  >
+                    <div className="text-white truncate" title={fm.modelSlug}>
+                      {fm.displayName}
+                    </div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span>{hourlyText}</span>
+                      <span className="text-zinc-700">·</span>
+                      <span>{dailyText}</span>
+                      {fm.requiredParams && (
+                        <span
+                          className="text-purple-400/80"
+                          title={JSON.stringify(fm.requiredParams)}
+                        >
+                          (фильтр)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Two columns: transactions + generations */}
       <div className="grid lg:grid-cols-2 gap-4 mb-6">
@@ -381,9 +456,8 @@ export default function AdminUserDetailPage() {
                         <span>{new Date(tx.createdAt).toLocaleString('ru-RU')}</span>
                       </div>
                     </div>
-                    <div className={`text-sm font-bold whitespace-nowrap ${
-                      tx.amount > 0 ? 'text-emerald-400' : tx.amount < 0 ? 'text-red-400' : 'text-zinc-500'
-                    }`}>
+                    <div className={`text-sm font-bold whitespace-nowrap ${tx.amount > 0 ? 'text-emerald-400' : tx.amount < 0 ? 'text-red-400' : 'text-zinc-500'
+                      }`}>
                       {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')}🔥
                     </div>
                   </div>
@@ -424,11 +498,10 @@ export default function AdminUserDetailPage() {
                       </div>
                     </div>
                     <div className="text-right whitespace-nowrap">
-                      <div className={`text-[10px] uppercase font-bold ${
-                        g.status === 'completed' ? 'text-emerald-400' :
-                        g.status === 'failed' ? 'text-red-400' :
-                        'text-yellow-400'
-                      }`}>
+                      <div className={`text-[10px] uppercase font-bold ${g.status === 'completed' ? 'text-emerald-400' :
+                          g.status === 'failed' ? 'text-red-400' :
+                            'text-yellow-400'
+                        }`}>
                         {g.status}
                       </div>
                       {g.tokensCost > 0 && (
@@ -548,10 +621,19 @@ export default function AdminUserDetailPage() {
       )}
       {showDelete && (
         <DeleteUserModal
-  user={user}
-  onClose={() => setShowDelete(false)}
-  onConfirm={handleDelete}   // 👈 () => Promise<void>
-/>
+          user={user}
+          onClose={() => setShowDelete(false)}
+          onConfirm={handleDelete}   // 👈 () => Promise<void>
+        />
+      )}
+      {/* 🆕 Управление подпиской */}
+      {showSubscription && (
+        <SetSubscriptionModal
+          user={user}
+          currentSubscription={data.subscription}
+          onClose={() => setShowSubscription(false)}
+          onConfirm={handleSetSubscription}
+        />
       )}
     </div>
   )
