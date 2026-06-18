@@ -6,7 +6,7 @@ import {
   Clock, Maximize2, Loader2, Upload, Image as ImageIcon,
   Sparkles, Layers, Volume2, VolumeX, ShieldOff, Film, Images,
   Type, Rocket, Gauge, Crown, Scissors,
-  Plus, Trash2, Tag, FileText, Gift,  // 🆕 kling
+  Plus, Trash2, Tag, FileText, Gift, Paperclip,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -207,10 +207,6 @@ function isVeoSlug(slug: string): boolean {
   return slug.startsWith('veo')
 }
 
-function isKlingSlug(slug: string): boolean {
-  return slug.startsWith('kling')
-}
-
 function getParamOptions(config: ModelUIConfig | null, key: string): string[] {
   if (!config?.uiParameters) return []
   const p = config.uiParameters.find((x) => x.key === key)
@@ -327,11 +323,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [endFrame, setEndFrame] = useState('')
   const [refImages, setRefImages] = useState<string[]>([])
 
-  // 🆕 Kling 2.5 Turbo
+  // Kling 2.5 Turbo
   const [cfgScale, setCfgScale] = useState(0.5)
   const [nsfwChecker, setNsfwChecker] = useState(true)
 
-  // 🆕 Kling 3.0
+  // Kling 3.0
   const [multiShots, setMultiShots] = useState(false)
   const [shots, setShots] = useState<{ prompt: string; duration: number }[]>([
     { prompt: '', duration: 5 },
@@ -341,14 +337,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   >([])
   const elementUploadIdxRef = useRef<number>(0)
 
-  // 🆕 Motion Control
+  // Motion Control
   const [motionVideoUrl, setMotionVideoUrl] = useState('')
   const [motionVideoDuration, setMotionVideoDuration] = useState<number | null>(null)
   const [characterOrientation, setCharacterOrientation] = useState<'video' | 'image'>('video')
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const videoFileRef = useRef<HTMLInputElement>(null)
 
-  // 🆕 Seedance
+  // Seedance
   const [fixedLens, setFixedLens] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [refVideos, setRefVideos] = useState<string[]>([])
@@ -358,8 +354,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const refVideoFileRef = useRef<HTMLInputElement>(null)
   const refAudioFileRef = useRef<HTMLInputElement>(null)
 
+  // 🆕 Множественные референс-фото для Seedance (1.5: до 2, 2/2-fast: до 10)
+  const [seedanceImages, setSeedanceImages] = useState<string[]>([])
+
   const [uploading, setUploading] = useState(false)
-  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element'>('single')
+  // 🆕 добавлен target 'seedance'
+  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance'>('single')
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
@@ -377,14 +377,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const isKling3 = slug === 'kling-3.0'
   const isKling25 = slug === 'kling-2.5-turbo'
-  // isKling — только для UI 3.0 (мультисцены/элементы/кадры)
   const isKling = isKling3
   const isMotion = slug === 'motion-control'
   const isSeedance15 = slug === 'seedance-1.5-pro'
   const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast'
   const isSeedance = isSeedance15 || isSeedance2
 
-  /* ── UI config ── */
+    /* ── UI config ── */
 
   const { config: uiConfig, isLoading: isLoadingConfig } = useModelUIConfig(slug)
 
@@ -426,7 +425,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         fb.supportsSound,
       supportsRemoveWatermark:
         hasParam(uiConfig, 'removeWatermark') || fb.supportsRemoveWatermark,
-      // Показываем resizeMode ТОЛЬКО если параметр явно есть в uiParameters модели
       supportsResizeMode: hasParam(uiConfig, 'resizeMode'),
     }
   }, [uiConfig, slug])
@@ -435,6 +433,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     const fbMax = FALLBACK[slug]?.maxInputImages
     return fbMax && fbMax > 1 ? fbMax : (caps.maxInputImages > 1 ? caps.maxInputImages : 3)
   })()
+
+  // 🆕 Максимум фото для Seedance из caps (с защитным fallback)
+  const seedanceMaxImages = isSeedance15
+    ? 2
+    : (caps.maxInputImages > 1 ? caps.maxInputImages : 10)
 
   const isI2V = !isVeo && caps.supportsImageInput && caps.maxInputImages > 0
   const requiresInputImage =
@@ -462,7 +465,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     [uiConfig, comboCurrent],
   )
 
-  // Motion Control: duration берётся из видео, при orientation=image макс 10с
   const motionMaxDur = characterOrientation === 'image' ? 10 : 30
   const motionEffectiveDuration = isMotion
     ? Math.min(motionMaxDur, Math.max(3, motionVideoDuration ? Math.round(motionVideoDuration) : 5))
@@ -496,11 +498,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         (veoMode === 'frames' && !!startFrame) ||
         (veoMode === 'reference' && refImages.length > 0)
       if (hasImg) p.hasInputImage = true
+    } else if (isSeedance && (seedanceImages.length > 0 || imgUrl)) {
+      // 🆕 для Seedance учитываем и галерею, и legacy imgUrl
+      p.hasInputImage = true
     } else if (imgUrl) {
       p.hasInputImage = true
     }
 
-    // 🆕 Seedance 2: цена зависит от наличия видео-референса
     if (isSeedance2) {
       p.videoRef = refVideos.length > 0
     }
@@ -509,7 +513,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
-    isSeedance2, refVideos,
+    isSeedance2, refVideos, seedanceImages, isSeedance, isMotion, motionEffectiveDuration,
   ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
@@ -517,7 +521,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     debounceMs: 300,
   })
 
-  // 🆕 Free-доступ с учётом параметров (для видео обычно без requiredParams, но логика общая)
   const freeAccessParams = useMemo(
     () => ({
       mode,
@@ -643,25 +646,23 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setEndFrame('')
     setRefImages([])
 
-    // 🆕 kling reset
     setMultiShots(false)
     setShots([{ prompt: '', duration: 5 }])
     setElements([])
 
-    // 🆕 motion control reset
     setMotionVideoUrl('')
     setMotionVideoDuration(null)
     setCharacterOrientation('video')
 
-    // 🆕 kling 2.5 reset
     setCfgScale(0.5)
     setNsfwChecker(true)
 
-    // 🆕 seedance reset
+    // Seedance reset
     setFixedLens(false)
     setWebSearch(false)
     setRefVideos([])
     setRefAudios([])
+    setSeedanceImages([]) // 🆕
 
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -671,7 +672,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (veoForcesDuration8) setDuration(8)
   }, [veoForcesDuration8])
 
-  // Автокоррекция несовместимых комбинаций duration ↔ resolution
   useEffect(() => {
     if (!uiConfig?.pricingMatrix?.length) return
     if (isMotion || (isKling && multiShots)) return
@@ -704,20 +704,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px'
   }, [input])
 
-  // Скролл к последнему при изменении списка
   useEffect(() => {
     const el = resultsContainerRef.current
     if (!el) return
     if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight
   }, [vidGens.length])
 
-  // Скролл к последнему при первом открытии страницы
   const didInitialScrollRef = useRef(false)
   useEffect(() => {
     if (didInitialScrollRef.current) return
     if (vidGens.length === 0) return
 
-    // Ждём пока DOM отрисуется
     const id = setTimeout(() => {
       const el = resultsContainerRef.current
       if (!el) return
@@ -728,7 +725,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     return () => clearTimeout(id)
   }, [vidGens.length])
 
-  /* ── Upload ── */
+  /* ── Upload (image) ── */
 
   const upload = useCallback(
     async (file: File) => {
@@ -778,6 +775,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 : el,
             ),
           )
+        } else if (target === 'seedance') {
+          // 🆕 множественные фото для Seedance
+          setSeedanceImages((prev) => {
+            if (prev.length >= seedanceMaxImages) return prev
+            return [...prev, url]
+          })
         }
 
         haptic('light')
@@ -788,10 +791,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         setUploading(false)
       }
     },
-    [haptic, caps.maxInputImages, slug],
+    [haptic, caps.maxInputImages, slug, seedanceMaxImages],
   )
 
-  // 🆕 Загрузка видео для Motion Control + чтение длительности
   const uploadVideo = useCallback(
     async (file: File) => {
       if (!file.type.match(/video\/(mp4|quicktime|mov)/) && !/\.(mp4|mov)$/i.test(file.name)) {
@@ -803,7 +805,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         return
       }
 
-      // читаем длительность локально
       const localUrl = URL.createObjectURL(file)
       const probeDuration = await new Promise<number | null>((resolve) => {
         const v = document.createElement('video')
@@ -854,7 +855,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     [haptic],
   )
 
-  // 🆕 Seedance: загрузка видео-референса (до 3, суммарно ≤15с)
   const uploadRefVideo = useCallback(async (file: File) => {
     if (!/\.(mp4|mov)$/i.test(file.name) && !file.type.match(/video\/(mp4|quicktime)/)) {
       toast.error('Только MP4 или MOV'); return
@@ -879,7 +879,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [haptic])
 
-  // 🆕 Seedance: загрузка аудио-референса (до 3, суммарно ≤15с)
   const uploadRefAudio = useCallback(async (file: File) => {
     if (!/\.(mp3|wav|aac|ogg|m4a)$/i.test(file.name) &&
       !file.type.match(/audio\/(mpeg|wav|x-wav|aac|mp4|ogg)/)) {
@@ -906,7 +905,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [haptic])
 
   const triggerUpload = useCallback(
-    (target: 'single' | 'start' | 'end' | 'ref' | 'element', elementIdx?: number) => {
+    (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance', elementIdx?: number) => {
       uploadTarget.current = target
       if (target === 'element' && elementIdx !== undefined) {
         elementUploadIdxRef.current = elementIdx
@@ -969,7 +968,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       const badEl = elements.find(
         (el) => el.name.trim() && el.urls.length > 0 && el.urls.length < 2,
       )
-      if (badEl) {
+            if (badEl) {
         toast.warning(`Элемент "${badEl.name}" требует 2-4 изображения`)
         return
       }
@@ -986,7 +985,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }
     }
 
-    // 🆕 Бесплатные модели — без проверки баланса
     if (!isFreeForUser && balance < displayedCost) {
       toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
@@ -1069,8 +1067,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       const frames = imgUrl ? [imgUrl, endFrame].filter(Boolean) : []
       if (frames.length) s.imageUrls = frames
     } else if (isSeedance) {
-      // картинки → imageUrls (провайдер положит в input_urls / reference_image_urls)
-      if (imgUrl) s.imageUrls = [imgUrl]
+      // 🔧 Множественные референс-фото → imageUrls
+      // Бэк положит в input_urls (1.5 Pro) или reference_image_urls (2/2-fast)
+      if (seedanceImages.length > 0) {
+        s.imageUrls = seedanceImages.slice(0, seedanceMaxImages)
+      } else if (imgUrl) {
+        // fallback на одиночное фото (legacy)
+        s.imageUrls = [imgUrl]
+      }
       if (isSeedance15) {
         s.fixedLens = fixedLens
       } else {
@@ -1090,10 +1094,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       hapticNotification('success')
       setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
     }
-    }, [
+  }, [
     input, balance, displayedCost, slug, imgUrl,
     duration, aspectRatio, resolution, mode, sound, removeWatermark, resizeMode,
-    caps, requiresInputImage, isFreeForUser, // 🆕
+    caps, requiresInputImage, isFreeForUser,
     haptic, hapticNotification, generate,
     isVeo, veoMode, startFrame, endFrame, refImages, veoForcesDuration8, supportsReference,
     veoMaxRefImages,
@@ -1101,6 +1105,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isKling25, cfgScale, nsfwChecker,
     isMotion, motionVideoUrl, motionEffectiveDuration, characterOrientation,
     isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refAudios,
+    seedanceImages, seedanceMaxImages, // 🆕
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -1162,13 +1167,16 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       badges.push({ key: 'sound', label: sndOn ? '🔊' : '🔇', accent: sndOn })
     }
     if (isI2V) {
+      // 🆕 для Seedance показываем количество фото
+      const cnt = isSeedance ? seedanceImages.length : (imgUrl ? 1 : 0)
       badges.push({
         key: 'img2vid',
-        label: imgUrl ? '📸 Фото' : 'img2vid',
-        accent: !!imgUrl,
+        label: cnt > 0
+          ? (isSeedance && cnt > 1 ? `📸 ${cnt} фото` : '📸 Фото')
+          : 'img2vid',
+        accent: cnt > 0,
       })
     }
-    // Бейдж resizeMode — только если модель поддерживает и есть изображение
     if (caps.supportsResizeMode && imgUrl) {
       badges.push({
         key: 'resize',
@@ -1176,7 +1184,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         accent: resizeMode === 'pad',
       })
     }
-    // 🆕 kling badges
     if (isKling && multiShots) {
       const cnt = shots.filter((sh) => sh.prompt.trim()).length
       badges.push({ key: 'multishot', label: `🎬 ${cnt} шот${cnt === 1 ? '' : 'ов'}`, accent: true })
@@ -1191,7 +1198,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (isKling && (startFrame || endFrame)) {
       badges.push({ key: 'kframes', label: '🖼 Кадры', accent: true })
     }
-    // 🆕 kling 2.5 badges
     if (isKling25) {
       if (imgUrl) {
         badges.push({ key: 'k25img', label: '📸 Фото', accent: true })
@@ -1200,7 +1206,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       badges.push({ key: 'k25res', label: '1080p' })
     }
 
-    // 🆕 motion control badges
     if (isMotion) {
       if (imgUrl) badges.push({ key: 'mc-img', label: '📸 Фото', accent: true })
       if (motionVideoUrl) badges.push({ key: 'mc-vid', label: '🎬 Видео', accent: true })
@@ -1208,12 +1213,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
 
     return badges
-
   }, [
     caps, mode, duration, aspectRatio, resolution, sound, isI2V, imgUrl,
     isVeo, veoMode, veoForcesDuration8, resizeMode,
-    isKling, multiShots, shots, elements, startFrame, endFrame,   // 🆕
-    isKling25, cfgScale,   // 🆕 kling 2.5
+    isKling, multiShots, shots, elements, startFrame, endFrame,
+    isKling25, cfgScale,
+    isMotion, motionVideoUrl, characterOrientation,
+    isSeedance, seedanceImages, // 🆕
   ])
 
   const getGenCost = (gen: any): number | undefined => {
@@ -1510,7 +1516,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   relative overflow-hidden
                 "
               >
-                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
+                                <div className="absolute inset-0 opacity-30 bg-gradient-to-br from-[rgba(250,204,21,0.15)] via-transparent to-[rgba(250,204,21,0.08)] animate-pulse" />
                 <Loader2 size={36} className="text-[var(--accent-yellow)] animate-spin relative z-10" strokeWidth={1.5} />
                 <div className="text-[13px] font-medium text-white/70 relative z-10">
                   Создаём видео...
@@ -1699,7 +1705,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* 🆕 Kling: звук в мультисценах форсится */}
               {isKling && multiShots && caps.supportsSound && (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5 text-[12px] text-white/50 flex items-center gap-2">
                   <Volume2 size={14} className="text-[var(--accent-yellow)]" />
@@ -1717,7 +1722,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* Sora warning */}
               {(slug === 'sora-2-pro' || slug === 'sora-2') && (
                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-[12px] text-white/60 leading-relaxed">
                   ⚠️ Sora 2 имеет строгую модерацию. Реальные люди на изображениях не поддерживаются.
@@ -1727,7 +1731,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               {/* ═══ MOTION CONTROL ═══ */}
               {isMotion && (
                 <>
-                  {/* Фото персонажа */}
                   <Field label={<><ImageIcon size={12} /> Фото персонажа</>}>
                     <div className="grid grid-cols-2 gap-2.5">
                       <FrameSlot
@@ -1743,7 +1746,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* Видео с движениями */}
                   <Field label={<><Film size={12} /> Видео с движениями</>}>
                     {motionVideoUrl ? (
                       <div className="relative rounded-[10px] overflow-hidden border border-white/[0.08]">
@@ -1792,7 +1794,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* Ориентация персонажа */}
                   <Field label={<><Type size={12} /> Источник ориентации</>}>
                     <Grid cols={2}>
                       <OptBtn
@@ -1814,7 +1815,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* Качество */}
                   {caps.modes.length > 0 && (
                     <Field label={<><Layers size={12} /> Качество</>} priceHint>
                       <Grid cols={caps.modes.length}>
@@ -1833,7 +1833,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </Field>
                   )}
 
-                  <div className="bg-white/[0.03] ... flex items-center gap-2">
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5 text-[12px] text-white/50 flex items-center gap-2">
                     <Clock size={14} className="text-[var(--accent-yellow)]" />
                     {motionVideoDuration !== null ? (
                       <>Длительность: <b className="text-white/70 mx-1">{motionEffectiveDuration}с</b>
@@ -1852,7 +1852,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               {/* ═══ KLING 3.0 ═══ */}
               {isKling && (
                 <>
-                  {/* Multi-shots toggle */}
                   <Field label={<><Film size={12} /> Мультисцены</>}>
                     <Grid cols={2}>
                       <OptBtn
@@ -1873,7 +1872,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* Shots editor */}
                   {multiShots && (
                     <Field label={<><Layers size={12} /> Шоты ({shots.length}/5)</>} priceHint>
                       <div className="flex flex-col gap-2.5">
@@ -1923,7 +1921,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </Field>
                   )}
 
-                  {/* Elements editor */}
                   <Field label={<><Tag size={12} /> Элементы ({elements.length}/3)</>}>
                     <div className="flex flex-col gap-2.5">
                       {elements.map((el, idx) => (
@@ -1989,7 +1986,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* Frames (старт/конец кадр) */}
                   <Field
                     label={
                       <>
@@ -2019,17 +2015,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </>
               )}
 
-
               {/* ═══ KLING 2.5 TURBO ═══ */}
               {isKling25 && (
                 <>
-                  {/* Инфо про 1080p */}
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5 text-[12px] text-white/50 flex items-center gap-2">
                     <Layers size={14} className="text-[var(--accent-yellow)]" />
                     Качество видео — <b className="text-white/70 mx-1">1080p</b> (единственный вариант)
                   </div>
 
-                  {/* Индикатор текущего режима */}
                   <div
                     className={`
                       rounded-[var(--radius-xs)] px-3 py-2.5
@@ -2053,7 +2046,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     )}
                   </div>
 
-                  {/* Кадры: начальный (обязателен для i2v) → конечный (опц.) */}
                   <Field label={<><Film size={12} /> Оживить изображение (опц.)</>}>
                     <div className="grid grid-cols-2 gap-2.5">
                       <FrameSlot
@@ -2063,11 +2055,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         onUpload={() => triggerUpload('single')}
                         onRemove={() => {
                           setImgUrl('')
-                          // конечный кадр без начального не имеет смысла
                           setEndFrame('')
                         }}
                       />
-                      <FrameSlot
+                                            <FrameSlot
                         label="Конечный кадр (опц.)"
                         url={endFrame}
                         uploading={uploading && uploadTarget.current === 'end'}
@@ -2088,7 +2079,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* Креативность (cfg_scale) */}
                   <Field label={<><Sparkles size={12} /> Креативность</>}>
                     <CfgSlider
                       value={cfgScale}
@@ -2099,7 +2089,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
-                  {/* NSFW checker */}
                   <Field label={<><ShieldOff size={12} /> Фильтр 18+ контента</>}>
                     <ToggleRow
                       active={nsfwChecker}
@@ -2196,35 +2185,68 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               {/* ═══ SEEDANCE ═══ */}
               {isSeedance && (
                 <>
-                  {/* Входное изображение (1.5: input_urls / 2: reference) */}
-                  <Field label={<><ImageIcon size={12} /> {isSeedance15 ? 'Изображение (опц.)' : 'Референс-изображение (опц.)'}</>}>
+                  {/* 🆕 Множественные референс-фото */}
+                  <Field
+                    label={
+                      <>
+                        <ImageIcon size={12} />{' '}
+                        {isSeedance15
+                          ? `Изображения (${seedanceImages.length}/${seedanceMaxImages})`
+                          : `Референс-изображения (${seedanceImages.length}/${seedanceMaxImages})`}
+                      </>
+                    }
+                  >
                     <div className="grid grid-cols-4 gap-2">
-                      {imgUrl ? (
-                        <div className="relative aspect-square rounded-[10px]">
+                      {seedanceImages.map((url, idx) => (
+                        <div key={url + idx} className="relative aspect-square rounded-[10px]">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={imgUrl} alt="" className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block" />
+                          <img
+                            src={url}
+                            alt=""
+                            className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
+                          />
+                          {/* Бейдж @ImageN для Seedance 2 (референсы) */}
+                          {isSeedance2 && (
+                            <span className="absolute bottom-1 left-1 text-[9px] font-semibold bg-black/70 text-white px-1.5 py-0.5 rounded">
+                              @Image{idx + 1}
+                            </span>
+                          )}
                           <button
                             className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
-                            onClick={() => setImgUrl('')}
+                            onClick={() =>
+                              setSeedanceImages((p) => p.filter((_, i) => i !== idx))
+                            }
                           >
                             <X size={12} />
                           </button>
                         </div>
-                      ) : (
+                      ))}
+                      {seedanceImages.length < seedanceMaxImages && (
                         <button
-                          className="aspect-square rounded-[10px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.03] text-white/30 flex flex-col items-center justify-center gap-1 text-[10px] cursor-pointer transition-all active:bg-white/[0.07] disabled:opacity-50"
-                          onClick={() => triggerUpload('single')}
+                          className="
+                            aspect-square rounded-[10px]
+                            border-[1.5px] border-dashed border-white/[0.12]
+                            bg-white/[0.03] text-white/30
+                            flex flex-col items-center justify-center gap-1 text-[10px]
+                            cursor-pointer transition-all active:bg-white/[0.07]
+                            disabled:opacity-50
+                          "
+                          onClick={() => triggerUpload('seedance')}
                           disabled={uploading}
                         >
-                          {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+                          {uploading && uploadTarget.current === 'seedance' ? (
+                            <Loader2 size={20} className="animate-spin" />
+                          ) : (
+                            <Upload size={20} />
+                          )}
                           <span>Добавить</span>
                         </button>
                       )}
                     </div>
                     <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
                       {isSeedance15
-                        ? 'Без фото — видео по тексту. С фото — оживление кадра.'
-                        : 'Референс персонажа/сцены. В промпте ссылайтесь через @Image1, @Image2…'}
+                        ? 'Без фото — видео по тексту. С 1-2 фото — оживление кадра / переход.'
+                        : `До ${seedanceMaxImages} фото. Ссылайтесь в промпте через @Image1, @Image2…`}
                     </div>
                   </Field>
 
@@ -2263,9 +2285,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     <Field label={<><Film size={12} /> Видео-референсы ({refVideos.length}/3)</>}>
                       <div className="grid grid-cols-3 gap-2">
                         {refVideos.map((url, idx) => (
-                          <div key={url + idx} className="relative aspect-video rounded-[10px] overflow-hidden border border-white/[0.08]">
+                          <div
+                            key={url + idx}
+                            className="relative aspect-video rounded-[10px] overflow-hidden border border-white/[0.08]"
+                          >
                             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                            <video src={url} className="w-full h-full object-cover bg-black block" muted playsInline />
+                            <video
+                              src={url}
+                              className="w-full h-full object-cover bg-black block"
+                              muted
+                              playsInline
+                            />
                             <button
                               className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
                               onClick={() => setRefVideos((p) => p.filter((_, i) => i !== idx))}
@@ -2276,11 +2306,22 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         ))}
                         {refVideos.length < 3 && (
                           <button
-                            className="aspect-video rounded-[10px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.03] text-white/30 flex flex-col items-center justify-center gap-1 text-[10px] cursor-pointer transition-all active:bg-white/[0.07] disabled:opacity-50"
+                            className="
+                              aspect-video rounded-[10px]
+                              border-[1.5px] border-dashed border-white/[0.12]
+                              bg-white/[0.03] text-white/30
+                              flex flex-col items-center justify-center gap-1 text-[10px]
+                              cursor-pointer transition-all active:bg-white/[0.07]
+                              disabled:opacity-50
+                            "
                             onClick={() => refVideoFileRef.current?.click()}
                             disabled={uploadingRefVideo}
                           >
-                            {uploadingRefVideo ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                            {uploadingRefVideo ? (
+                              <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                              <Upload size={18} />
+                            )}
                             <span>Видео</span>
                           </button>
                         )}
@@ -2296,7 +2337,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     <Field label={<><Volume2 size={12} /> Аудио-референсы ({refAudios.length}/3)</>}>
                       <div className="flex flex-col gap-1.5">
                         {refAudios.map((url, idx) => (
-                          <div key={url + idx} className="flex items-center gap-2 py-1.5 px-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]">
+                          <div
+                            key={url + idx}
+                            className="flex items-center gap-2 py-1.5 px-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]"
+                          >
                             <Volume2 size={14} className="text-white/40 shrink-0" />
                             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                             <audio src={url} className="flex-1 min-w-0 h-7" controls />
@@ -2314,7 +2358,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             onClick={() => refAudioFileRef.current?.click()}
                             disabled={uploadingRefAudio}
                           >
-                            {uploadingRefAudio ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                            {uploadingRefAudio ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Plus size={16} />
+                            )}
                             Добавить аудио
                           </button>
                         )}
@@ -2374,7 +2422,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* ─── Resize Mode — только если модель поддерживает (есть в uiParameters) и загружено фото ─── */}
+              {/* ─── Resize Mode ─── */}
               {caps.supportsResizeMode && imgUrl && (
                 <Field label={<><Scissors size={12} /> Вписывание фото</>}>
                   <Grid cols={2}>
@@ -2402,7 +2450,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         </>
       )}
 
-      {/* Скрытый file input */}
+      {/* Скрытый image input */}
       <input
         ref={fileRef}
         type="file"
@@ -2428,7 +2476,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         }}
       />
 
-      {/* 🆕 Seedance: video reference input */}
+      {/* Seedance: video reference input */}
       <input
         ref={refVideoFileRef}
         type="file"
@@ -2441,7 +2489,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         }}
       />
 
-      {/* 🆕 Seedance: audio reference input */}
+      {/* Seedance: audio reference input */}
       <input
         ref={refAudioFileRef}
         type="file"
@@ -2475,7 +2523,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               if (endFrame) chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
             } else if (veoMode === 'reference' && supportsReference) {
               refImages.forEach((url, idx) =>
-                chips.push({ url, label: `Реф ${idx + 1}`, onRemove: () => setRefImages((p) => p.filter((_, i) => i !== idx)) }),
+                chips.push({
+                  url,
+                  label: `Реф ${idx + 1}`,
+                  onRemove: () => setRefImages((p) => p.filter((_, i) => i !== idx)),
+                }),
               )
             }
           } else if (isKling) {
@@ -2493,12 +2545,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               }
             })
           } else if (isKling25) {
-            if (imgUrl)
-              chips.push({ url: imgUrl, label: 'Старт', onRemove: () => setImgUrl('') })
-            if (endFrame)
-              chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
+            if (imgUrl) chips.push({ url: imgUrl, label: 'Старт', onRemove: () => setImgUrl('') })
+            if (endFrame) chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
           } else if (isMotion) {
             if (imgUrl) chips.push({ url: imgUrl, label: 'Фото', onRemove: () => setImgUrl('') })
+          } else if (isSeedance) {
+            // 🆕 чипы из множественной галереи Seedance
+            seedanceImages.forEach((url, idx) =>
+              chips.push({
+                url,
+                label: isSeedance2 ? `@Image${idx + 1}` : `Фото ${idx + 1}`,
+                onRemove: () => setSeedanceImages((p) => p.filter((_, i) => i !== idx)),
+              }),
+            )
           } else if (imgUrl) {
             chips.push({ url: imgUrl, label: 'Изображение', onRemove: () => setImgUrl('') })
           }
@@ -2540,100 +2599,86 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           )
         })()}
 
-        <div className="flex items-center gap-2">
-          {/* Кнопка загрузки (kling 3.0 грузит из настроек) */}
+                <div className="flex items-center gap-2">
+          {/* Кнопка загрузки */}
           {((isVeo && veoMode !== 'text') ||
-            (isKling25 && caps.supportsImageInput) ||
-            isMotion ||
-            (!isVeo && !isKling && !isKling25 && !isMotion && caps.supportsImageInput)) && (
-              <button
-                className={`
-                w-[38px] h-[38px] rounded-[10px] border-none
+            (!isVeo && !isKling && !isMotion && !isSeedance && caps.supportsImageInput) ||
+            (isKling25) ||
+            (isSeedance)) && (
+            <button
+              className="
+                w-9 h-9 rounded-full
+                border border-[var(--border-glass)]
+                bg-[var(--bg-glass)]
+                text-[var(--gray-400)]
                 flex items-center justify-center
-                cursor-pointer transition-all duration-150
-                shrink-0 self-center
-                ${(isVeo && veoMode === 'frames' && startFrame) ||
-                    (isVeo && veoMode === 'reference' && refImages.length > 0) ||
-                    (!isVeo && imgUrl)
-                    ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
-                    : 'bg-white/[0.04] text-[var(--gray-500)]'
-                  }
-                active:scale-[0.92]
-                disabled:opacity-50 disabled:cursor-default
-              `}
-                onClick={() => {
-                  if (isVeo && veoMode === 'frames') triggerUpload(startFrame ? 'end' : 'start')
-                  else if (isVeo && veoMode === 'reference') triggerUpload('ref')
-                  else if (isKling25) triggerUpload('single')
-                  else triggerUpload('single')
-                }}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Upload size={18} />
-                )}
-              </button>
-            )}
+                cursor-pointer shrink-0 transition-all duration-150
+                [-webkit-tap-highlight-color:transparent]
+                active:bg-[rgba(250,204,21,0.1)]
+                active:border-[rgba(250,204,21,0.3)]
+                active:text-[var(--accent-yellow)]
+                active:scale-90
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
+              onClick={() => {
+                if (isVeo && veoMode === 'frames') triggerUpload('start')
+                else if (isVeo && veoMode === 'reference') triggerUpload('ref')
+                else if (isKling25) triggerUpload('single')
+                else if (isSeedance) triggerUpload('seedance') // 🆕
+                else triggerUpload('single')
+              }}
+              disabled={uploading}
+            >
+              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+            </button>
+          )}
 
           <textarea
             ref={inputRef}
-            className="
-              flex-1 min-w-0 block align-middle
-              py-[9px] px-3.5
-              rounded-[var(--radius-sm)]
-              border border-[var(--border-glass)]
-              bg-white/[0.03]
-              text-white text-[14px] font-[inherit]
-              outline-none resize-none leading-[1.4]
-              max-h-[120px]
-              transition-[border-color] duration-200
-              placeholder:text-[var(--gray-600)]
-              focus:border-[rgba(250,204,21,0.2)]
-            "
-            placeholder={
-              isVeo && veoMode === 'frames'
-                ? 'Опишите движение между кадрами...'
-                : isVeo && veoMode === 'reference'
-                  ? 'Опишите сцену с референсами...'
-                  : isKling && multiShots
-                    ? 'Общее описание (опц.) — детали в шотах...'
-                    : isKling && elements.some((e) => e.name.trim())
-                      ? 'Опишите сцену, ссылайтесь на @имя элемента...'
-                      : isKling25 && imgUrl
-                        ? 'Опишите как оживить изображение...'
-                        : isKling25
-                          ? 'Опишите видео детально для лучшего результата...'
-                          : requiresInputImage
-                            ? 'Загрузите фото и опишите видео...'
-                            : 'Опишите видео...'
-            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKey}
+            placeholder={
+              isKling && multiShots
+                ? 'Общий стиль / контекст (опционально)…'
+                : isMotion
+                  ? 'Опишите сцену (опц., улучшает результат)…'
+                  : isSeedance2 && seedanceImages.length > 0
+                    ? 'Описание со ссылками на @Image1, @Image2…'
+                    : 'Опишите видео...'
+            }
             rows={1}
-            disabled={generating}
+            className="
+              flex-1 min-h-9 max-h-[120px]
+              py-2 px-3 rounded-[18px]
+              border border-[var(--border-glass)]
+              bg-[var(--bg-glass)]
+              text-white text-[14px] font-[inherit]
+              outline-none resize-none
+              transition-all duration-200
+              placeholder:text-[var(--gray-600)]
+              focus:border-[var(--accent-yellow)]
+              focus:bg-[rgba(250,204,21,0.05)]
+              focus:shadow-[0_0_0_3px_rgba(250,204,21,0.1)]
+              [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+            "
           />
 
           <button
-            className="
-              w-[38px] h-[38px] rounded-[10px] border-none
-              bg-white/[0.04] text-[var(--accent-yellow)]
+            className={`
+              w-9 h-9 rounded-full border-none shrink-0
               flex items-center justify-center
-              cursor-pointer transition-all duration-150
-              shrink-0 self-center
-              active:scale-[0.92]
-              disabled:cursor-default disabled:opacity-50
-            "
+              transition-all duration-200 ease-out
+              [-webkit-tap-highlight-color:transparent]
+              ${genDisabled
+                ? 'bg-white/[0.08] text-[var(--gray-600)] cursor-not-allowed'
+                : 'bg-[var(--accent-yellow)] text-black cursor-pointer active:scale-95 active:bg-[var(--accent-yellow-bright)]'
+              }
+            `}
             onClick={doGen}
             disabled={genDisabled}
           >
-            {generating ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Send size={18} className="-ml-0.5" />
-            )}
+            {generating ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
       </div>
@@ -2641,9 +2686,268 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   )
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Helper components
-   ───────────────────────────────────────────────────────────── */
+/* ─── Helper components ─── */
+
+function Field({
+  label,
+  children,
+  priceHint,
+}: {
+  label: React.ReactNode
+  children: React.ReactNode
+  priceHint?: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-white/45">
+        {label}
+        {priceHint && (
+          <span className="ml-auto text-[9px] text-white/30 normal-case tracking-normal">
+            влияет на цену
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Grid({ cols, children }: { cols: number; children: React.ReactNode }) {
+  const cls =
+    cols === 1 ? 'grid-cols-1'
+      : cols === 2 ? 'grid-cols-2'
+        : cols === 3 ? 'grid-cols-3'
+          : 'grid-cols-4'
+  return <div className={`grid ${cls} gap-1.5`}>{children}</div>
+}
+
+function OptBtn({
+  active,
+  onClick,
+  disabled,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`
+        py-2.5 px-2.5 rounded-[var(--radius-xs)] text-[12px] font-medium
+        border transition-all duration-150 [-webkit-tap-highlight-color:transparent]
+        ${disabled
+          ? 'opacity-40 cursor-not-allowed bg-white/[0.02] border-white/[0.04] text-white/30'
+          : active
+            ? 'bg-[rgba(250,204,21,0.12)] border-[rgba(250,204,21,0.35)] text-[var(--accent-yellow)] active:scale-[0.97]'
+            : 'bg-white/[0.03] border-white/[0.06] text-white/55 active:scale-[0.97] active:bg-white/[0.06]'
+        }
+      `}
+    >
+      {children}
+    </button>
+  )
+}
+
+function IconOptBtn({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex flex-col items-center justify-center gap-1
+        py-2.5 px-2 rounded-[var(--radius-xs)] text-[11px] font-medium
+        border transition-all duration-150 [-webkit-tap-highlight-color:transparent]
+        ${active
+          ? 'bg-[rgba(250,204,21,0.12)] border-[rgba(250,204,21,0.35)] text-[var(--accent-yellow)]'
+          : 'bg-white/[0.03] border-white/[0.06] text-white/55 active:bg-white/[0.06] active:scale-[0.97]'
+        }
+      `}
+    >
+      {icon}
+      <span className="leading-none">{label}</span>
+    </button>
+  )
+}
+
+function AROptBtn({
+  active,
+  orient,
+  label,
+  onClick,
+}: {
+  active: boolean
+  orient: AROrient
+  label: string
+  onClick: () => void
+}) {
+  const box =
+    orient === 'landscape' ? 'w-5 h-3.5'
+      : orient === 'portrait' ? 'w-3.5 h-5'
+        : 'w-4 h-4'
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex flex-col items-center justify-center gap-1
+        py-2.5 px-2 rounded-[var(--radius-xs)] text-[11px] font-medium
+        border transition-all duration-150 [-webkit-tap-highlight-color:transparent]
+        ${active
+          ? 'bg-[rgba(250,204,21,0.12)] border-[rgba(250,204,21,0.35)] text-[var(--accent-yellow)]'
+          : 'bg-white/[0.03] border-white/[0.06] text-white/55 active:bg-white/[0.06] active:scale-[0.97]'
+        }
+      `}
+    >
+      <div className={`${box} rounded-[2px] border-[1.5px] border-current opacity-70`} />
+      <span className="leading-none">{label}</span>
+    </button>
+  )
+}
+
+function ResOptBtn({
+  active,
+  label,
+  sub,
+  tier,
+  disabled,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  sub?: string
+  tier: number
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`
+        flex flex-col items-center justify-center gap-0.5
+        py-2.5 px-2 rounded-[var(--radius-xs)]
+        border transition-all duration-150 [-webkit-tap-highlight-color:transparent]
+        ${disabled
+          ? 'opacity-40 cursor-not-allowed bg-white/[0.02] border-white/[0.04] text-white/30'
+          : active
+            ? 'bg-[rgba(250,204,21,0.12)] border-[rgba(250,204,21,0.35)] text-[var(--accent-yellow)] active:scale-[0.97]'
+            : 'bg-white/[0.03] border-white/[0.06] text-white/55 active:bg-white/[0.06] active:scale-[0.97]'
+        }
+      `}
+    >
+      <span className="text-[12px] font-semibold leading-none">{label}</span>
+      {sub && <span className="text-[9px] opacity-60 leading-none">{sub}</span>}
+      <div className="flex gap-0.5 mt-0.5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <span
+            key={i}
+            className={`w-1 h-1 rounded-full ${i < tier ? 'bg-current' : 'bg-current opacity-20'}`}
+          />
+        ))}
+      </div>
+    </button>
+  )
+}
+
+function ToggleRow({
+  active,
+  onLabel,
+  offLabel,
+  onChange,
+}: {
+  active: boolean
+  onLabel: React.ReactNode
+  offLabel: React.ReactNode
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      <OptBtn active={active} onClick={() => onChange(true)}>{onLabel}</OptBtn>
+      <OptBtn active={!active} onClick={() => onChange(false)}>{offLabel}</OptBtn>
+    </div>
+  )
+}
+
+function DurationSlider({
+  values,
+  value,
+  onChange,
+  isDisabled,
+}: {
+  values: number[]
+  value: number
+  onChange: (v: number) => void
+  isDisabled?: (d: number) => boolean
+}) {
+  return (
+    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(values.length, 6)}, minmax(0, 1fr))` }}>
+      {values.map((v) => {
+        const disabled = isDisabled?.(v) ?? false
+        const active = v === value
+        return (
+          <button
+            key={v}
+            disabled={disabled}
+            onClick={() => onChange(v)}
+            className={`
+              py-2.5 rounded-[var(--radius-xs)] text-[12px] font-semibold
+              border transition-all duration-150 [-webkit-tap-highlight-color:transparent]
+              ${disabled
+                ? 'opacity-40 cursor-not-allowed bg-white/[0.02] border-white/[0.04] text-white/30'
+                : active
+                  ? 'bg-[rgba(250,204,21,0.12)] border-[rgba(250,204,21,0.35)] text-[var(--accent-yellow)]'
+                  : 'bg-white/[0.03] border-white/[0.06] text-white/55 active:bg-white/[0.06] active:scale-[0.97]'
+              }
+            `}
+          >
+            {v}с
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function CfgSlider({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-[11px] text-white/40">
+        <span>Свобода</span>
+        <span className="text-[var(--accent-yellow)] font-semibold tabular-nums">
+          {value.toFixed(1)}
+        </span>
+        <span>Точность</span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.1}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-[var(--accent-yellow)]"
+      />
+    </div>
+  )
+}
 
 function FrameSlot({
   label,
@@ -2658,326 +2962,47 @@ function FrameSlot({
   onUpload: () => void
   onRemove: () => void
 }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] text-white/40 font-medium">{label}</span>
-      {url ? (
-        <div className="relative aspect-video rounded-[10px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt=""
-            className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
-          />
-          <button
-            className="
-              absolute -top-1.5 -right-1.5
-              w-5 h-5 rounded-full border-none
-              bg-red-500 text-white
-              flex items-center justify-center
-              cursor-pointer z-[2]
-            "
-            onClick={onRemove}
-          >
-            <X size={12} />
-          </button>
-        </div>
-      ) : (
+  if (url) {
+    return (
+      <div className="relative aspect-square rounded-[10px]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt=""
+          className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
+        />
         <button
-          className="
-            aspect-video rounded-[10px]
-            border-[1.5px] border-dashed border-white/[0.12]
-            bg-white/[0.03] text-white/30
-            flex flex-col items-center justify-center gap-1 text-[10px]
-            cursor-pointer transition-all
-            active:bg-white/[0.07] active:border-white/[0.22]
-            disabled:opacity-50 disabled:cursor-not-allowed
-          "
-          onClick={onUpload}
-          disabled={uploading}
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+          onClick={onRemove}
         >
-          {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-          <span>{uploading ? '...' : 'Загрузить'}</span>
+          <X size={12} />
         </button>
-      )}
-    </div>
-  )
-}
-
-function Field({
-  label,
-  priceHint,
-  children,
-}: {
-  label: React.ReactNode
-  priceHint?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
-        {label}
-        {priceHint && (
-          <span className="text-[10px] text-[var(--accent-yellow)]/70 normal-case font-medium ml-1">
-            влияет на цену
-          </span>
-        )}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function Grid({
-  cols,
-  children,
-}: {
-  cols: number
-  children: React.ReactNode
-}) {
-  const colsClass =
-    cols === 1 ? 'grid-cols-1' :
-      cols === 2 ? 'grid-cols-2' :
-        cols === 3 ? 'grid-cols-3' :
-          cols === 4 ? 'grid-cols-4' :
-            'grid-cols-3'
-
-  return <div className={`grid gap-1.5 ${colsClass}`}>{children}</div>
-}
-
-function OptBtn({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      className={`
-        py-2 px-2.5 rounded-[var(--radius-xs)]
-        border text-[12px] font-medium
-        cursor-pointer transition-all duration-150
-        active:scale-[0.96]
-        ${active
-          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
-        }
-      `}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
-}
-
-/* ─── Иконка + подпись (режимы) ─── */
-function IconOptBtn({ active, icon, label, onClick }: {
-  active: boolean; icon: React.ReactNode; label: string; onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-1.5 py-2.5 px-2
-        rounded-[var(--radius-xs)] border text-[12px] font-medium
-        cursor-pointer transition-all duration-150 active:scale-[0.96]
-        ${active
-          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  )
-}
-
-/* ─── Aspect ratio (прямоугольник) ─── */
-function AROptBtn({ active, orient, label, onClick }: {
-  active: boolean; orient: AROrient; label: string; onClick: () => void
-}) {
-  const box =
-    orient === 'portrait' ? 'w-[16px] h-[24px]' :
-      orient === 'square' ? 'w-[20px] h-[20px]' :
-        orient === 'wide' ? 'w-[28px] h-[12px]' :
-          'w-[26px] h-[16px]'
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-1.5 py-2.5 px-2
-        rounded-[var(--radius-xs)] border text-[11px] font-medium
-        cursor-pointer transition-all duration-150 active:scale-[0.96]
-        ${active
-          ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-          : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
-    >
-      <span className={`${box} rounded-[3px] border-[1.5px] transition-colors
-        ${active ? 'border-[var(--accent-yellow)]' : 'border-white/30'}`} />
-      <span>{label}</span>
-    </button>
-  )
-}
-
-/* ─── Resolution (с подписью и индикатором уровня) ─── */
-function ResOptBtn({ active, label, sub, tier, onClick, disabled }: {
-  active: boolean; label: string; sub?: string; tier: number; onClick: () => void; disabled?: boolean
-}) {
-  return (
-    <button
-      onClick={() => { if (!disabled) onClick() }}
-      disabled={disabled}
-      className={`flex flex-col items-center justify-center gap-1 py-2.5 px-2
-        rounded-[var(--radius-xs)] border
-        transition-all duration-150
-        ${disabled
-          ? 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-white/15 cursor-not-allowed opacity-50'
-          : active
-            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)] cursor-pointer active:scale-[0.96]'
-            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)] cursor-pointer active:scale-[0.96]'}`}
-    >
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3].map((i) => (
-          <span key={i} className={`w-1 rounded-full transition-all
-            ${i <= tier
-              ? (active ? 'bg-[var(--accent-yellow)]' : 'bg-white/40')
-              : 'bg-white/10'}`}
-            style={{ height: `${5 + i * 3}px` }} />
-        ))}
-      </div>
-      <span className="text-[12px] font-semibold leading-none">{label}</span>
-      {sub && <span className="text-[9px] text-white/40 leading-none">{sub}</span>}
-    </button>
-  )
-}
-
-/* ─── Sound toggle ─── */
-function ToggleRow({ active, onLabel, offLabel, onChange }: {
-  active: boolean
-  onLabel: React.ReactNode
-  offLabel: React.ReactNode
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-1.5">
-      <button
-        onClick={() => onChange(true)}
-        className={`flex items-center justify-center gap-1.5 py-2 px-2.5
-          rounded-[var(--radius-xs)] border text-[12px] font-medium
-          cursor-pointer transition-all duration-150 active:scale-[0.96]
-          ${active
-            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
-      >
-        {onLabel}
-      </button>
-      <button
-        onClick={() => onChange(false)}
-        className={`flex items-center justify-center gap-1.5 py-2 px-2.5
-          rounded-[var(--radius-xs)] border text-[12px] font-medium
-          cursor-pointer transition-all duration-150 active:scale-[0.96]
-          ${!active
-            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'}`}
-      >
-        {offLabel}
-      </button>
-    </div>
-  )
-}
-
-/* ─── Duration slider ─── */
-function DurationSlider({ values, value, onChange, isDisabled }: {
-  values: number[]
-  value: number
-  onChange: (v: number) => void
-  isDisabled?: (v: number) => boolean
-}) {
-  const sorted = useMemo(() => [...values].sort((a, b) => a - b), [values])
-  const max = sorted.length - 1
-  const idx = Math.max(0, sorted.indexOf(value) === -1 ? 0 : sorted.indexOf(value))
-  const pct = max === 0 ? 0 : (idx / max) * 100
-
-  return (
-    <div className="flex flex-col gap-2.5 px-1 pt-1">
-      <div className="flex items-baseline justify-center gap-1">
-        <span className="text-[var(--accent-yellow)] text-[20px] font-bold leading-none">
-          {sorted[idx]}
+        <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded">
+          {label}
         </span>
-        <span className="text-white/40 text-[12px]">секунд</span>
       </div>
-
-      <div className="relative h-9 flex items-center">
-        {/* track */}
-        <div className="absolute left-0 right-0 h-1.5 rounded-full bg-white/[0.08]" />
-        {/* fill */}
-        <div
-          className="absolute left-0 h-1.5 rounded-full bg-[var(--accent-yellow)] transition-all duration-150"
-          style={{ width: `${pct}%` }}
-        />
-
-        {/* tick marks */}
-        <div className="absolute left-0 right-0 flex justify-between px-0 pointer-events-none">
-          {sorted.map((_, i) => (
-            <span
-              key={i}
-              className={`w-1.5 h-1.5 rounded-full transition-colors duration-150
-                ${i <= idx ? 'bg-[var(--accent-yellow)]' : 'bg-white/20'}`}
-            />
-          ))}
-        </div>
-
-        {/* thumb */}
-        <div
-          className="absolute w-5 h-5 rounded-full bg-[var(--accent-yellow)]
-            shadow-[0_0_0_4px_rgba(250,204,21,0.15)] -translate-x-1/2 transition-all duration-150
-            pointer-events-none"
-          style={{ left: `${pct}%` }}
-        />
-
-        {/* native range */}
-        <input
-          type="range"
-          min={0}
-          max={max}
-          step={1}
-          value={idx}
-          onChange={(e) => {
-            const v = sorted[Number(e.target.value)]
-            if (!(isDisabled?.(v) ?? false)) onChange(v)
-          }}
-          className="absolute left-0 right-0 w-full h-9 opacity-0 cursor-pointer m-0 p-0"
-          aria-label="Длительность"
-        />
-      </div>
-
-      {/* подписи значений */}
-      <div className="flex justify-between px-0">
-        {sorted.map((v) => {
-          const disabled = isDisabled?.(v) ?? false
-          return (
-            <button
-              key={v}
-              onClick={() => { if (!disabled) onChange(v) }}
-              disabled={disabled}
-              className={`text-[11px] font-medium tabular-nums transition-colors duration-150
-                bg-transparent border-none p-0
-                ${disabled
-                  ? 'text-white/15 cursor-not-allowed line-through'
-                  : v === sorted[idx]
-                    ? 'text-[var(--accent-yellow)] cursor-pointer'
-                    : 'text-white/35 cursor-pointer'}`}
-            >
-              {v}с
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    )
+  }
+  return (
+    <button
+      onClick={onUpload}
+      disabled={uploading}
+      className="
+        aspect-square rounded-[10px]
+        border-[1.5px] border-dashed border-white/[0.12]
+        bg-white/[0.03] text-white/30
+        flex flex-col items-center justify-center gap-1 text-[10px]
+        cursor-pointer transition-all
+        active:bg-white/[0.07] active:border-white/[0.22]
+        disabled:opacity-50
+      "
+    >
+      {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+      <span>{label}</span>
+    </button>
   )
 }
 
-/* ─── Kling: редактор шота ─── */
 function ShotEditor({
   index,
   prompt,
@@ -2995,62 +3020,56 @@ function ShotEditor({
   onDuration: (v: number) => void
   onRemove: () => void
 }) {
-  const durations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
   return (
-    <div className="rounded-[var(--radius-xs)] border border-white/[0.07] bg-white/[0.02] p-2.5 flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5 p-2.5 rounded-[10px] border border-white/[0.06] bg-white/[0.02]">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-[var(--accent-yellow)]">
-          Шот {index + 1}
-        </span>
+        <span className="text-[11px] font-semibold text-white/60">Шот #{index + 1}</span>
         {canRemove && (
           <button
-            className="w-6 h-6 rounded-md bg-white/[0.05] text-white/40 flex items-center justify-center active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]"
+            className="w-5 h-5 rounded-full bg-white/[0.06] text-white/40 flex items-center justify-center active:bg-red-500/30 active:text-red-300"
             onClick={onRemove}
           >
-            <Trash2 size={13} />
+            <X size={11} />
           </button>
         )}
       </div>
-
       <textarea
-        className="
-          w-full block py-2 px-2.5 rounded-[8px]
-          border border-white/[0.08] bg-white/[0.03]
-          text-white text-[13px] font-[inherit]
-          outline-none resize-none leading-[1.4] min-h-[56px]
-          placeholder:text-white/25
-          focus:border-[rgba(250,204,21,0.2)]
-        "
-        placeholder="Что происходит в этом шоте..."
         value={prompt}
-        maxLength={500}
         onChange={(e) => onPrompt(e.target.value)}
         rows={2}
+        placeholder="Опишите этот шот..."
+        maxLength={500}
+        className="
+          w-full px-2.5 py-2 rounded-[8px] resize-none
+          border border-white/[0.08] bg-white/[0.03]
+          text-[12px] text-white placeholder:text-white/30
+          outline-none focus:border-[var(--accent-yellow)]
+        "
       />
-
-      <div className="flex items-center gap-1 flex-wrap">
-        {durations.map((d) => (
-          <button
-            key={d}
-            onClick={() => onDuration(d)}
-            className={`
-              min-w-[30px] py-1 px-1.5 rounded-[6px] text-[11px] font-medium
-              transition-all active:scale-[0.94]
-              ${duration === d
-                ? 'bg-[rgba(250,204,21,0.12)] text-[var(--accent-yellow)] border border-[rgba(250,204,21,0.3)]'
-                : 'bg-white/[0.04] text-white/40 border border-transparent'
-              }
-            `}
-          >
-            {d}с
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] text-white/40">Длительность</span>
+        <div className="flex gap-1">
+          {[3, 5, 8, 10].map((d) => (
+            <button
+              key={d}
+              onClick={() => onDuration(d)}
+              className={`
+                py-1 px-2 rounded-[6px] text-[10px] font-semibold border transition-all
+                ${duration === d
+                  ? 'bg-[rgba(250,204,21,0.15)] border-[rgba(250,204,21,0.35)] text-[var(--accent-yellow)]'
+                  : 'bg-white/[0.03] border-white/[0.06] text-white/50'
+                }
+              `}
+            >
+              {d}с
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
 }
 
-/* ─── Kling: редактор элемента ─── */
 function ElementEditor({
   index,
   name,
@@ -3071,56 +3090,49 @@ function ElementEditor({
   onName: (v: string) => void
   onDescription: (v: string) => void
   onAddImage: () => void
-  onRemoveImage: (imgIdx: number) => void
+  onRemoveImage: (idx: number) => void
   onRemove: () => void
 }) {
-  const needMore = urls.length < 2
   return (
-    <div className="rounded-[var(--radius-xs)] border border-white/[0.07] bg-white/[0.02] p-2.5 flex flex-col gap-2">
+    <div className="flex flex-col gap-2 p-2.5 rounded-[10px] border border-white/[0.06] bg-white/[0.02]">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-white/50">
-          Элемент {index + 1}
-        </span>
+        <span className="text-[11px] font-semibold text-white/60">Элемент #{index + 1}</span>
         <button
-          className="w-6 h-6 rounded-md bg-white/[0.05] text-white/40 flex items-center justify-center active:bg-[rgba(239,68,68,0.2)] active:text-[var(--accent-red)]"
+          className="w-5 h-5 rounded-full bg-white/[0.06] text-white/40 flex items-center justify-center active:bg-red-500/30 active:text-red-300"
           onClick={onRemove}
         >
-          <Trash2 size={13} />
+          <X size={11} />
         </button>
       </div>
-
-      <div className="flex items-center gap-1.5 py-1.5 px-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]">
-        <Tag size={13} className="text-white/30 shrink-0" />
-        <input
-          className="flex-1 min-w-0 bg-transparent outline-none text-white text-[13px] font-[inherit] placeholder:text-white/25"
-          placeholder="имя (например cat)"
-          value={name}
-          maxLength={100}
-          onChange={(e) => onName(e.target.value.replace(/\s+/g, '_'))}
-        />
-      </div>
-
-      <div className="flex items-start gap-1.5 py-1.5 px-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]">
-        <FileText size={13} className="text-white/30 shrink-0 mt-1" />
-        <textarea
-          className="flex-1 min-w-0 bg-transparent outline-none text-white text-[13px] font-[inherit] resize-none leading-[1.4] placeholder:text-white/25"
-          placeholder="описание элемента (опц.)"
-          value={description}
-          maxLength={500}
-          onChange={(e) => onDescription(e.target.value)}
-          rows={1}
-        />
-      </div>
-
+      <input
+        value={name}
+        onChange={(e) => onName(e.target.value)}
+        placeholder="Имя (напр. CatHero)"
+        maxLength={50}
+        className="
+          w-full px-2.5 py-2 rounded-[8px]
+          border border-white/[0.08] bg-white/[0.03]
+          text-[12px] text-white placeholder:text-white/30
+          outline-none focus:border-[var(--accent-yellow)]
+        "
+      />
+      <input
+        value={description}
+        onChange={(e) => onDescription(e.target.value)}
+        placeholder="Описание (опц.)"
+        maxLength={150}
+        className="
+          w-full px-2.5 py-2 rounded-[8px]
+          border border-white/[0.08] bg-white/[0.03]
+          text-[12px] text-white placeholder:text-white/30
+          outline-none focus:border-[var(--accent-yellow)]
+        "
+      />
       <div className="grid grid-cols-4 gap-1.5">
         {urls.map((u, i) => (
-          <div key={u + i} className="relative aspect-square rounded-[8px]">
+          <div key={u + i} className="relative aspect-square">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={u}
-              alt=""
-              className="w-full h-full object-cover rounded-[8px] border border-white/[0.08] block"
-            />
+            <img src={u} alt="" className="w-full h-full object-cover rounded-[6px] border border-white/[0.08] block" />
             <button
               className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
               onClick={() => onRemoveImage(i)}
@@ -3131,73 +3143,22 @@ function ElementEditor({
         ))}
         {urls.length < 4 && (
           <button
-            className="
-              aspect-square rounded-[8px]
-              border-[1.5px] border-dashed border-white/[0.12]
-              bg-white/[0.02] text-white/30
-              flex items-center justify-center
-              active:bg-white/[0.06]
-              disabled:opacity-50
-            "
             onClick={onAddImage}
             disabled={uploading}
+            className="
+              aspect-square rounded-[6px]
+              border-[1.5px] border-dashed border-white/[0.12]
+              bg-white/[0.03] text-white/30
+              flex items-center justify-center cursor-pointer
+              active:bg-white/[0.07] disabled:opacity-50
+            "
           >
-            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
           </button>
         )}
       </div>
-
-      {needMore && (
-        <span className="text-[10px] text-amber-400/70">Нужно минимум 2 фото</span>
-      )}
-    </div>
-  )
-}
-
-/* ─── Kling 2.5: ползунок креативности (cfg_scale) ─── */
-function CfgSlider({
-  value,
-  onChange,
-}: {
-  value: number
-  onChange: (v: number) => void
-}) {
-  const pct = value * 100
-  return (
-    <div className="flex flex-col gap-2.5 px-1 pt-1">
-      <div className="flex items-baseline justify-center gap-1">
-        <span className="text-[var(--accent-yellow)] text-[20px] font-bold leading-none">
-          {value.toFixed(1)}
-        </span>
-      </div>
-
-      <div className="relative h-9 flex items-center">
-        <div className="absolute left-0 right-0 h-1.5 rounded-full bg-white/[0.08]" />
-        <div
-          className="absolute left-0 h-1.5 rounded-full bg-[var(--accent-yellow)] transition-all duration-150"
-          style={{ width: `${pct}%` }}
-        />
-        <div
-          className="absolute w-5 h-5 rounded-full bg-[var(--accent-yellow)]
-            shadow-[0_0_0_4px_rgba(250,204,21,0.15)] -translate-x-1/2 transition-all duration-150
-            pointer-events-none"
-          style={{ left: `${pct}%` }}
-        />
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.1}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute left-0 right-0 w-full h-9 opacity-0 cursor-pointer m-0 p-0"
-          aria-label="Креативность"
-        />
-      </div>
-
-      <div className="flex justify-between px-0 text-[10px] text-white/35">
-        <span>Свободно</span>
-        <span>Точно по промпту</span>
+      <div className="text-[9px] text-white/30">
+        Нужно 2-4 фото. {urls.length}/4
       </div>
     </div>
   )
