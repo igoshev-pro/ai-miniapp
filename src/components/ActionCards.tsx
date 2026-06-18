@@ -43,7 +43,7 @@ export function ActionCards({ onNavigate }: Props) {
       id: 'referral',
       icon: <Gift size={20} />,
       title: 'Друзья',
-      subtitle: '+50 спичек',
+      subtitle: '+10 спичек',
       variant: 'purple' as const,
     },
   ]

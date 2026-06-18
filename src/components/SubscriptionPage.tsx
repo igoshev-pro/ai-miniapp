@@ -421,7 +421,7 @@ export function SubscriptionPage({ onBack }: Props) {
       <div className="text-center p-4 bg-white/[.02] border border-white/[.04] rounded-xl animate-fade-in [animation-delay:.2s]">
         <div className="text-[14px] font-semibold text-white/50 mb-1">Free</div>
         <div className="text-[12px] text-white/25">
-          50 спичек при регистрации · Ограниченный доступ к моделям · Без подписки
+          9 спичек при регистрации · Ограниченный доступ к моделям · Без подписки
         </div>
       </div>
     </div>
