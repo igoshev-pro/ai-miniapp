@@ -2998,31 +2998,89 @@ function DurationSlider({
   onChange: (v: number) => void
   isDisabled?: (d: number) => boolean
 }) {
+  // Сортируем значения по возрастанию для корректной работы слайдера
+  const sortedValues = useMemo(() => [...values].sort((a, b) => a - b), [values])
+
+  // Текущий индекс выбранного значения
+  const currentIdx = Math.max(0, sortedValues.indexOf(value))
+
+  const min = 0
+  const max = sortedValues.length - 1
+
+  const handleChange = (idx: number) => {
+    const next = sortedValues[idx]
+    if (next === undefined) return
+    // Если этот шаг недоступен — ищем ближайший доступный
+    if (isDisabled?.(next)) {
+      // Пытаемся вправо
+      for (let i = idx + 1; i < sortedValues.length; i++) {
+        if (!isDisabled(sortedValues[i])) {
+          onChange(sortedValues[i])
+          return
+        }
+      }
+      // Потом влево
+      for (let i = idx - 1; i >= 0; i--) {
+        if (!isDisabled(sortedValues[i])) {
+          onChange(sortedValues[i])
+          return
+        }
+      }
+      return
+    }
+    onChange(next)
+  }
+
   return (
-    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(values.length, 6)}, minmax(0, 1fr))` }}>
-      {values.map((v) => {
-        const disabled = isDisabled?.(v) ?? false
-        const active = v === value
-        return (
-          <button
-            key={v}
-            disabled={disabled}
-            onClick={() => onChange(v)}
-            className={`
-              py-2.5 rounded-[var(--radius-xs)] text-[12px] font-semibold
-              border transition-all duration-150 [-webkit-tap-highlight-color:transparent]
-              ${disabled
-                ? 'opacity-40 cursor-not-allowed bg-white/[0.02] border-white/[0.04] text-white/30'
-                : active
-                  ? 'bg-[rgba(250,204,21,0.12)] border-[rgba(250,204,21,0.35)] text-[var(--accent-yellow)]'
-                  : 'bg-white/[0.03] border-white/[0.06] text-white/55 active:bg-white/[0.06] active:scale-[0.97]'
-              }
-            `}
-          >
-            {v}с
-          </button>
-        )
-      })}
+    <div className="flex flex-col gap-2.5">
+      {/* Текущее значение */}
+      <div className="flex items-center justify-between text-[11px] text-white/40">
+        <span>{sortedValues[0]}с</span>
+        <span className="text-[14px] text-[var(--accent-yellow)] font-bold tabular-nums">
+          {value}с
+        </span>
+        <span>{sortedValues[sortedValues.length - 1]}с</span>
+      </div>
+
+      {/* Ползунок */}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={currentIdx}
+        onChange={(e) => handleChange(parseInt(e.target.value, 10))}
+        className="w-full accent-[var(--accent-yellow)] cursor-pointer"
+      />
+
+      {/* Метки шагов под ползунком */}
+      <div className="flex justify-between px-1 -mt-1">
+        {sortedValues.map((v) => {
+          const disabled = isDisabled?.(v) ?? false
+          const active = v === value
+          return (
+            <button
+              key={v}
+              onClick={() => !disabled && onChange(v)}
+              disabled={disabled}
+              className={`
+                text-[10px] font-medium tabular-nums leading-none
+                transition-colors duration-150
+                [-webkit-tap-highlight-color:transparent]
+                ${disabled
+                  ? 'text-white/15 cursor-not-allowed'
+                  : active
+                    ? 'text-[var(--accent-yellow)]'
+                    : 'text-white/35 active:text-white/60'
+                }
+              `}
+              style={{ background: 'none', border: 'none', padding: 0 }}
+            >
+              {v}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
