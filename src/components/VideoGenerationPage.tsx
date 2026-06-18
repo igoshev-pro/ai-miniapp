@@ -2472,7 +2472,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && !isKling && !isMotion && !isSeedance && caps.supportsImageInput && (
+              {!isVeo && !isKling && !isMotion && !isSeedance && !isSora && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -2707,9 +2707,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         <div className="flex items-center gap-2">
           {/* Кнопка загрузки */}
           {((isVeo && veoMode !== 'text') ||
-            (!isVeo && !isKling && !isMotion && !isSeedance && caps.supportsImageInput) ||
+            (!isVeo && !isKling && !isMotion && !isSeedance && !isSora && caps.supportsImageInput) ||
             (isKling25) ||
-            (isSeedance)) && (
+            (isSeedance) ||
+            (isSora)) && (
               <button
                 className="
                 w-9 h-9 rounded-full
