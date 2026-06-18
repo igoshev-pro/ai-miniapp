@@ -187,6 +187,9 @@ export function SpichkiApp() {
           setPage('profile')
           setActiveNav('profile')
           break
+        case 'topup':            // 🆕 переход в пополнение
+          setPage('topup')
+          break
         case 'feed':
         default:
           goHome()
