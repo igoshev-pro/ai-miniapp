@@ -2050,6 +2050,9 @@ body.tg-app .toast-container {
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.92);
   word-break: break-word;
+  max-width: 100%;          /* ← добавить */
+  min-width: 0;             /* ← добавить */
+  overflow-wrap: anywhere;  /* ← добавить (длинные ссылки/слова) */
 }
 
 .msg-markdown p {
@@ -2147,6 +2150,8 @@ body.tg-app .toast-container {
   overflow: hidden;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  max-width: 100%;   /* ← добавить */
+  min-width: 0;      /* ← добавить */
 }
 
 .msg-code-block__copy {
@@ -2177,10 +2182,12 @@ body.tg-app .toast-container {
   padding: 14px;
   padding-top: 36px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;   /* ← добавить (плавный скролл iOS) */
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 12.5px;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.85);
+  max-width: 100%;   /* ← добавить */
 }
 
 .msg-code-block__pre code {

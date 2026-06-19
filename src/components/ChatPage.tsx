@@ -1095,7 +1095,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               {msg.content && (
                 <div
                   className={`
-                    py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
+                    py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px] min-w-0 max-w-full
                     ${
                       msg.role === 'user'
                         ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
@@ -1148,7 +1148,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               </div>
               <div
                 className="
-                  py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px]
+                  py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px] min-w-0 max-w-full
                   bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
                   border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]
                 "
