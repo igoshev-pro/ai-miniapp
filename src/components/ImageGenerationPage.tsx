@@ -138,7 +138,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const resultsRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const initialAppliedRef = useRef(false)
 
@@ -358,6 +357,15 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [input])
 
+  // Скролл ленты наверх при первом появлении генераций (заход на страницу)
+  const scrolledToTopRef = useRef(false)
+  useEffect(() => {
+    if (scrolledToTopRef.current) return
+    if (imageGenerations.length === 0) return
+    messagesContainerRef.current?.scrollTo({ top: 0 })
+    scrolledToTopRef.current = true
+  }, [imageGenerations.length])
+
   // ─── Upload image ─────────────────────────────────────────
   const handleImageUpload = useCallback(async (file: File) => {
     if (!file) return
@@ -478,8 +486,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       setInput('')
       hapticNotification('success')
       setTimeout(
-        () => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }),
-        200,
+        () =>
+          messagesContainerRef.current?.scrollTo({
+            top: 0,
+            behavior: 'smooth',
+          }),
+        100,
       )
     }
   }, [
@@ -833,7 +845,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               <div
                 key={gen.id}
                 className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]"
-                ref={resultsRef}
               >
                 <div className="flex items-center gap-2 flex-wrap">
                   <span

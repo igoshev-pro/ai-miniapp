@@ -368,7 +368,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const resultsContainerRef = useRef<HTMLDivElement>(null)
-  const resultsEndRef = useRef<HTMLDivElement>(null)
   const initialAppliedRef = useRef(false)
 
   const model = videoModels.find((m: any) => m.slug === slug)
@@ -719,23 +718,24 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px'
   }, [input])
 
-  useEffect(() => {
-    const el = resultsContainerRef.current
-    if (!el) return
-    if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight
-  }, [vidGens.length])
-
+  // Скролл ленты наверх при первом появлении генераций (заход на страницу)
   const didInitialScrollRef = useRef(false)
   useEffect(() => {
     if (didInitialScrollRef.current) return
     if (vidGens.length === 0) return
 
+
+
+
     const id = setTimeout(() => {
       const el = resultsContainerRef.current
       if (!el) return
-      el.scrollTop = el.scrollHeight
+      el.scrollTop = 0
       didInitialScrollRef.current = true
     }, 100)
+
+
+
 
     return () => clearTimeout(id)
   }, [vidGens.length])
@@ -1123,7 +1123,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (ok) {
       setInput('')
       hapticNotification('success')
-      setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
+      setTimeout(
+        () =>
+          resultsContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' }),
+        100,
+      )
     }
   }, [
     input, balance, displayedCost, slug, imgUrl,
@@ -1565,8 +1569,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               </div>
             </div>
           )}
-
-          <div ref={resultsEndRef} />
         </div>
       </div>
 

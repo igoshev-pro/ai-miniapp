@@ -270,7 +270,6 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsContainerRef = useRef<HTMLDivElement>(null)
-  const resultsEndRef = useRef<HTMLDivElement>(null)
   const initialAppliedRef = useRef(false)
 
   const currentModel = audioModels.find((m: any) => m.slug === slug)
@@ -593,11 +592,26 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, max) + 'px'
   }, [input, caps.type])
 
-  // Auto-scroll
+    // Скролл ленты наверх при первом появлении генераций (заход на страницу)
+  const didInitialScrollRef = useRef(false)
   useEffect(() => {
-    const el = resultsContainerRef.current
-    if (!el) return
-    if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight
+    if (didInitialScrollRef.current) return
+    if (audioGens.length === 0) return
+
+
+
+
+    const id = setTimeout(() => {
+      const el = resultsContainerRef.current
+      if (!el) return
+      el.scrollTop = 0
+      didInitialScrollRef.current = true
+    }, 100)
+
+
+
+
+    return () => clearTimeout(id)
   }, [audioGens.length])
 
   /* ── Upload audio ── */
@@ -748,7 +762,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       setExtendTrack(null)   // 🆕
       setContinueAt('')      // 🆕
       hapticNotification('success')
-      setTimeout(() => resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 200)
+      setTimeout(
+        () =>
+          resultsContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' }),
+        100,
+      )
     }
     }, [
     input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps, isTTS,
@@ -1243,7 +1261,6 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             </div>
           )}
 
-          <div ref={resultsEndRef} />
         </div>
       </div>
 
