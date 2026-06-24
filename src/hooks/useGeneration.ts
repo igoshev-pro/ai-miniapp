@@ -1,3 +1,4 @@
+// src/hooks/useGeneration.ts
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
@@ -38,6 +39,7 @@ interface GenerationResponse {
     generationId: string
     status: string
     tokensCost: number
+    freeAccess?: boolean
   }
 }
 
@@ -53,7 +55,7 @@ function mapBackendGeneration(g: any): Generation {
     progress: g.status === 'completed' ? 100 : g.progress || 0,
     resultUrl: g.resultUrls?.[0],
     resultUrls: g.resultUrls,
-    audioIds: g.metadata?.audioIds,   // 🆕 для extend
+    audioIds: g.metadata?.audioIds,
     tokensUsed: g.tokensCost,
     isFavorite: g.isFavorite,
     error: g.errorMessage,
@@ -97,11 +99,12 @@ export function useGeneration() {
     try {
       const { data } = await apiClient.get<{
         success: boolean
-        data: { tokenBalance: number; bonusTokens: number }
+        data: { tokenBalance: number; bonusTokens: number; cashbackBalance?: number }
       }>(ENDPOINTS.USER_ME)
       useUserStore.getState().updateBalance(
         data.data.tokenBalance,
         data.data.bonusTokens,
+        data.data.cashbackBalance,
       )
     } catch (err) {
       console.warn('[Generation] balance refresh failed:', err)
@@ -202,7 +205,9 @@ export function useGeneration() {
       })
 
       showFailedToast(data.generationId, data.errorMessage, data.refunded)
-      if (data.refunded) refreshBalanceFromServer()
+      // 🔧 FIX: Всегда обновляем баланс с сервера при fail,
+      // независимо от refunded — чтобы UI показывал правильное значение
+      refreshBalanceFromServer()
     }
 
     socket.on(WS_EVENTS.STATUS, handleStatus)
@@ -268,6 +273,7 @@ export function useGeneration() {
           }
           if (d.status === 'failed') {
             showFailedToast(generationId, d.errorMessage)
+            // 🔧 FIX: всегда обновляем баланс при fail (как в WS)
             refreshBalanceFromServer()
             pollingTimers.current.delete(generationId)
             return
@@ -335,47 +341,28 @@ export function useGeneration() {
 
       if (request.type === 'video') {
         if (s.aspectRatio) body.aspectRatio = s.aspectRatio
-
-        // resolution: kie-модели (wan) читают напрямую;
-        // evolink (veo/sora) — buildVideoBody маппит request.resolution → body.quality.
         if (s.resolution) body.resolution = s.resolution
-
-        // quality: kie-модели цены (sora/veo по quality), а для evolink дублируем в resolution ниже
         if (s.quality) body.quality = s.quality
-
-        // 🆕 Для evolink (veo/sora): если пришёл quality, но НЕ пришёл resolution —
-        // дублируем quality в resolution, иначе evolink не получит разрешение.
         if (s.quality && !s.resolution) {
           body.resolution = s.quality
         }
-
         if (s.duration !== undefined) body.duration = s.duration
         if (s.imageUrl) body.imageUrl = s.imageUrl
         if (s.imageUrls && (s.imageUrls as string[]).length > 0) {
           body.imageUrls = s.imageUrls
         }
-        // 🆕 Veo: референс-изображения (REFERENCE_2_VIDEO)
         if (s.referenceImages && (s.referenceImages as string[]).length > 0) {
           body.referenceImages = s.referenceImages
         }
-        // 🆕 Veo: явный режим генерации
         if (s.generationType) body.generationType = s.generationType
-        // 🆕 Veo: watermark текст
         if (s.watermark) body.watermark = s.watermark
-
         if (s.style) body.style = s.style
         if (s.mode) body.mode = s.mode
-
-        // 🆕 Звук: шлём оба ключа (sound + generateAudio),
-        // бэк/провайдер возьмёт нужный.
         if (s.sound !== undefined) body.sound = s.sound
         if (s.generateAudio !== undefined) body.generateAudio = s.generateAudio
-
         if (s.removeWatermark !== undefined) body.removeWatermark = s.removeWatermark
         if (s.promptOptimizer !== undefined) body.promptOptimizer = s.promptOptimizer
         if (s.waterMark !== undefined) body.waterMark = s.waterMark
-
-        // 🆕 Kling 3.0: multi-shots / elements
         if (s.multiShots !== undefined) body.multiShots = s.multiShots
         if (s.multiPrompt && (s.multiPrompt as any[]).length > 0) {
           body.multiPrompt = s.multiPrompt
@@ -383,13 +370,9 @@ export function useGeneration() {
         if (s.klingElements && (s.klingElements as any[]).length > 0) {
           body.klingElements = s.klingElements
         }
-
-        // 🆕 Kling 2.5 Turbo: cfg scale / nsfw checker / negative prompt
         if (s.cfgScale !== undefined) body.cfgScale = s.cfgScale
         if (s.nsfwChecker !== undefined) body.nsfwChecker = s.nsfwChecker
         if (s.negativePrompt) body.negativePrompt = s.negativePrompt
-
-        // 🆕 Seedance + 🔧 fix Motion Control (videoUrls/characterOrientation раньше не пробрасывались!)
         if (s.videoUrls && (s.videoUrls as string[]).length > 0) body.videoUrls = s.videoUrls
         if (s.audioUrls && (s.audioUrls as string[]).length > 0) body.audioUrls = s.audioUrls
         if (s.characterOrientation) body.characterOrientation = s.characterOrientation
@@ -411,8 +394,6 @@ export function useGeneration() {
         if (s.promptInfluence !== undefined) body.promptInfluence = s.promptInfluence
         if (s.audioUrl) body.audioUrl = s.audioUrl
         if (s.dialogue && (s.dialogue as any[]).length > 0) body.dialogue = s.dialogue
-
-        // 🆕 Suno расширенные (Custom Mode)
         if (s.title) body.title = s.title
         if (s.negativeTags) body.negativeTags = s.negativeTags
         if (s.vocalGender) body.vocalGender = s.vocalGender
@@ -420,8 +401,8 @@ export function useGeneration() {
         if (s.weirdnessConstraint !== undefined) body.weirdnessConstraint = s.weirdnessConstraint
         if (s.audioWeight !== undefined) body.audioWeight = s.audioWeight
         if (s.operation) body.operation = s.operation
-        if (s.audioId) body.audioId = s.audioId               // 🆕 extend
-        if (s.continueAt !== undefined) body.continueAt = s.continueAt // 🆕 extend
+        if (s.audioId) body.audioId = s.audioId
+        if (s.continueAt !== undefined) body.continueAt = s.continueAt
       }
 
       try {
@@ -436,6 +417,23 @@ export function useGeneration() {
           return null
         }
 
+        // 🔧 FIX: Сразу после POST бэк уже списал токены.
+        // Оптимистично обновляем баланс в UI чтобы не было ложного "+"
+        // при последующем refund/complete.
+        const tokensCost = data.data?.tokensCost ?? 0
+        const isFree = data.data?.freeAccess === true
+        if (!isFree && tokensCost > 0) {
+          const currentUser = useUserStore.getState().user
+          if (currentUser) {
+            // Вычитаем из UI сразу (бэк уже списал)
+            const newBonus = Math.max(0, currentUser.bonusTokens - tokensCost)
+            const deductedFromBonus = currentUser.bonusTokens - newBonus
+            const remainingDeduction = tokensCost - deductedFromBonus
+            const newToken = Math.max(0, currentUser.tokenBalance - remainingDeduction)
+            useUserStore.getState().updateBalance(newToken, newBonus, currentUser.cashbackBalance)
+          }
+        }
+
         const generation: Generation = {
           id: generationId,
           type: request.type,
@@ -444,7 +442,7 @@ export function useGeneration() {
           prompt: request.prompt,
           status: 'pending',
           progress: 0,
-          tokensUsed: data.data?.tokensCost,   // 🆕 стоимость из ответа POST
+          tokensUsed: data.data?.tokensCost,
           settings: request.settings,
           createdAt: new Date().toISOString(),
         }
@@ -456,6 +454,12 @@ export function useGeneration() {
         startPolling(generationId)
 
         toast.info('Генерация запущена...')
+
+        // 🔧 FIX: Через секунду запрашиваем реальный баланс с сервера
+        // для точной синхронизации (оптимистичное вычитание может не совпадать
+        // с реальным порядком списания bonus→token→cashback на бэке)
+        setTimeout(() => refreshBalanceFromServer(), 1500)
+
         return generation
       } catch (err) {
         if (isApiError(err)) {
@@ -472,7 +476,7 @@ export function useGeneration() {
         return null
       }
     },
-    [user, store, modelsStore, startPolling],
+    [user, store, modelsStore, startPolling, refreshBalanceFromServer],
   )
 
 
