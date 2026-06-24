@@ -1,3 +1,4 @@
+// src/components/SpichkiApp.tsx
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -25,9 +26,7 @@ import ReferralPage from './ReferralPage'
 import { FavoritesPage } from './FavoritesPage'
 import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
-// 🆕 Вместо Telegram Login Widget — вход через бота (без запроса телефона)
 import { BotLoginButton } from './auth/BotLoginButton'
-// 🆕 Запускаем авто-авторизацию Mini App (initData) внутри Telegram
 import { useAuth } from '@/hooks'
 
 type Page =
@@ -46,17 +45,28 @@ type Page =
   | 'favorites'
   | 'support'
 
+// ─── Страницы, требующие авторизации ───
+const AUTH_REQUIRED_PAGES: Set<Page> = new Set([
+  'chat',
+  'image-generation',
+  'video-generation',
+  'audio-generation',
+  'profile',
+  'topup',
+  'transactions',
+  'subscription',
+  'referral',
+  'chats-history',
+  'favorites',
+])
+
 export function SpichkiApp() {
   const { isReady, isTelegram, webApp } = useTelegram()
-  // useAuth по-прежнему нужен: он выполняет авто-авторизацию через initData
-  // внутри Telegram Mini App и восстановление токена из persist.
   const { isReady: authReady } = useAuth()
   const token = useAuthStore((s) => s.token)
   const { refetch: refetchUser } = useUser()
   const { loadModels } = useModels()
 
-  // Ждём гидрацию persist-стора (иначе при F5 в браузере токен ещё null
-  // в момент первого рендера → мигнёт экран логина)
   const [hydrated, setHydrated] = useState(
     () => useAuthStore.persist?.hasHydrated() ?? true,
   )
@@ -76,15 +86,49 @@ export function SpichkiApp() {
   const [initialCategory, setInitialCategory] = useState<string | null>(null)
   const [chatModel, setChatModel] = useState<string>('ChatGPT 4o')
   const [chatId, setChatId] = useState<string | undefined>(undefined)
-
   const [genModel, setGenModel] = useState<string | undefined>(undefined)
+
+  // ─── Auth Gate: модалка «Войди для продолжения» ───
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [pendingNav, setPendingNav] = useState<(() => void) | null>(null)
+
+  // Проверка: нужна ли авторизация для целевой страницы?
+  // Если да и нет токена — показываем модалку, запоминаем действие.
+  const requireAuth = useCallback(
+    (targetPage: Page, action: () => void): boolean => {
+      if (!AUTH_REQUIRED_PAGES.has(targetPage)) {
+        action()
+        return true
+      }
+      if (token) {
+        action()
+        return true
+      }
+      // Нет токена → показываем auth-модалку
+      setPendingNav(() => action)
+      setShowAuthModal(true)
+      return false
+    },
+    [token],
+  )
+
+  // После успешной авторизации — выполняем отложенное действие
+  useEffect(() => {
+    if (token && pendingNav && showAuthModal) {
+      setShowAuthModal(false)
+      pendingNav()
+      setPendingNav(null)
+    }
+  }, [token, pendingNav, showAuthModal])
 
   const navigateTo = useCallback(
     (newPage: Page) => {
-      setPageHistory((prev) => [...prev, page])
-      setPage(newPage)
+      requireAuth(newPage, () => {
+        setPageHistory((prev) => [...prev, page])
+        setPage(newPage)
+      })
     },
-    [page],
+    [page, requireAuth],
   )
 
   const goBack = useCallback(() => {
@@ -112,6 +156,7 @@ export function SpichkiApp() {
   const openAllModels = useCallback(
     (category?: string | null) => {
       setInitialCategory(category ?? null)
+      // all-models не в AUTH_REQUIRED — navigateTo пропустит без проверки
       navigateTo('all-models')
       setActiveNav('models')
     },
@@ -120,23 +165,30 @@ export function SpichkiApp() {
 
   const openChat = useCallback(
     (modelNameOrSlug?: string, existingChatId?: string) => {
-      setChatModel(modelNameOrSlug || 'gpt-4o-mini')
-      setChatId(
-        existingChatId && existingChatId.length > 0 ? existingChatId : undefined,
-      )
-      navigateTo('chat')
-      setActiveNav('create')
+      requireAuth('chat', () => {
+        setChatModel(modelNameOrSlug || 'gpt-4o-mini')
+        setChatId(
+          existingChatId && existingChatId.length > 0 ? existingChatId : undefined,
+        )
+        setPageHistory((prev) => [...prev, page])
+        setPage('chat')
+        setActiveNav('create')
+      })
     },
-    [navigateTo],
+    [requireAuth, page],
   )
 
   const openGeneration = useCallback(
     (type: 'image' | 'video' | 'audio', modelSlug?: string) => {
-      setGenModel(modelSlug)
-      navigateTo(`${type}-generation` as Page)
-      setActiveNav('create')
+      const targetPage = `${type}-generation` as Page
+      requireAuth(targetPage, () => {
+        setGenModel(modelSlug)
+        setPageHistory((prev) => [...prev, page])
+        setPage(targetPage)
+        setActiveNav('create')
+      })
     },
-    [navigateTo],
+    [requireAuth, page],
   )
 
   const openChatsHistory = useCallback(() => {
@@ -166,43 +218,44 @@ export function SpichkiApp() {
 
   const handleNavChange = useCallback(
     (id: string) => {
-      setPageHistory([])
-      switch (id) {
-        case 'models':
-          setPage('all-models')
-          setInitialCategory(null)
-          setActiveNav('models')
-          break
-        case 'create':
+      const pageMap: Record<string, Page> = {
+        models: 'all-models',
+        create: 'chat',
+        favorites: 'favorites',
+        profile: 'profile',
+        topup: 'topup',
+      }
+
+      const targetPage = pageMap[id]
+
+      if (!targetPage || id === 'feed') {
+        goHome()
+        return
+      }
+
+      // Для страниц, требующих авторизации — проверяем
+      requireAuth(targetPage, () => {
+        setPageHistory([])
+
+        if (id === 'create') {
           setChatId(undefined)
           setChatModel('ChatGPT 4o')
-          setPage('chat')
-          setActiveNav('create')
-          break
-        case 'favorites':
-          setPage('favorites')
-          setActiveNav('favorites')
-          break
-        case 'profile':
-          setPage('profile')
-          setActiveNav('profile')
-          break
-        case 'topup':            // 🆕 переход в пополнение
-          setPage('topup')
-          break
-        case 'feed':
-        default:
-          goHome()
-      }
+        }
+
+        setPage(targetPage)
+        if (id !== 'topup') {
+          setActiveNav(id)
+        }
+      })
     },
-    [goHome],
+    [goHome, requireAuth],
   )
 
   const handleHomeRefresh = useCallback(async () => {
     await refetchUser()
   }, [refetchUser])
 
-  // Если есть токен (из persist) — догружаем профиль и модели
+  // Если есть токен — догружаем профиль и модели
   useEffect(() => {
     if (authReady && token) {
       refetchUser()
@@ -211,12 +264,15 @@ export function SpichkiApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, token])
 
-  // ─────────────────────────────────────────────────────────────
-  // 🆕 Единый глобальный контроллер Telegram BackButton.
-  // Раньше каждая страница вешала свой onClick/offClick, из-за чего
-  // при переходах handler'ы конфликтовали и кнопка "назад" умирала.
-  // Теперь BackButton управляется ТОЛЬКО здесь, в одном месте.
-  // ─────────────────────────────────────────────────────────────
+  // Загружаем модели даже без авторизации (для каталога)
+  useEffect(() => {
+    if (authReady && !token) {
+      loadModels()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, token])
+
+  // ─── Telegram BackButton (единый контроллер) ───
   const goBackRef = useRef(goBack)
   useEffect(() => {
     goBackRef.current = goBack
@@ -225,30 +281,19 @@ export function SpichkiApp() {
   useEffect(() => {
     const bb = webApp?.BackButton
     if (!bb) return
-
-    const handler = () => {
-      goBackRef.current()
-    }
-
+    const handler = () => goBackRef.current()
     bb.onClick(handler)
-
-    return () => {
-      bb.offClick(handler)
-    }
+    return () => bb.offClick(handler)
   }, [webApp])
 
-  // Показываем/прячем кнопку в зависимости от страницы
   useEffect(() => {
     const bb = webApp?.BackButton
     if (!bb) return
-    if (page === 'home') {
-      bb.hide()
-    } else {
-      bb.show()
-    }
+    if (page === 'home') bb.hide()
+    else bb.show()
   }, [webApp, page])
 
-  // 1) Ждём пока проинициализируется Telegram WebApp, гидрация persist и auth flow
+  // 1) Ждём инициализацию
   if (!isReady || !authReady || !hydrated) {
     return (
       <div className="app-loading">
@@ -261,45 +306,7 @@ export function SpichkiApp() {
     )
   }
 
-  // 2) Не в Telegram + нет JWT → экран логина через бота (deep-link auth_<code>).
-  //    Телефон НЕ запрашивается — открывается бот, пользователь жмёт «Старт».
-  if (!isTelegram && !token) {
-    return (
-      <div className="app-loading">
-        <div className="app-loading__logo">🔥</div>
-        <div className="app-loading__text">SPICHKI AI</div>
-        <p
-          style={{
-            marginTop: 12,
-            marginBottom: 24,
-            fontSize: 14,
-            color: 'rgba(255,255,255,0.6)',
-            textAlign: 'center',
-            maxWidth: 280,
-          }}
-        >
-          Войди через Telegram, чтобы продолжить
-        </p>
-
-        <BotLoginButton />
-
-        <p
-          style={{
-            marginTop: 20,
-            fontSize: 12,
-            color: 'rgba(255,255,255,0.4)',
-            textAlign: 'center',
-            maxWidth: 280,
-          }}
-        >
-          Откроется бот в Telegram. Нажми «Старт» — и вернёшься сюда
-          авторизованным. Номер телефона не требуется.
-        </p>
-      </div>
-    )
-  }
-
-  // 3) Авторизован — основное приложение
+  // 2) Основное приложение — ВСЕГДА рендерится (даже без токена)
   return (
     <div className="app-layout">
       <Background />
@@ -395,6 +402,48 @@ export function SpichkiApp() {
 
         <BottomNav active={activeNav} onChange={handleNavChange} />
       </div>
+
+      {/* ─── Auth Modal (для неавторизованных при попытке зайти на защищённую страницу) ─── */}
+      {showAuthModal && (
+        <>
+          <div
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              setShowAuthModal(false)
+              setPendingNav(null)
+            }}
+          />
+          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+            <div
+              className="w-full max-w-sm rounded-2xl p-6 text-center"
+              style={{
+                background: 'rgba(18, 18, 22, 0.95)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              <div className="mb-3 text-4xl">🔐</div>
+              <h2 className="mb-2 text-lg font-bold text-white">
+                Требуется авторизация
+              </h2>
+              <p className="mb-5 text-sm text-white/60">
+                Войди через Telegram, чтобы использовать генерацию, чаты, пополнение и другие функции
+              </p>
+
+              <BotLoginButton />
+
+              <button
+                onClick={() => {
+                  setShowAuthModal(false)
+                  setPendingNav(null)
+                }}
+                className="mt-4 text-sm text-white/40 hover:text-white/60 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
