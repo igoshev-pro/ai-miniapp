@@ -509,7 +509,6 @@ export function useGeneration() {
     [store],
   )
 
-
   // ─── toggleFavorite ──────────────────────────────────────────
   const toggleFavorite = useCallback(
     async (generationId: string) => {
@@ -529,7 +528,6 @@ export function useGeneration() {
     },
     [store],
   )
-
 
   return {
     generations: store.generations,
