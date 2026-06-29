@@ -333,6 +333,10 @@ export function useGeneration() {
         if (s.negativePrompt) body.negativePrompt = s.negativePrompt
         if (s.seed !== undefined) body.seed = s.seed
         if (s.style) body.style = s.style
+        // 🔧 FIX: mode/version влияют на цену (Midjourney: draft/fast/turbo).
+        // Без них бэк получал mode=undefined → params:{} → free-gate ломался.
+        if (s.mode) body.mode = s.mode
+        if (s.version) body.version = s.version
         if (s.inputUrls && (s.inputUrls as string[]).length > 0) {
           body.inputUrls = s.inputUrls
         }
