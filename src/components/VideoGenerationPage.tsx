@@ -493,6 +493,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     return Math.min(15, Math.max(3, total))
   }, [isKling, multiShots, shots])
 
+  // 🆕 Сырая сумма шотов (до clamp) — для подсказки если превышен максимум
+  const rawShotsSum = useMemo(() => {
+    if (!isKling || !multiShots) return 0
+    return shots
+      .filter((sh) => sh.prompt.trim())
+      .reduce((sum, sh) => sum + Math.min(12, Math.max(1, sh.duration || 3)), 0)
+  }, [isKling, multiShots, shots])
+
   useEffect(() => {
     if (isVeo && veoMode === 'reference' && !supportsReference) {
       setVeoMode('text')
@@ -1982,6 +1990,56 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           </button>
                         )}
                       </div>
+                                              {/* 🆕 Сводка: суммарная длительность + цена мультисцен */}
+                        {klingMultiDuration !== undefined && (
+                          <div
+                            className="
+                              mt-1 flex items-center justify-between
+                              px-3 py-2.5 rounded-[var(--radius-xs)]
+                              bg-[rgba(250,204,21,0.06)]
+                              border border-[rgba(250,204,21,0.18)]
+                            "
+                          >
+                            <div className="flex items-center gap-1.5 text-[11px] text-white/55">
+                              <Clock size={13} className="text-[var(--accent-yellow)]" />
+                              <span>
+                                Итого:{' '}
+                                <b className="text-white/80">
+                                  {klingMultiDuration} сек
+                                </b>
+                                {rawShotsSum > 15 && (
+                                  <span className="text-amber-400/70 ml-1">
+                                    (из {rawShotsSum}с, макс 15)
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-[12px] font-semibold">
+                              {isFreeForUser ? (
+                                <span className="text-emerald-400 inline-flex items-center gap-1">
+                                  <Gift size={12} />
+                                  {formatFreeLabel(freeAccess)}
+                                </span>
+                              ) : (
+                                <span
+                                  className={
+                                    !isFallbackPrice
+                                      ? 'text-[var(--accent-yellow)]'
+                                      : 'text-white/50'
+                                  }
+                                >
+                                  {showPriceLoader && (
+                                    <Loader2
+                                      size={11}
+                                      className="animate-spin inline mr-1"
+                                    />
+                                  )}
+                                  {formatCost(displayedCost)} 🔥
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                     </Field>
                   )}
 
