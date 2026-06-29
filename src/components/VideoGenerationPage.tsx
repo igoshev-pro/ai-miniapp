@@ -478,6 +478,21 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     ? Math.min(motionMaxDur, Math.max(3, motionVideoDuration ? Math.round(motionVideoDuration) : 5))
     : undefined
 
+  // 🆕 Суммарная длительность мультисцен Kling 3.0 (для корректной цены).
+  // ВАЖНО: каждый шот на бэке/KIE клампится в 1–12 сек (Math.min(12,Math.max(1,...))),
+  // поэтому суммируем уже заклампленные значения, затем общий clamp 3–15 (pricingMatrix).
+  const klingMultiDuration = useMemo(() => {
+    if (!isKling || !multiShots) return undefined
+    const total = shots
+      .filter((sh) => sh.prompt.trim())
+      .reduce((sum, sh) => {
+        const d = Math.min(12, Math.max(1, sh.duration || 3))
+        return sum + d
+      }, 0)
+    if (total <= 0) return undefined
+    return Math.min(15, Math.max(3, total))
+  }, [isKling, multiShots, shots])
+
   useEffect(() => {
     if (isVeo && veoMode === 'reference' && !supportsReference) {
       setVeoMode('text')
@@ -493,6 +508,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       p.mode = mode || '720p'
       if (motionEffectiveDuration) p.duration = motionEffectiveDuration
       p.hasInputImage = true
+    } else if (isKling && multiShots) {
+      // 🆕 Мультисцены: цена по суммарной длительности шотов
+      if (klingMultiDuration !== undefined) p.duration = klingMultiDuration
+      p.sound = true // KIE форсит sound=true в мультисценах
     } else if (caps.durations.length > 0 && duration !== undefined) {
       p.duration = veoForcesDuration8 ? 8 : duration
     }
@@ -525,6 +544,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
     isSeedance2, refVideos, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, // 🆕
+    isKling, multiShots, klingMultiDuration, // 🆕
   ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
@@ -1071,6 +1091,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             duration: Math.min(12, Math.max(1, sh.duration || 3)),
           }))
         s.sound = true
+        // 🆕 суммарная длительность для корректной цены на бэке
+        if (klingMultiDuration !== undefined) {
+          s.duration = klingMultiDuration
+        }
       }
 
       const validElements = elements
