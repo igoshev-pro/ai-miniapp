@@ -92,20 +92,17 @@ button,
   inset: 0;
   background:
     linear-gradient(180deg,
-      rgba(8,8,10, 0.3) 0%,
-      rgba(8,8,10, 0.6) 30%,
-      rgba(8,8,10, 0.85) 60%,
-      rgba(8,8,10, 1) 100%
-    );
+      rgba(8, 8, 10, 0.3) 0%,
+      rgba(8, 8, 10, 0.6) 30%,
+      rgba(8, 8, 10, 0.85) 60%,
+      rgba(8, 8, 10, 1) 100%);
 }
 
 .bg-scene__grid {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(
-      rgba(250, 204, 21, 0.015) 1px,
-      transparent 1px
-    ),
+  background-image: linear-gradient(rgba(250, 204, 21, 0.015) 1px,
+      transparent 1px),
     linear-gradient(90deg, rgba(250, 204, 21, 0.015) 1px, transparent 1px);
   background-size: 40px 40px;
 }
@@ -135,9 +132,19 @@ button,
 }
 
 @keyframes orbFloat {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(15px, -20px) scale(1.06); }
-  66% { transform: translate(-10px, 15px) scale(0.96); }
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(15px, -20px) scale(1.06);
+  }
+
+  66% {
+    transform: translate(-10px, 15px) scale(0.96);
+  }
 }
 
 /* ═══════════════ STICKY HEADER ═══════════════ */
@@ -553,7 +560,8 @@ button,
 }
 
 .bottom-nav__item--center {
-  margin-top: -14px;        /* чуть меньше подъёма, чтобы подпись вписалась */
+  margin-top: -14px;
+  /* чуть меньше подъёма, чтобы подпись вписалась */
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -606,33 +614,57 @@ button,
   opacity: 0;
 }
 
-.fade-in--1 { animation-delay: 0.05s; }
-.fade-in--2 { animation-delay: 0.1s; }
-.fade-in--3 { animation-delay: 0.2s; }
-.fade-in--4 { animation-delay: 0.3s; }
-.fade-in--5 { animation-delay: 0.4s; }
+.fade-in--1 {
+  animation-delay: 0.05s;
+}
+
+.fade-in--2 {
+  animation-delay: 0.1s;
+}
+
+.fade-in--3 {
+  animation-delay: 0.2s;
+}
+
+.fade-in--4 {
+  animation-delay: 0.3s;
+}
+
+.fade-in--5 {
+  animation-delay: 0.4s;
+}
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ═══════════════ SKELETON ═══════════════ */
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0.03) 25%,
-    rgba(255,255,255,0.06) 50%,
-    rgba(255,255,255,0.03) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.03) 25%,
+      rgba(255, 255, 255, 0.06) 50%,
+      rgba(255, 255, 255, 0.03) 75%);
   background-size: 200% 100%;
   animation: skeletonShimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
 
 @keyframes skeletonShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ═══════════════ ALL MODELS PAGE ═══════════════ */
@@ -995,12 +1027,27 @@ button,
   animation: typingBounce 1.2s ease-in-out infinite;
 }
 
-.chat-typing__dot:nth-child(2) { animation-delay: 0.15s; }
-.chat-typing__dot:nth-child(3) { animation-delay: 0.3s; }
+.chat-typing__dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing__dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes typingBounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-4px); opacity: 1; }
+
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
 
 /* ── Зона ввода ── */
@@ -2019,10 +2066,21 @@ body.tg-app .toast-container {
   animation: toast-in 0.3s ease-out;
 }
 
-.toast--success .toast__icon { color: #4ade80; }
-.toast--error .toast__icon { color: #f87171; }
-.toast--warning .toast__icon { color: #fbbf24; }
-.toast--info .toast__icon { color: #60a5fa; }
+.toast--success .toast__icon {
+  color: #4ade80;
+}
+
+.toast--error .toast__icon {
+  color: #f87171;
+}
+
+.toast--warning .toast__icon {
+  color: #fbbf24;
+}
+
+.toast--info .toast__icon {
+  color: #60a5fa;
+}
 
 .toast__message {
   flex: 1;
@@ -2039,8 +2097,15 @@ body.tg-app .toast-container {
 }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ═══════════════ MARKDOWN В СООБЩЕНИЯХ ═══════════════ */
@@ -2050,9 +2115,12 @@ body.tg-app .toast-container {
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.92);
   word-break: break-word;
-  max-width: 100%;          /* ← добавить */
-  min-width: 0;             /* ← добавить */
-  overflow-wrap: anywhere;  /* ← добавить (длинные ссылки/слова) */
+  max-width: 100%;
+  /* ← добавить */
+  min-width: 0;
+  /* ← добавить */
+  overflow-wrap: anywhere;
+  /* ← добавить (длинные ссылки/слова) */
 }
 
 .msg-markdown p {
@@ -2150,8 +2218,10 @@ body.tg-app .toast-container {
   overflow: hidden;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  max-width: 100%;   /* ← добавить */
-  min-width: 0;      /* ← добавить */
+  max-width: 100%;
+  /* ← добавить */
+  min-width: 0;
+  /* ← добавить */
 }
 
 .msg-code-block__copy {
@@ -2182,12 +2252,14 @@ body.tg-app .toast-container {
   padding: 14px;
   padding-top: 36px;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;   /* ← добавить (плавный скролл iOS) */
+  -webkit-overflow-scrolling: touch;
+  /* ← добавить (плавный скролл iOS) */
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 12.5px;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.85);
-  max-width: 100%;   /* ← добавить */
+  max-width: 100%;
+  /* ← добавить */
 }
 
 .msg-code-block__pre code {
@@ -2196,21 +2268,66 @@ body.tg-app .toast-container {
 }
 
 /* highlight.js тёмная тема */
-.hljs { color: rgba(255, 255, 255, 0.85); }
-.hljs-keyword { color: #c792ea; }
-.hljs-string { color: #c3e88d; }
-.hljs-number { color: #f78c6c; }
-.hljs-built_in { color: #82aaff; }
-.hljs-function { color: #82aaff; }
-.hljs-comment { color: rgba(255, 255, 255, 0.3); font-style: italic; }
-.hljs-variable { color: #f07178; }
-.hljs-attr { color: #ffcb6b; }
-.hljs-tag { color: #f07178; }
-.hljs-name { color: #f07178; }
-.hljs-selector-class { color: #ffcb6b; }
-.hljs-type { color: #ffcb6b; }
-.hljs-title { color: #82aaff; }
-.hljs-params { color: rgba(255, 255, 255, 0.85); }
+.hljs {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hljs-keyword {
+  color: #c792ea;
+}
+
+.hljs-string {
+  color: #c3e88d;
+}
+
+.hljs-number {
+  color: #f78c6c;
+}
+
+.hljs-built_in {
+  color: #82aaff;
+}
+
+.hljs-function {
+  color: #82aaff;
+}
+
+.hljs-comment {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
+.hljs-variable {
+  color: #f07178;
+}
+
+.hljs-attr {
+  color: #ffcb6b;
+}
+
+.hljs-tag {
+  color: #f07178;
+}
+
+.hljs-name {
+  color: #f07178;
+}
+
+.hljs-selector-class {
+  color: #ffcb6b;
+}
+
+.hljs-type {
+  color: #ffcb6b;
+}
+
+.hljs-title {
+  color: #82aaff;
+}
+
+.hljs-params {
+  color: rgba(255, 255, 255, 0.85);
+}
 
 /* Стриминг — мигающий курсор */
 .msg-streaming-cursor::after {
@@ -2221,7 +2338,9 @@ body.tg-app .toast-container {
 }
 
 @keyframes blink {
-  50% { opacity: 0; }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* ═══════════════ TOPUP PAGE ═══════════════ */
@@ -2536,12 +2655,35 @@ body.tg-app .toast-container {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.tx-row__icon--purchase { color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
-.tx-row__icon--subscription { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-.tx-row__icon--bonus { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
-.tx-row__icon--referral { color: #c084fc; background: rgba(192, 132, 252, 0.1); }
-.tx-row__icon--spending { color: #f87171; background: rgba(248, 113, 113, 0.1); }
-.tx-row__icon--refund { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+.tx-row__icon--purchase {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.tx-row__icon--subscription {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.tx-row__icon--bonus {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.tx-row__icon--referral {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.1);
+}
+
+.tx-row__icon--spending {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.tx-row__icon--refund {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
 
 .tx-row__body {
   flex: 1;
@@ -2567,8 +2709,13 @@ body.tg-app .toast-container {
   white-space: nowrap;
 }
 
-.tx-row__amount--plus { color: #4ade80; }
-.tx-row__amount--minus { color: #f87171; }
+.tx-row__amount--plus {
+  color: #4ade80;
+}
+
+.tx-row__amount--minus {
+  color: #f87171;
+}
 
 .tx-row__bottom {
   display: flex;
@@ -2579,7 +2726,9 @@ body.tg-app .toast-container {
   color: rgba(255, 255, 255, 0.3);
 }
 
-.tx-row__dot { margin: 0 2px; }
+.tx-row__dot {
+  margin: 0 2px;
+}
 
 .tx-row__status {
   margin-left: auto;
@@ -2588,9 +2737,20 @@ body.tg-app .toast-container {
   border-radius: 4px;
 }
 
-.tx-row__status--completed { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
-.tx-row__status--pending { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
-.tx-row__status--failed { color: #f87171; background: rgba(248, 113, 113, 0.1); }
+.tx-row__status--completed {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.tx-row__status--pending {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.tx-row__status--failed {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
 
 /* ═══════════════ GENERATION SETTINGS MODAL ═══════════════ */
 
@@ -3279,8 +3439,13 @@ body.tg-app .toast-container {
   z-index: 2;
 }
 
-.media-result__nav--prev { left: 8px; }
-.media-result__nav--next { right: 8px; }
+.media-result__nav--prev {
+  left: 8px;
+}
+
+.media-result__nav--next {
+  right: 8px;
+}
 
 .media-result__dots {
   position: absolute;
@@ -3348,14 +3513,29 @@ body.tg-app .toast-container {
 }
 
 @keyframes loading-slide {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(150%); }
-  100% { transform: translateX(300%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  50% {
+    transform: translateX(150%);
+  }
+
+  100% {
+    transform: translateX(300%);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 /* ═══════════════ OFFLINE BANNER ═══════════════ */
@@ -3379,8 +3559,13 @@ body.tg-app .toast-container {
 }
 
 @keyframes slide-down {
-  from { transform: translateY(-100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(-100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
 
 /* ═══════════════ FAVORITES PAGE ═══════════════ */
@@ -4387,18 +4572,33 @@ body.tg-app .toast-container {
 /* ═══════════════ ЕДИНЫЕ АНИМАЦИИ ═══════════════ */
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes modal-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes modal-slide-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
 
 /* ═══════════════ TELEGRAM APP ═══════════════ */
@@ -4406,6 +4606,7 @@ body.tg-app .toast-container {
 body.tg-app {
   padding-top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
 }
+
 body.tg-app .sticky-header {
   top: 0 !important;
 }
@@ -5215,7 +5416,8 @@ body.tg-app .sticky-header {
 /* ═══════════════ DESKTOP SIDEBAR ═══════════════ */
 
 .desktop-sidebar {
-  display: none; /* скрыт на мобайле */
+  display: none;
+  /* скрыт на мобайле */
 }
 
 /* ═══════════════ APP LAYOUT ═══════════════ */
@@ -5265,8 +5467,13 @@ body.tg-app .sticky-header {
 }
 
 @keyframes slideUp {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
 
 /* ═══════════════ TABLET (768–1023px) ═══════════════ */
@@ -5707,7 +5914,7 @@ body.tg-app .sticky-header {
     max-width: none;
   }
 
-    .fs-page {
+  .fs-page {
     left: 72px !important;
     right: 0 !important;
     max-width: none;
@@ -5721,7 +5928,13 @@ body.tg-app .sticky-header {
     width: 100%;
   }
 
-    .gen-settings-overlay {
+  /* На планшете BottomNav тоже скрыт → убираем отступ под него */
+  .fs-page__input {
+    margin-bottom: 0 !important;
+    padding-bottom: calc(16px + var(--safe-bottom)) !important;
+  }
+
+  .gen-settings-overlay {
     left: 72px !important;
   }
 
@@ -6071,7 +6284,7 @@ body.tg-app .sticky-header {
     font-size: 15px;
   }
 
-    .category-card__desc {
+  .category-card__desc {
     font-size: 12px;
   }
 
@@ -6478,10 +6691,10 @@ body.tg-app .sticky-header {
   }
 
   .favorites-page__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
 
 
   /* ── TOAST ── */
@@ -6618,7 +6831,7 @@ body.tg-app .sticky-header {
     scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
   }
 
-    /* ═══════════ FIXED FULLSCREEN PAGES (Chat / Image / Video / Audio) ═══════════ */
+  /* ═══════════ FIXED FULLSCREEN PAGES (Chat / Image / Video / Audio) ═══════════ */
 
   /* Внешний контейнер страницы (fixed inset-0) */
   .fs-page {
@@ -6645,8 +6858,12 @@ body.tg-app .sticky-header {
 
   .fs-page__input {
     max-width: 1000px;
-    margin: 0 auto;
+    margin: 0 auto !important;
+    /* перебиваем Tailwind mb-[59px] */
+    margin-bottom: 0 !important;
+    /* на десктопе BottomNav скрыт — отступ не нужен */
     width: 100%;
+    padding-bottom: calc(20px + var(--safe-bottom)) !important;
   }
 
   /* Settings sheet — центрируем на десктопе */
@@ -6672,7 +6889,8 @@ body.tg-app .sticky-header {
     border: 1px solid var(--border-glass);
     animation: fadeIn 0.2s ease-out;
     /* выровнено по контенту main, без сдвига к сайдбару */
-    margin-left: 120px; /* половина ширины сайдбара чтобы центр был в main */
+    margin-left: 120px;
+    /* половина ширины сайдбара чтобы центр был в main */
   }
 }
 
@@ -6723,6 +6941,7 @@ body.tg-app {
   padding-top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
   padding-bottom: calc(84px + var(--safe-bottom)) !important;
 }
+
 body.tg-app .sticky-header {
   top: 0 !important;
   display: flex !important;
@@ -7253,6 +7472,7 @@ body.tg-app .gen-settings-sheet {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -7276,6 +7496,7 @@ body.tg-app .gen-settings-sheet {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
