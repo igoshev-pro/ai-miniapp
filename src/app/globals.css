@@ -7062,13 +7062,14 @@ body.tg-app .fs-page {
   left: 0 !important;
   right: 0 !important;
   max-width: none !important;
-  /* 🔧 FIX: привязка к реальной высоте TG WebView, а не к inset-0.
-     При растягивании мини-аппа bottom:0 уезжает за видимую область —
-     поэтому задаём высоту явно через --tg-viewport-stable-height
-     и резервируем место под BottomNav (59px). */
   top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
-  bottom: calc(59px + var(--safe-bottom, 0px)) !important;
+  bottom: 59px !important;
   height: auto !important;
+}
+
+body.tg-app .fs-page__input {
+  margin-bottom: 0 !important;
+  padding-bottom: 8px !important;
 }
 
 body.tg-app .fs-page__bar,
