@@ -50,7 +50,7 @@ const PKGS = PKG_DEFS.map((p) => {
 const PROVIDERS: { id: Provider; label: string; icon: typeof Star; sub: string }[] = [
   { id: 'stars', label: 'Stars', icon: Star, sub: 'Telegram' },
   { id: 'tochka', label: 'Карта', icon: CreditCard, sub: 'РФ ₽' },
-  { id: 'freedompay', label: 'Карта', icon: CreditCard, sub: 'KG ⃀' }, // 🆕
+  { id: 'freedompay', label: 'Карта', icon: CreditCard, sub: 'KGS' }, // 🆕
   { id: 'heleket', label: 'Crypto', icon: Bitcoin, sub: 'USDT/BTC' },
 ]
 
