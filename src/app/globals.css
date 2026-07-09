@@ -2050,7 +2050,7 @@ button,
 }
 
 body.tg-app .toast-container {
-  top: calc(var(--safe-area-top, 0px) + 8px) !important;
+  top: calc(var(--header-height) + var(--safe-area-top, 0px) + 8px) !important;
 }
 
 .toast {
@@ -6937,15 +6937,17 @@ body.tg-app .sticky-header {
 /* ═══════════════ TELEGRAM APP OVERRIDES ═══════════════ */
 /* Telegram Mini App всегда использует мобильный layout */
 
-/* ═══════════════ TELEGRAM APP OVERRIDES ═══════════════ */
-/* В Telegram есть своя нативная шапка → собственный sticky-header не нужен */
 body.tg-app {
-  padding-top: 0 !important;
+  padding-top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
   padding-bottom: calc(84px + var(--safe-bottom)) !important;
 }
 
 body.tg-app .sticky-header {
-  display: none !important;
+  top: 0 !important;
+  display: flex !important;
+  max-width: none !important;
+  border-left: none !important;
+  border-right: none !important;
 }
 
 body.tg-app .bottom-nav {
@@ -6978,7 +6980,7 @@ body.tg-app .gen-page__header {
   left: 0 !important;
   right: 0 !important;
   max-width: none !important;
-  top: 0 !important;
+  top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
 }
 
 body.tg-app .chat-page__input-area,
@@ -6994,7 +6996,7 @@ body.tg-app .models-page__sticky {
   left: 0 !important;
   right: 0 !important;
   max-width: none !important;
-  top: 0 !important;
+  top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
 }
 
 body.tg-app .chat-model-dropdown {
@@ -7017,18 +7019,19 @@ body.tg-app .offline-banner {
 
 body.tg-app .chat-page {
   max-width: none !important;
-  height: calc(var(--tg-viewport-stable-height, 100dvh) - 74px - var(--safe-bottom)) !important;
+  height: calc(100vh - var(--header-height) - 74px - var(--safe-bottom)) !important;
+  height: calc(var(--tg-viewport-stable-height, 100dvh) - var(--header-height) - 74px - var(--safe-bottom)) !important;
 }
 
 body.tg-app .chat-page__messages {
   max-width: none !important;
   padding: 52px 16px 70px !important;
-  padding-top: 40px !important;  /* было: calc(var(--header-height) + 40px) */
+  padding-top: calc(var(--header-height) + 40px) !important;
 }
 
 body.tg-app .gen-page {
   max-width: none !important;
-  height: calc(100dvh - 74px - var(--safe-bottom, 0px)) !important;
+  height: calc(100dvh - var(--header-height) - 74px - var(--safe-area-top, 0px) - var(--safe-bottom, 0px)) !important;
 }
 
 body.tg-app .gen-page__results {
@@ -7059,7 +7062,7 @@ body.tg-app .fs-page {
   left: 0 !important;
   right: 0 !important;
   max-width: none !important;
-  top: 0 !important;
+  top: calc(var(--header-height) + var(--safe-area-top, 0px)) !important;
   bottom: 65px !important;
   height: auto !important;
 }
