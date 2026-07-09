@@ -179,7 +179,7 @@ export function SubscriptionPage({ onBack }: Props) {
               }
             `}
           >
-            {c === 'kgs' ? 'Сом' : c === 'rub' ? '₽ Рубли' : '$ USD'}
+            {c === 'kgs' ? '⃀ Сом' : c === 'rub' ? '₽ Рубли' : '$ USD'}
           </button>
         ))}
       </div>

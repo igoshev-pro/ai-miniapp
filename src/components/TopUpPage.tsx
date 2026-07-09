@@ -167,7 +167,7 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
     switch (provider) {
       case 'stars': return 'Оплата через Telegram Stars. Зачисление мгновенное.'
       case 'tochka': return 'Российская карта (₽) через Банк «Точка». Зачисление после подтверждения банка.'
-      case 'freedompay': return 'Оплата картой Visa / Mastercard / Элкарт в сомах через FreedomPay. Зачисление мгновенное.'
+      case 'freedompay': return 'Оплата картой Visa / Mastercard / Элкарт в сомах (⃀) через FreedomPay. Зачисление мгновенное.'
       case 'heleket': return 'Оплата криптовалютой (USDT/BTC/TRX и др.). Зачисление после подтверждения сети.'
     }
   })()
@@ -195,7 +195,7 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
             className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[10px] text-[13px] font-semibold transition-all active:scale-[.97] border-none ${cur === c ? 'bg-white/[.08] text-white shadow-[0_1px_4px_rgba(0,0,0,.2)]' : 'bg-transparent text-white/40'
               }`}
           >
-            {c === 'kgs' ? 'Сом' : c === 'rub' ? '₽ Рубли' : '$ USD'}
+            {c === 'kgs' ? '⃀ Сом' : c === 'rub' ? '₽ Рубли' : '$ USD'}
           </button>
         ))}
       </div>
