@@ -68,10 +68,9 @@ function applySafeArea(wa: WebApp) {
   const contentTop = wa.contentSafeAreaInset?.top ?? 0
   const total = Math.max(safeTop, contentTop)
 
-  const platform = (wa.platform || '').toLowerCase()
-  const isPhone = platform.includes('ios') || platform.includes('android')
-  const minOffset = isPhone ? 44 : 0
-  const offset = Math.max(total, minOffset)
+  // В Telegram Mini App нативная шапка уже покрывает статус-бар,
+  // поэтому НЕ навязываем минимум 44px — используем реальный inset от TG.
+  const offset = total
 
   document.documentElement.style.setProperty('--safe-area-top', offset + 'px')
   // НЕ трогаем --tg-top
