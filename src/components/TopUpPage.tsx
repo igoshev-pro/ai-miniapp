@@ -1,33 +1,47 @@
 // src/components/TopUpPage.tsx
 'use client'
 
+
+
+
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Flame, Zap, Gift, Check, Loader2, ChevronRight,
   Sparkles, Tag, TrendingDown, Crown, CreditCard, Star, Bitcoin,
-  Sliders, Minus, Plus, FileText,
+  Sliders, Minus, Plus,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'
 import { toast } from '@/stores/toast.store'
 import { calcCustomByTokens } from '@/lib/api/pricing'
-import { fmtKgs, MERCHANT } from '@/config/legal' // 🆕
 
-interface Props {
-  onBack?: () => void
-  onNavigate?: (page: string) => void // 🆕 для перехода на legal
-}
 
-type Currency = 'kgs' | 'rub' | 'usd' // 🆕 добавлен kgs
+
+
+interface Props { onBack?: () => void }
+
+
+
+
+type Currency = 'rub' | 'usd'
 type Provider = 'stars' | 'tochka' | 'freedompay' | 'heleket'
+
+
+
 
 // 🔧 R = 90 (совпадает с RUB_TO_USD_RATE на беке)
 const R = 90
 const BASE = 3
 
+
+
+
 const CUSTOM_MIN = 10
 const CUSTOM_MAX = 100000
 const QUICK_AMOUNTS = [50, 100, 500, 1000, 3000]
+
+
+
 
 const PKG_DEFS = [
   { id: 'pack_100', tokens: 100 },
@@ -36,6 +50,9 @@ const PKG_DEFS = [
   { id: 'pack_1500', tokens: 1500 },
   { id: 'pack_5000', tokens: 5000, best: true },
 ] as const
+
+
+
 
 const PKGS = PKG_DEFS.map((p) => {
   const c = calcCustomByTokens(p.tokens)
@@ -46,68 +63,85 @@ const PKGS = PKG_DEFS.map((p) => {
   }
 })
 
-// 🔧 FreedomPay подписан под Кыргызстан (KG ⃀)
+
+
+
 const PROVIDERS: { id: Provider; label: string; icon: typeof Star; sub: string }[] = [
   { id: 'stars', label: 'Stars', icon: Star, sub: 'Telegram' },
   { id: 'tochka', label: 'Карта', icon: CreditCard, sub: 'РФ ₽' },
-  { id: 'freedompay', label: 'Карта', icon: CreditCard, sub: 'KG ⃀' }, // 🆕
+  { id: 'freedompay', label: 'Карта', icon: CreditCard, sub: 'KZ ₸' },
   { id: 'heleket', label: 'Crypto', icon: Bitcoin, sub: 'USDT/BTC' },
 ]
+
+
+
 
 function disc(t: number, p: number) {
   const b = t * BASE
   return p >= b ? 0 : Math.round(((b - p) / b) * 100)
 }
 
-// 🆕 форматирование цены с учётом сома
+
+
+
 function fmtP(r: number, c: Currency) {
-  if (c === 'kgs') return fmtKgs(r)
   if (c === 'rub') return r.toLocaleString('ru-RU')
   const u = r / R
   return u % 1 === 0 ? u.toFixed(0) : u.toFixed(2).replace(/\.?0+$/, '')
 }
 
-// 🆕 символ валюты слева/справа
-function curPrefix(c: Currency) {
-  return c === 'usd' ? '$' : ''
-}
-function curSuffix(c: Currency) {
-  if (c === 'rub') return ' ₽'
-  if (c === 'kgs') return ' сом'
-  return ''
-}
+
+
 
 function perTok(r: number, t: number, c: Currency) {
-  if (c === 'kgs') return `${(r / t / 0.88).toFixed(2)} сом`
   return c === 'rub' ? `${(r / t).toFixed(1)} ₽` : `$${(r / R / t).toFixed(3)}`
 }
 
-export function TopUpPage({ onBack, onNavigate }: Props) {
+
+
+
+export function TopUpPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
   const { isLoading, purchaseCustomTokens, applyPromo } = useBilling()
 
+
+
+
   const [sel, setSel] = useState<string | null>(null)
-  const [cur, setCur] = useState<Currency>('kgs') // 🆕 дефолт — сом
+  const [cur, setCur] = useState<Currency>('rub')
   const [promo, setPromo] = useState('')
   const [promoL, setPromoL] = useState(false)
   const [promoOk, setPromoOk] = useState(false)
-  const [provider, setProvider] = useState<Provider>('freedompay') // 🆕 дефолт FreedomPay
+  const [provider, setProvider] = useState<Provider>('tochka')
   const [customMode, setCustomMode] = useState(false)
   const [customTokens, setCustomTokens] = useState<number>(100)
   const [customInput, setCustomInput] = useState<string>('100')
 
+
+
+
+  // Единый хелпер для синхронной установки числа + строки в инпуте
   const setTokens = useCallback((n: number) => {
     const clamped = Math.min(CUSTOM_MAX, Math.max(CUSTOM_MIN, Math.floor(n) || CUSTOM_MIN))
     setCustomTokens(clamped)
     setCustomInput(String(clamped))
   }, [])
 
+
+
+
   const customCalc = useMemo(() => calcCustomByTokens(customTokens), [customTokens])
+
+
+
 
   const isTelegram = !!webApp
 
-  // 🔧 Stars только в TG, Tochka только для RUB
+
+
+
+  // 🔧 FreedomPay включён. Stars только в TG, Tochka только для RUB
   const availableProviders = useMemo(() => {
     return PROVIDERS.filter(p => {
       if (p.id === 'stars') return isTelegram
@@ -116,22 +150,41 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
     })
   }, [isTelegram, cur])
 
+
+
+
   useEffect(() => {
     if (!availableProviders.some(p => p.id === provider)) {
       setProvider(availableProviders[0]?.id ?? 'heleket')
     }
   }, [availableProviders, provider])
 
+
+
+
   const pkg = PKGS.find(p => p.id === sel)
 
-  // ⚠️ Логика не тронута: kgs и rub уходят как RUB, usd как USD
+
+
+
   const currencyForBackend = (): 'RUB' | 'USD' =>
-    provider === 'stars' ? 'RUB' : (cur === 'usd' ? 'USD' : 'RUB')
+    provider === 'stars' ? 'RUB' : (cur.toUpperCase() as 'RUB' | 'USD')
+
+
+
 
   const buy = useCallback(async () => {
     if (!pkg) { toast.warning('Выберите пакет'); return }
     haptic('medium')
+
+
+
+
     const url = await purchaseCustomTokens(pkg.tokens, provider, currencyForBackend())
+
+
+
+
     if (url) {
       if (webApp?.openLink) webApp.openLink(url)
       else window.open(url, '_blank')
@@ -139,19 +192,33 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
     }
   }, [pkg, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp])
 
+
+
+
   const buyCustom = useCallback(async () => {
     if (!customCalc.valid) {
       toast.warning(`От ${CUSTOM_MIN} до ${CUSTOM_MAX.toLocaleString('ru-RU')} спичек`)
       return
     }
     haptic('medium')
+
+
+
+
     const url = await purchaseCustomTokens(customCalc.tokens, provider, currencyForBackend())
+
+
+
+
     if (url) {
       if (webApp?.openLink) webApp.openLink(url)
       else window.open(url, '_blank')
       hapticNotification('success')
     }
   }, [customCalc, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp])
+
+
+
 
   const doPromo = useCallback(async () => {
     const c = promo.trim()
@@ -163,21 +230,33 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
     else hapticNotification('error')
   }, [promo, applyPromo, haptic, hapticNotification])
 
+
+
+
   const providerNote = (() => {
     switch (provider) {
       case 'stars': return 'Оплата через Telegram Stars. Зачисление мгновенное.'
       case 'tochka': return 'Российская карта (₽) через Банк «Точка». Зачисление после подтверждения банка.'
-      case 'freedompay': return 'Оплата картой Visa / Mastercard / Элкарт в сомах (⃀) через FreedomPay. Зачисление мгновенное.'
+      case 'freedompay': return 'Карта Казахстана (₸) / международная. Зачисление мгновенное.'
       case 'heleket': return 'Оплата криптовалютой (USDT/BTC/TRX и др.). Зачисление после подтверждения сети.'
     }
   })()
 
+
+
+
   return (
     <div className="relative z-[1] px-4 pb-[100px]">
+
+
+
 
       <div className="flex items-center justify-between pt-4 pb-2 gap-3 animate-fade-in">
         <h1 className="text-[20px] font-bold text-white flex-1">Пополнить баланс</h1>
       </div>
+
+
+
 
       <div className="text-center p-4 bg-white/[.04] border border-white/[.06] rounded-[14px] mb-4 animate-fade-in">
         <div className="text-[12px] text-white/40 mb-1.5">Текущий баланс</div>
@@ -187,30 +266,39 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* 🆕 Переключатель: Сом (дефолт) · Рубли · USD */}
+
+
+
       <div className="flex gap-1 p-[3px] mb-3.5 bg-white/[.04] border border-white/[.06] rounded-xl animate-fade-in">
-        {(['kgs', 'rub', 'usd'] as Currency[]).map(c => (
+        {(['rub', 'usd'] as Currency[]).map(c => (
           <button key={c}
             onClick={() => { haptic('light'); setCur(c) }}
             className={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-[10px] text-[13px] font-semibold transition-all active:scale-[.97] border-none ${cur === c ? 'bg-white/[.08] text-white shadow-[0_1px_4px_rgba(0,0,0,.2)]' : 'bg-transparent text-white/40'
               }`}
           >
-            {c === 'kgs' ? '⃀ Сом' : c === 'rub' ? '₽ Рубли' : '$ USD'}
+            {c === 'rub' ? '₽ Рубли' : '$ USD'}
           </button>
         ))}
       </div>
 
+
+
+
       <div className="flex items-center justify-center gap-1.5 text-[12px] text-white/35 mb-3.5 animate-fade-in">
         <Flame size={12} />
-        <span>
-          1 спичка = {cur === 'kgs' ? `${(3 / 0.88).toFixed(2)} сом` : cur === 'rub' ? '3 ₽' : `$${(3 / R).toFixed(3)}`}
-        </span>
+        <span>1 спичка = {cur === 'rub' ? '3 ₽' : `$${(3 / R).toFixed(3)}`}</span>
       </div>
+
+
+
 
       <div className="mb-5 animate-fade-in [animation-delay:.1s]">
         <div className="flex items-center gap-1.5 text-[14px] font-semibold text-white/60 mb-2.5">
           <Zap size={14} /> Пакеты спичек
         </div>
+
+
+
 
         <div className="grid grid-cols-2 gap-2 mb-3">
           {PKGS.map((p: any) => {
@@ -239,31 +327,52 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
                   </div>
                 )}
 
+
+
+
                 {d > 0 && (
                   <div className="absolute bottom-2.5 right-2.5 flex items-center gap-[3px] text-[11px] font-bold text-green-400 bg-green-400/10 border border-green-400/15 px-2.5 py-[3px] rounded-lg tracking-wide">
                     <TrendingDown size={10} /> −{d}%
                   </div>
                 )}
 
+
+
+
                 <div className="flex items-center gap-1 text-[18px] font-bold text-white mb-1">
                   <Flame size={14} /> {p.tokens.toLocaleString()}
                 </div>
 
+
+
+
                 <div className="text-[12px] text-white/40 mb-1.5">{p.label}</div>
 
+
+
+
                 <div className="text-[16px] font-semibold text-white">
-                  {curPrefix(cur)}{fmtP(p.priceRub, cur)}{curSuffix(cur)}
+                  {cur === 'usd' && '$'}{fmtP(p.priceRub, cur)}{cur === 'rub' && ' ₽'}
                 </div>
+
+
+
 
                 {d > 0 && (
                   <div className="text-[11px] text-white/25 line-through -mt-0.5">
-                    {curPrefix(cur)}{fmtP(p.tokens * BASE, cur)}{curSuffix(cur)}
+                    {cur === 'usd' && '$'}{fmtP(p.tokens * BASE, cur)}{cur === 'rub' && ' ₽'}
                   </div>
                 )}
+
+
+
 
                 <div className="text-[10px] text-white/25 mt-0.5">
                   {perTok(p.priceRub, p.tokens, cur)} / спичка
                 </div>
+
+
+
 
                 {isSel && (
                   <div className="absolute bottom-2.5 right-2.5 text-amber-400">
@@ -273,6 +382,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
               </div>
             )
           })}
+
+
+
 
           {/* Тайл «Своя сумма» */}
           <div
@@ -292,6 +404,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
           </div>
         </div>
 
+
+
+
         {/* Панель кастомной суммы */}
         {customMode && (
           <div className="mb-3 p-3.5 rounded-[14px] bg-white/[.04] border border-amber-400/30 animate-fade-in">
@@ -303,6 +418,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
                 <Minus size={16} />
               </button>
 
+
+
+
               <div className="flex-1 relative">
                 <input
                   type="text"
@@ -310,6 +428,7 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
                   pattern="[0-9]*"
                   value={customInput}
                   onChange={e => {
+                    // оставляем только цифры и срезаем ведущие нули
                     const raw = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '')
                     setCustomInput(raw)
                     if (raw === '') {
@@ -335,6 +454,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
                 </span>
               </div>
 
+
+
+
               <button
                 onClick={() => { haptic('light'); setTokens(Math.min(CUSTOM_MAX, customTokens + 50)) }}
                 className="w-10 h-10 shrink-0 flex items-center justify-center rounded-[10px] bg-white/[.06] border border-white/[.08] text-white/70 active:scale-95"
@@ -342,6 +464,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
                 <Plus size={16} />
               </button>
             </div>
+
+
+
 
             <div className="flex flex-wrap gap-1.5 mb-3">
               {QUICK_AMOUNTS.map(a => (
@@ -360,6 +485,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
               ))}
             </div>
 
+
+
+
             <div className="flex items-center justify-between p-3 rounded-[12px] bg-white/[.03] border border-white/[.05] mb-3">
               <div>
                 <div className="flex items-center gap-1.5 text-[18px] font-bold text-white">
@@ -367,18 +495,21 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
                   {customCalc.tokens.toLocaleString('ru-RU')}
                 </div>
                 <div className="text-[11px] text-white/30 mt-0.5">
-                  {perTok(customCalc.rub, customCalc.tokens || 1, cur)} / спичка
+                  {customCalc.pricePerToken.toFixed(2)} ₽ / спичка
                 </div>
               </div>
 
+
+
+
               <div className="text-right">
                 <div className="text-[18px] font-bold text-white">
-                  {curPrefix(cur)}{fmtP(customCalc.rub, cur)}{curSuffix(cur)}
+                  {cur === 'usd' && '$'}{fmtP(customCalc.rub, cur)}{cur === 'rub' && ' ₽'}
                 </div>
                 {customCalc.discountPct > 0 && (
                   <div className="flex items-center justify-end gap-1.5 mt-0.5">
                     <span className="text-[11px] text-white/25 line-through">
-                      {curPrefix(cur)}{fmtP(customCalc.baseRub, cur)}{curSuffix(cur)}
+                      {cur === 'usd' && '$'}{fmtP(customCalc.baseRub, cur)}{cur === 'rub' && ' ₽'}
                     </span>
                     <span className="flex items-center gap-[2px] text-[10px] font-bold text-green-400 bg-green-400/10 border border-green-400/15 px-1.5 py-[1px] rounded">
                       <TrendingDown size={9} /> −{customCalc.discountPct}%
@@ -388,13 +519,19 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
               </div>
             </div>
 
+
+
+
             {!customCalc.valid && (
               <div className="text-[11px] text-red-400/80 mb-2 text-center">
                 Допустимо от {CUSTOM_MIN} до {CUSTOM_MAX.toLocaleString('ru-RU')} спичек
               </div>
             )}
 
-                        <button
+
+
+
+            <button
               onClick={buyCustom}
               disabled={!customCalc.valid || isLoading}
               className="
@@ -410,12 +547,15 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
               ) : (
                 <>
                   <Zap size={16} />
-                  Оплатить {curPrefix(cur)}{fmtP(customCalc.rub, cur)}{curSuffix(cur)}
+                  Оплатить {cur === 'usd' ? '$' : ''}{fmtP(customCalc.rub, cur)}{cur === 'rub' ? ' ₽' : ''}
                 </>
               )}
             </button>
           </div>
         )}
+
+
+
 
         {/* Способ оплаты */}
         <div className="mb-3">
@@ -452,6 +592,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
           </div>
         </div>
 
+
+
+
         {/* Кнопка оплаты пакета — скрыта в режиме «Своя сумма» */}
         {!customMode && (
           <button onClick={buy} disabled={!sel || isLoading}
@@ -468,7 +611,7 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
             ) : pkg ? (
               <>
                 <Zap size={16} />
-                Оплатить {curPrefix(cur)}{fmtP(pkg.priceRub, cur)}{curSuffix(cur)}
+                Оплатить {cur === 'usd' ? '$' : ''}{fmtP(pkg.priceRub, cur)}{cur === 'rub' ? ' ₽' : ''}
               </>
             ) : (
               <><Zap size={16} /> Выберите пакет</>
@@ -476,6 +619,9 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
           </button>
         )}
       </div>
+
+
+
 
       {/* Промокод */}
       <div className="mb-5 animate-fade-in [animation-delay:.2s]">
@@ -493,7 +639,7 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
               placeholder:text-white/25 placeholder:tracking-normal
             "
           />
-          <button onClick={doPromo} disabled={!promo.trim() || promoL}
+                    <button onClick={doPromo} disabled={!promo.trim() || promoL}
             className="
               bg-white/[.08] border border-white/[.08] rounded-[10px]
               px-3.5 py-2.5 text-white/60 cursor-pointer
@@ -512,31 +658,16 @@ export function TopUpPage({ onBack, onNavigate }: Props) {
         )}
       </div>
 
-      {/* 🆕 Кнопка перехода на страницу документов */}
-      {onNavigate && (
-        <button
-          onClick={() => { haptic('light'); onNavigate('legal') }}
-          className="
-            w-full flex items-center gap-2.5 px-3.5 py-3.5 mb-3
-            rounded-[14px] bg-white/[.03] border border-white/[.06]
-            text-white/70 animate-fade-in [animation-delay:.2s]
-          "
-        >
-          <FileText size={16} className="text-amber-400" />
-          <span className="flex-1 text-left text-[13px] font-semibold">
-            Оферта, оплата и возврат средств
-          </span>
-          <ChevronRight size={16} className="text-white/40" />
-        </button>
-      )}
 
-      {/* Футер — 🆕 реквизиты ИП (КР) */}
+
+
+      {/* Футер */}
       <div className="text-center px-5 py-4 animate-fade-in [animation-delay:.2s]">
         <div className="text-[12px] text-white/30 mb-1.5">
           {providerNote}
         </div>
         <div className="text-[10px] text-white/[.15]">
-          {MERCHANT.shortName} · ИНН {MERCHANT.inn}
+          ИП Аневич А.С. · ИНН 246220127244
         </div>
       </div>
     </div>

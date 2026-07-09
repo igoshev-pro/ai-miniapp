@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'
-import { fmtKgs } from '@/config/legal' // 🆕
 import type {
   SubscriptionPlan as ApiSubscriptionPlan,
   PaymentProvider,
@@ -18,7 +17,7 @@ import type {
 } from '@/hooks/useBilling'
 
 interface Props { onBack?: () => void }
-type Currency = 'kgs' | 'rub' | 'usd' // 🆕 добавлен kgs
+type Currency = 'rub' | 'usd'
 type Provider = Extract<PaymentProvider, 'stars' | 'tochka' | 'freedompay' | 'heleket'>
 
 // курс совпадает с RUB_TO_USD_RATE на беке
@@ -61,26 +60,15 @@ function buildGradient(color: string): string {
 const PROVIDERS: { id: Provider; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; sub: string }[] = [
   { id: 'stars',      label: 'Stars',  icon: Star,        sub: 'Telegram' },
   { id: 'tochka',     label: 'Карта',  icon: CreditCard,  sub: 'РФ ₽'     },
-  { id: 'freedompay', label: 'Карта',  icon: CreditCard,  sub: 'KG ⃀'     }, // 🆕
+  { id: 'freedompay', label: 'Карта',  icon: CreditCard,  sub: 'KZ ₸'     },
   { id: 'heleket',    label: 'Crypto', icon: Bitcoin,     sub: 'USDT/BTC' },
 ]
 
 // ─── Форматтеры ───────────────────────────────────────────────
 function fmtPrice(rub: number, c: Currency) {
-  if (c === 'kgs') return fmtKgs(rub) // 🆕 сом
   if (c === 'rub') return rub.toLocaleString('ru-RU')
   const usd = rub / RATE
   return usd % 1 === 0 ? usd.toFixed(0) : usd.toFixed(2).replace(/\.?0+$/, '')
-}
-
-// 🆕 символы валют
-function curPrefix(c: Currency) {
-  return c === 'usd' ? '$' : ''
-}
-function curSuffix(c: Currency) {
-  if (c === 'rub') return ' ₽'
-  if (c === 'kgs') return ' сом'
-  return ''
 }
 
 // ─── Параметры required (для Midjourney и аналогичных) ────────
@@ -98,18 +86,17 @@ export function SubscriptionPage({ onBack }: Props) {
 
   const [busy, setBusy] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [cur, setCur] = useState<Currency>('kgs')           // 🆕 дефолт — сом
-  const [provider, setProvider] = useState<Provider>('freedompay') // 🆕 дефолт
+  const [cur, setCur] = useState<Currency>('rub')
+  const [provider, setProvider] = useState<Provider>('tochka')
   const [isLoadingPlans, setIsLoadingPlans] = useState(true)
 
-  const currentPlan = subscription.plan
+    const currentPlan = subscription.plan
   const isTelegram = !!webApp
 
   // ─── Загружаем планы с бека при маунте и при смене валюты ──
   useEffect(() => {
     setIsLoadingPlans(true)
-    // 🆕 kgs использует те же рублёвые цены (конвертация только визуальная)
-    const currency: PaymentCurrency = cur === 'usd' ? 'USD' : 'RUB'
+    const currency: PaymentCurrency = cur === 'rub' ? 'RUB' : 'USD'
     loadPlans(currency).finally(() => setIsLoadingPlans(false))
   }, [cur, loadPlans])
 
@@ -134,8 +121,7 @@ export function SubscriptionPage({ onBack }: Props) {
     if (planId === currentPlan) return
     haptic('medium')
     setBusy(planId)
-    // 🆕 kgs → RUB для бэкенда (логика оплаты не меняется)
-    const currency: PaymentCurrency = cur === 'usd' ? 'USD' : 'RUB'
+    const currency: PaymentCurrency = cur === 'rub' ? 'RUB' : 'USD'
     const url = await subscribe(planId, provider, currency)
     setBusy(null)
     if (url) {
@@ -163,9 +149,9 @@ export function SubscriptionPage({ onBack }: Props) {
         </p>
       </div>
 
-      {/* ── Currency ── 🆕 Сом · Рубли · USD */}
+      {/* ── Currency ── */}
       <div className="flex gap-1 p-[3px] mb-3.5 bg-white/[.04] border border-white/[.06] rounded-xl animate-fade-in">
-        {(['kgs', 'rub', 'usd'] as Currency[]).map(c => (
+        {(['rub', 'usd'] as Currency[]).map(c => (
           <button
             key={c}
             onClick={() => { haptic('light'); setCur(c) }}
@@ -179,7 +165,7 @@ export function SubscriptionPage({ onBack }: Props) {
               }
             `}
           >
-            {c === 'kgs' ? '⃀ Сом' : c === 'rub' ? '₽ Рубли' : '$ USD'}
+            {c === 'rub' ? '₽ Рубли' : '$ USD'}
           </button>
         ))}
       </div>
@@ -291,10 +277,9 @@ export function SubscriptionPage({ onBack }: Props) {
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-[22px] font-extrabold text-white">
-                      {curPrefix(cur)}{fmtPrice(priceRub, cur)}
+                      {cur === 'usd' && '$'}{fmtPrice(priceRub, cur)}
                     </span>
                     {cur === 'rub' && <span className="text-[14px] text-white/50"> ₽</span>}
-                    {cur === 'kgs' && <span className="text-[14px] text-white/50"> сом</span>}
                     <span className="block text-[11px] text-white/30 text-right">/мес</span>
                   </div>
                 </div>
@@ -422,7 +407,7 @@ export function SubscriptionPage({ onBack }: Props) {
                     <><Check size={14} /> Текущий план</>
                   ) : (
                     <>
-                      Подключить за {curPrefix(cur)}{fmtPrice(priceRub, cur)}{curSuffix(cur)}
+                      Подключить за {cur === 'usd' ? '$' : ''}{fmtPrice(priceRub, cur)}{cur === 'rub' ? ' ₽' : ''}
                     </>
                   )}
                 </button>

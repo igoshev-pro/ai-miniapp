@@ -28,7 +28,6 @@ import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
 import { BotLoginButton } from './auth/BotLoginButton'
 import { useAuth } from '@/hooks'
-import { LegalPage } from './LegalPage'
 
 type Page =
   | 'home'
@@ -45,7 +44,6 @@ type Page =
   | 'referral'
   | 'favorites'
   | 'support'
-  | 'legal'
 
 // ─── Страницы, требующие авторизации ───
 const AUTH_REQUIRED_PAGES: Set<Page> = new Set([
@@ -60,13 +58,6 @@ const AUTH_REQUIRED_PAGES: Set<Page> = new Set([
   'referral',
   'chats-history',
   'favorites',
-])
-
-// 🆕 Страницы, доступные через start_param без авторизации
-const VALID_START_PAGES: Set<Page> = new Set([
-  'legal',
-  'topup',
-  'subscription',
 ])
 
 export function SpichkiApp() {
@@ -101,6 +92,8 @@ export function SpichkiApp() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [pendingNav, setPendingNav] = useState<(() => void) | null>(null)
 
+  // Проверка: нужна ли авторизация для целевой страницы?
+  // Если да и нет токена — показываем модалку, запоминаем действие.
   const requireAuth = useCallback(
     (targetPage: Page, action: () => void): boolean => {
       if (!AUTH_REQUIRED_PAGES.has(targetPage)) {
@@ -111,6 +104,7 @@ export function SpichkiApp() {
         action()
         return true
       }
+      // Нет токена → показываем auth-модалку
       setPendingNav(() => action)
       setShowAuthModal(true)
       return false
@@ -118,6 +112,7 @@ export function SpichkiApp() {
     [token],
   )
 
+  // После успешной авторизации — выполняем отложенное действие
   useEffect(() => {
     if (token && pendingNav && showAuthModal) {
       setShowAuthModal(false)
@@ -161,6 +156,7 @@ export function SpichkiApp() {
   const openAllModels = useCallback(
     (category?: string | null) => {
       setInitialCategory(category ?? null)
+      // all-models не в AUTH_REQUIRED — navigateTo пропустит без проверки
       navigateTo('all-models')
       setActiveNav('models')
     },
@@ -215,7 +211,6 @@ export function SpichkiApp() {
       else if (target === 'transactions') navigateTo('transactions')
       else if (target === 'subscription') navigateTo('subscription')
       else if (target === 'referral') navigateTo('referral')
-      else if (target === 'legal') navigateTo('legal')
       else if (target.startsWith('subscribe:')) navigateTo('subscription')
     },
     [navigateTo],
@@ -238,6 +233,7 @@ export function SpichkiApp() {
         return
       }
 
+      // Для страниц, требующих авторизации — проверяем
       requireAuth(targetPage, () => {
         setPageHistory([])
 
@@ -259,7 +255,7 @@ export function SpichkiApp() {
     await refetchUser()
   }, [refetchUser])
 
-  // ─── Если есть токен — догружаем профиль и модели ───
+  // Если есть токен — догружаем профиль и модели
   useEffect(() => {
     if (authReady && token) {
       refetchUser()
@@ -268,67 +264,13 @@ export function SpichkiApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, token])
 
-  // ─── Загружаем модели даже без авторизации (для каталога) ───
+  // Загружаем модели даже без авторизации (для каталога)
   useEffect(() => {
     if (authReady && !token) {
       loadModels()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, token])
-
-  // 🆕 ─── Авто-навигация из start_param / URL ?page=xxx ───────────
-  // Срабатывает один раз после полной инициализации.
-  // Читаем: 1) Telegram startParam  2) location.search  3) location.hash
-  // legal — открывается без авторизации.
-  // topup / subscription — требуют токен (requireAuth покажет модалку).
-  const startNavDone = useRef(false)
-
-  useEffect(() => {
-    // Ждём полной инициализации и выполняем только один раз
-    if (!isReady || !authReady || !hydrated) return
-    if (startNavDone.current) return
-    startNavDone.current = true
-
-    // 1) Telegram WebApp startParam (передаётся через ?startapp= или tgWebAppStartParam)
-    const tgParam: string =
-      (webApp as any)?.initDataUnsafe?.start_param ?? ''
-
-    // 2) URL query string (?page=legal)
-    let urlParam = ''
-    try {
-      const sp = new URLSearchParams(window.location.search)
-      urlParam = sp.get('page') ?? ''
-      // 3) Hash fallback (#page=legal)
-      if (!urlParam && window.location.hash) {
-        const hsp = new URLSearchParams(
-          window.location.hash.replace(/^#\/?/, ''),
-        )
-        urlParam = hsp.get('page') ?? ''
-      }
-    } catch {
-      // SSR или нестандартная среда — игнорируем
-    }
-
-    // Приоритет: tgParam > urlParam
-    const raw = tgParam || urlParam
-
-    if (!raw) return
-
-    // Парсим: поддерживаем «page_legal», «legal», «page=legal»
-    const normalized = raw
-      .replace(/^page[=_]/, '') // убираем префикс page_ или page=
-      .trim()
-      .toLowerCase() as Page
-
-    if (!VALID_START_PAGES.has(normalized)) return
-
-    // Навигируем (requireAuth покажет модалку если нужна авторизация)
-    requireAuth(normalized, () => {
-      setPageHistory(['home'])
-      setPage(normalized)
-    })
-  }, [isReady, authReady, hydrated, webApp, requireAuth])
-  // ────────────────────────────────────────────────────────────────
 
   // ─── Telegram BackButton (единый контроллер) ───
   const goBackRef = useRef(goBack)
@@ -444,13 +386,10 @@ export function SpichkiApp() {
         {page === 'profile' && (
           <ProfilePage onNavigate={handleProfileNavigate} />
         )}
-        {page === 'topup' && (
-          <TopUpPage onBack={goBack} onNavigate={handleProfileNavigate} />
-        )}
+        {page === 'topup' && <TopUpPage onBack={goBack} />}
         {page === 'transactions' && <TransactionsPage onBack={goBack} />}
         {page === 'subscription' && <SubscriptionPage onBack={goBack} />}
         {page === 'referral' && <ReferralPage onBack={goBack} />}
-        {page === 'legal' && <LegalPage onBack={goBack} />}
         {page === 'favorites' && (
           <FavoritesPage
             onBack={goBack}
@@ -464,7 +403,7 @@ export function SpichkiApp() {
         <BottomNav active={activeNav} onChange={handleNavChange} />
       </div>
 
-      {/* ─── Auth Modal ─── */}
+      {/* ─── Auth Modal (для неавторизованных при попытке зайти на защищённую страницу) ─── */}
       {showAuthModal && (
         <>
           <div
