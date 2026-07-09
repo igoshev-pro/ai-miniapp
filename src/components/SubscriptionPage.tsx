@@ -61,7 +61,7 @@ function buildGradient(color: string): string {
 const PROVIDERS: { id: Provider; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; sub: string }[] = [
   { id: 'stars',      label: 'Stars',  icon: Star,        sub: 'Telegram' },
   { id: 'tochka',     label: 'Карта',  icon: CreditCard,  sub: 'РФ ₽'     },
-  { id: 'freedompay', label: 'Карта',  icon: CreditCard,  sub: 'KGS'     }, // 🆕
+  { id: 'freedompay', label: 'Карта',  icon: CreditCard,  sub: 'KG ⃀'     }, // 🆕
   { id: 'heleket',    label: 'Crypto', icon: Bitcoin,     sub: 'USDT/BTC' },
 ]
 
