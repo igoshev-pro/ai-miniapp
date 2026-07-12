@@ -382,6 +382,8 @@ export function useGeneration() {
         if (s.characterOrientation) body.characterOrientation = s.characterOrientation
         if (s.fixedLens !== undefined) body.fixedLens = s.fixedLens
         if (s.webSearch !== undefined) body.webSearch = s.webSearch
+        // 🆕 суммарные секунды видео-референсов (Seedance 2) — для цены
+        if (s.refVideoSeconds !== undefined) body.refVideoSeconds = s.refVideoSeconds
       }
 
       if (request.type === 'audio') {

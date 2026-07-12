@@ -183,7 +183,7 @@ const FALLBACK: Record<string, FallbackCaps> = {
   'seedance-2': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
     durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    resolutions: ['480p', '720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'seedance-2-fast': {
@@ -348,6 +348,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [fixedLens, setFixedLens] = useState(false)
   const [webSearch, setWebSearch] = useState(false)
   const [refVideos, setRefVideos] = useState<string[]>([])
+  // 🆕 длительности (сек) загруженных видео-референсов — параллельно refVideos.
+  // Индексы соответствуют друг другу. Нужны для посекундной цены Seedance 2.
+  const [refVideoDurations, setRefVideoDurations] = useState<number[]>([])
   const [refAudios, setRefAudios] = useState<string[]>([])
   const [uploadingRefVideo, setUploadingRefVideo] = useState(false)
   const [uploadingRefAudio, setUploadingRefAudio] = useState(false)
@@ -493,6 +496,18 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     return Math.min(15, Math.max(3, total))
   }, [isKling, multiShots, shots])
 
+
+  // 🆕 Суммарная длительность видео-референсов для цены Seedance 2.
+  // Каждое видео округляем вверх (ceil), сумму клампим в [0, 15].
+  const refVideoSeconds = useMemo(() => {
+    if (!isSeedance2 || refVideoDurations.length === 0) return 0
+    const sum = refVideoDurations.reduce(
+      (acc, d) => acc + Math.ceil(Math.max(0, d || 0)),
+      0,
+    )
+    return Math.min(15, sum)
+  }, [isSeedance2, refVideoDurations])
+
   // 🆕 Сырая сумма шотов (до clamp) — для подсказки если превышен максимум
   const rawShotsSum = useMemo(() => {
     if (!isKling || !multiShots) return 0
@@ -545,13 +560,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     if (isSeedance2) {
       p.videoRef = refVideos.length > 0
+      // 🆕 суммарные секунды видео-референсов (для посекундной цены)
+      if (refVideos.length > 0) p.refVideoSeconds = refVideoSeconds
     }
 
     return p
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
-    isSeedance2, refVideos, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, // 🆕
+    isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, // 🆕
     isKling, multiShots, klingMultiDuration, // 🆕
   ])
 
@@ -700,6 +717,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setFixedLens(false)
     setWebSearch(false)
     setRefVideos([])
+    setRefVideoDurations([]) // 🆕
     setRefAudios([])
     setSeedanceImages([]) // 🆕
 
@@ -909,6 +927,20 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       toast.error('Только MP4 или MOV'); return
     }
     if (file.size > 50 * 1024 * 1024) { toast.error('Макс 50MB'); return }
+
+    // 🆕 Измеряем длительность локально (для посекундной цены Seedance 2)
+    const localUrl = URL.createObjectURL(file)
+    const probeDuration = await new Promise<number | null>((resolve) => {
+      const v = document.createElement('video')
+      v.preload = 'metadata'
+      v.onloadedmetadata = () => {
+        resolve(isFinite(v.duration) ? v.duration : null)
+        URL.revokeObjectURL(localUrl)
+      }
+      v.onerror = () => { resolve(null); URL.revokeObjectURL(localUrl) }
+      v.src = localUrl
+    })
+
     setUploadingRefVideo(true)
     try {
       const fd = new FormData(); fd.append('file', file)
@@ -919,7 +951,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (!r.ok) throw new Error('Upload failed')
       const d = await r.json(); const url = d.data?.url || d.url
       if (!url) throw new Error('No URL')
-      setRefVideos((prev) => (prev.length >= 3 ? prev : [...prev, url]))
+      // 🆕 добавляем url + длительность синхронно (одинаковые индексы)
+      setRefVideos((prev) => {
+        if (prev.length >= 3) return prev
+        setRefVideoDurations((durs) => [...durs, probeDuration ?? 0])
+        return [...prev, url]
+      })
       haptic('light'); toast.success('Видео добавлено')
     } catch (e: any) {
       toast.error(e.message || 'Ошибка загрузки видео')
@@ -1132,7 +1169,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         s.fixedLens = fixedLens
       } else {
         s.webSearch = webSearch
-        if (refVideos.length) s.videoUrls = refVideos
+        if (refVideos.length) {
+          s.videoUrls = refVideos
+          // 🆕 суммарные секунды видео-референсов (для посекундной цены на бэке)
+          s.refVideoSeconds = refVideoSeconds
+        }
         if (refAudios.length) s.audioUrls = refAudios
       }
     } else if (isSora) {
@@ -1171,7 +1212,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isKling, multiShots, shots, elements,
     isKling25, cfgScale, nsfwChecker,
     isMotion, motionVideoUrl, motionEffectiveDuration, characterOrientation,
-    isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refAudios,
+    isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refVideoSeconds, refAudios,
     seedanceImages, seedanceMaxImages, // 🆕
     isSora, soraImages, soraMaxImages, // 🆕
   ])
@@ -1990,56 +2031,56 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           </button>
                         )}
                       </div>
-                                              {/* 🆕 Сводка: суммарная длительность + цена мультисцен */}
-                        {klingMultiDuration !== undefined && (
-                          <div
-                            className="
+                      {/* 🆕 Сводка: суммарная длительность + цена мультисцен */}
+                      {klingMultiDuration !== undefined && (
+                        <div
+                          className="
                               mt-1 flex items-center justify-between
                               px-3 py-2.5 rounded-[var(--radius-xs)]
                               bg-[rgba(250,204,21,0.06)]
                               border border-[rgba(250,204,21,0.18)]
                             "
-                          >
-                            <div className="flex items-center gap-1.5 text-[11px] text-white/55">
-                              <Clock size={13} className="text-[var(--accent-yellow)]" />
-                              <span>
-                                Итого:{' '}
-                                <b className="text-white/80">
-                                  {klingMultiDuration} сек
-                                </b>
-                                {rawShotsSum > 15 && (
-                                  <span className="text-amber-400/70 ml-1">
-                                    (из {rawShotsSum}с, макс 15)
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 text-[12px] font-semibold">
-                              {isFreeForUser ? (
-                                <span className="text-emerald-400 inline-flex items-center gap-1">
-                                  <Gift size={12} />
-                                  {formatFreeLabel(freeAccess)}
-                                </span>
-                              ) : (
-                                <span
-                                  className={
-                                    !isFallbackPrice
-                                      ? 'text-[var(--accent-yellow)]'
-                                      : 'text-white/50'
-                                  }
-                                >
-                                  {showPriceLoader && (
-                                    <Loader2
-                                      size={11}
-                                      className="animate-spin inline mr-1"
-                                    />
-                                  )}
-                                  {formatCost(displayedCost)} 🔥
+                        >
+                          <div className="flex items-center gap-1.5 text-[11px] text-white/55">
+                            <Clock size={13} className="text-[var(--accent-yellow)]" />
+                            <span>
+                              Итого:{' '}
+                              <b className="text-white/80">
+                                {klingMultiDuration} сек
+                              </b>
+                              {rawShotsSum > 15 && (
+                                <span className="text-amber-400/70 ml-1">
+                                  (из {rawShotsSum}с, макс 15)
                                 </span>
                               )}
-                            </div>
+                            </span>
                           </div>
-                        )}
+                          <div className="flex items-center gap-1 text-[12px] font-semibold">
+                            {isFreeForUser ? (
+                              <span className="text-emerald-400 inline-flex items-center gap-1">
+                                <Gift size={12} />
+                                {formatFreeLabel(freeAccess)}
+                              </span>
+                            ) : (
+                              <span
+                                className={
+                                  !isFallbackPrice
+                                    ? 'text-[var(--accent-yellow)]'
+                                    : 'text-white/50'
+                                }
+                              >
+                                {showPriceLoader && (
+                                  <Loader2
+                                    size={11}
+                                    className="animate-spin inline mr-1"
+                                  />
+                                )}
+                                {formatCost(displayedCost)} 🔥
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </Field>
                   )}
 
@@ -2420,7 +2461,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             />
                             <button
                               className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
-                              onClick={() => setRefVideos((p) => p.filter((_, i) => i !== idx))}
+                              onClick={() => {
+                                setRefVideos((p) => p.filter((_, i) => i !== idx))
+                                setRefVideoDurations((p) => p.filter((_, i) => i !== idx)) // 🆕
+                              }}
                             >
                               <X size={12} />
                             </button>
@@ -2450,6 +2494,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                       </div>
                       <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
                         MP4/MOV, до 50MB. Суммарно ≤ 15 секунд.
+                        {refVideos.length > 0 && refVideoSeconds > 0 && (
+                          <span className="text-[var(--accent-yellow)]/70">
+                            {' '}Учтено: {refVideoSeconds}с → тарифицируются вместе с видео.
+                          </span>
+                        )}
                       </div>
                     </Field>
                   )}
