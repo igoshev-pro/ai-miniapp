@@ -166,6 +166,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const docInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const didLoadRef = useRef(false)
+  const stickToBottomRef = useRef(true)   // ← добавить
 
   const currentModel = useMemo(
     () =>
@@ -222,13 +223,39 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       .finally(() => setIsLoadingMessages(false))
   }, [existingChatId])
 
+  // Отслеживаем, находится ли пользователь внизу.
+  // Если он проскроллил вверх во время стриминга — автоскролл выключается.
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
-    if (el.scrollHeight > el.clientHeight) {
+
+    const handleScroll = () => {
+      const distanceFromBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight
+      stickToBottomRef.current = distanceFromBottom < 80
+    }
+
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // При изменении сообщений (новое сообщение / финальный ответ)
+  // всегда скроллим вниз и снова "прилипаем".
+  useEffect(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    stickToBottomRef.current = true
+    el.scrollTop = el.scrollHeight
+  }, [messages])
+
+  // Во время стриминга скроллим только если пользователь у низа.
+  useEffect(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    if (stickToBottomRef.current) {
       el.scrollTop = el.scrollHeight
     }
-  }, [messages, streamingContent])
+  }, [streamingContent])
 
   useEffect(() => {
     if (inputRef.current) {
@@ -329,13 +356,13 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             prev.map((d: any) =>
               d.id === att.id
                 ? {
-                    ...d,
-                    status: 'done',
-                    progress: 100,
-                    remoteUrl: result.url,
-                    extractedText: result.extractedText,
-                    hasText: result.hasText,
-                  }
+                  ...d,
+                  status: 'done',
+                  progress: 100,
+                  remoteUrl: result.url,
+                  extractedText: result.extractedText,
+                  hasText: result.hasText,
+                }
                 : d,
             ),
           )
@@ -587,10 +614,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       attachments:
         attachments.length > 0
           ? attachments.map((a) => ({
-              url: a.url,
-              filename: a.filename,
-              mimeType: a.mimeType,
-            }))
+            url: a.url,
+            filename: a.filename,
+            mimeType: a.mimeType,
+          }))
           : undefined,
       createdAt: new Date().toISOString(),
     }
@@ -606,7 +633,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
       },
-            {
+      {
         onConversation: (data) => {
           store.setActiveChatId(data.id)
           const exists = useChatStore
@@ -625,7 +652,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             })
           }
         },
-        onMessageStart: () => {},
+        onMessageStart: () => { },
         onToken: (token) => store.appendStreamingContent(token),
         onDone: (data) => {
           const finalContent = useChatStore.getState().streamingContent
@@ -714,7 +741,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
 
   const copyMessage = useCallback(
     (id: string, content: string) => {
-      navigator.clipboard.writeText(content).catch(() => {})
+      navigator.clipboard.writeText(content).catch(() => { })
       setCopiedId(id)
       haptic('light')
       setTimeout(() => setCopiedId(null), 2000)
@@ -847,10 +874,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               cursor-pointer transition-all duration-150
               shrink-0 [-webkit-tap-highlight-color:transparent]
               active:scale-[0.9]
-              ${
-                isCurrentChatFavorite
-                  ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-                  : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
+              ${isCurrentChatFavorite
+                ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                : 'bg-[var(--bg-glass)] text-[var(--gray-500)]'
               }
             `}
             onClick={() => {
@@ -1096,10 +1122,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 <div
                   className={`
                     py-2.5 px-3.5 rounded-[var(--radius-sm)] leading-[1.55] text-[13.5px] min-w-0 max-w-full
-                    ${
-                      msg.role === 'user'
-                        ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
-                        : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
+                    ${msg.role === 'user'
+                      ? 'bg-[var(--accent-yellow)] text-[#0a0a0a] rounded-br-[4px]'
+                      : 'bg-[var(--bg-glass)] backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)] border border-[var(--border-glass)] text-[var(--gray-200)] rounded-bl-[4px]'
                     }
                   `}
                 >
@@ -1203,7 +1228,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   className="w-full h-full object-cover"
                 />
 
-                                {img.status === 'uploading' && (
+                {img.status === 'uploading' && (
                   <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
                     <div className="flex flex-col items-center gap-0.5">
                       <Loader2 size={16} className="text-white animate-spin" />
@@ -1421,10 +1446,9 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               flex items-center justify-center
               cursor-pointer transition-all duration-150
               shrink-0 self-center
-              ${
-                showAttachMenu
-                  ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
-                  : 'bg-white/[0.04] text-[var(--gray-500)]'
+              ${showAttachMenu
+                ? 'bg-[rgba(250,204,21,0.1)] text-[var(--accent-yellow)]'
+                : 'bg-white/[0.04] text-[var(--gray-500)]'
               }
               active:scale-[0.92]
             `}
