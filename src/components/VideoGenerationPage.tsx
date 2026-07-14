@@ -180,10 +180,10 @@ const FALLBACK: Record<string, FallbackCaps> = {
     resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 2,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
-  'seedance-2': {
+    'seedance-2': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
     durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    resolutions: ['480p', '720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'seedance-2-fast': {
