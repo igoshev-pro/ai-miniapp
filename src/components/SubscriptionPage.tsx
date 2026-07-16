@@ -219,6 +219,17 @@ export function SubscriptionPage({ onBack }: Props) {
         </div>
       </div>
 
+      {/* ── 🆕 Спички не сгорают ── */}
+      <div className="flex items-start gap-2.5 p-3.5 mb-4 bg-green-400/[.06] border border-green-400/20 rounded-xl animate-fade-in">
+        <span className="shrink-0 mt-0.5 text-green-400">
+          <Sparkles size={16} />
+        </span>
+        <div className="text-[12.5px] text-white/70 leading-[1.4]">
+          <span className="font-semibold text-white">Спички не сгорают.</span>{' '}
+          После окончания подписки все накопленные спички сохраняются — вы сможете использовать их в любое время.
+        </div>
+      </div>
+
       {/* ── Loading ── */}
       {isLoadingPlans && plans.length === 0 && (
         <div className="flex items-center justify-center py-16">
