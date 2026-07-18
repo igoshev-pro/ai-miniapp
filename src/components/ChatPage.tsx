@@ -21,7 +21,8 @@ import {
   FileSpreadsheet,
   FileType,
   Gift,
-  Brain, // 🆕 иконка reasoning
+  Brain,
+  Settings,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites, useModels } from '@/hooks'
@@ -139,7 +140,6 @@ function getDocIcon(filename: string, mimeType: string) {
 }
 
 // 🆕 Определяет, поддерживает ли модель управление reasoning.
-//    Надёжно: сначала capabilities, потом fallback по slug (gpt-5.6-*).
 function modelSupportsReasoning(model: any): boolean {
   if (!model) return false
   if (Array.isArray(model.capabilities) && model.capabilities.includes('reasoning')) {
@@ -150,7 +150,6 @@ function modelSupportsReasoning(model: any): boolean {
 }
 
 // 🆕 Определяет, поддерживает ли модель web access.
-//    Надёжно: capabilities.web_search ИЛИ поле webSearch (уже используется в дропдропе).
 function modelSupportsWebSearch(model: any): boolean {
   if (!model) return false
   if (Array.isArray(model.capabilities) && model.capabilities.includes('web_search')) {
@@ -195,6 +194,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   // 🆕 Состояние настроек codex-моделей (GPT 5.6)
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('low')
   const [webSearch, setWebSearch] = useState(false)
+  const [showSettings, setShowSettings] = useState(false) // 🆕 bottom-sheet настроек
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -214,7 +214,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const modelCost = currentModel?.cost || 1
   const supportsVision = currentModel?.supportsVision ?? false
 
-  // 🆕 Флаги видимости панели настроек
+  // 🆕 Флаги видимости настроек
   const showReasoning = useMemo(
     () => modelSupportsReasoning(currentModel),
     [currentModel],
@@ -224,6 +224,19 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     [currentModel],
   )
   const showSettingsBar = showReasoning || showWebSearch
+
+  // 🆕 Активные бейджи настроек в model bar
+  const activeBadges = useMemo(() => {
+    const badges: { key: string; label: string; accent?: boolean }[] = []
+    if (showReasoning) {
+      const opt = REASONING_OPTIONS.find((o) => o.value === reasoningEffort)
+      badges.push({ key: 'reason', label: opt?.label || reasoningEffort, accent: true })
+    }
+    if (showWebSearch && webSearch) {
+      badges.push({ key: 'web', label: '🌐 Онлайн', accent: true })
+    }
+    return badges
+  }, [showReasoning, showWebSearch, reasoningEffort, webSearch])
 
   const freeAccess = useMemo(
     () => getFreeAccessInfo(currentModel || {}, {}),
@@ -271,22 +284,18 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       .finally(() => setIsLoadingMessages(false))
   }, [existingChatId])
 
-  // Отслеживаем, находится ли пользователь внизу.
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
-
     const handleScroll = () => {
       const distanceFromBottom =
         el.scrollHeight - el.scrollTop - el.clientHeight
       stickToBottomRef.current = distanceFromBottom < 80
     }
-
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // При изменении сообщений всегда скроллим вниз.
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
@@ -294,7 +303,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     el.scrollTop = el.scrollHeight
   }, [messages])
 
-  // Во время стриминга скроллим только если пользователь у низа.
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
@@ -633,7 +641,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         text: d.extractedText || '',
       }))
 
-    images.forEach((img: any) => {
+        images.forEach((img: any) => {
       if (img.previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(img.previewUrl)
       }
@@ -764,7 +772,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     isFreeForUser,
     haptic,
     hapticNotification,
-    // 🆕 добавлены зависимости codex-настроек
     reasoningEffort,
     webSearch,
     showReasoning,
@@ -826,7 +833,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     return true
   }, [isStreaming, input, images, docs])
 
-  return (
+    return (
     <div
       className="
         fs-page
@@ -896,11 +903,33 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           }}
         >
           <MessageSquare size={14} className="text-[var(--gray-500)] shrink-0" />
-          <span className="truncate">{selectedModelName}</span>
+          <span className="truncate max-w-[42%] shrink-0">{selectedModelName}</span>
+
+          <div className="flex-1 min-w-0" />
+
+          {/* 🆕 Бейджи настроек (стиль как в Image/Video) */}
+          <div className="flex items-center gap-1 overflow-x-auto min-w-0 shrink [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-end">
+            {activeBadges.map((b) => (
+              <span
+                key={b.key}
+                className={`
+                  shrink-0 py-[2px] px-2 rounded-[6px]
+                  text-[10px] font-medium leading-none border
+                  ${b.accent
+                    ? 'bg-[rgba(250,204,21,0.08)] border-[rgba(250,204,21,0.25)] text-[var(--accent-yellow)]'
+                    : 'bg-white/[0.04] border-white/[0.06] text-[var(--gray-400)]'
+                  }
+                `}
+              >
+                {b.label}
+              </span>
+            ))}
+          </div>
+
           {isFreeForUser ? (
             <span
               className="
-                text-[11px] font-semibold ml-auto shrink-0
+                text-[11px] font-semibold shrink-0
                 text-emerald-400 inline-flex items-center gap-1
               "
               title={
@@ -913,11 +942,35 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               {formatFreeBadge(freeAccess)}
             </span>
           ) : (
-            <span className="text-[11px] text-white/40 ml-auto shrink-0">
+            <span className="text-[11px] text-white/40 shrink-0">
               от {formatCost(modelCost)} 🔥
             </span>
           )}
         </button>
+
+        {/* 🆕 Шестерёнка настроек — только для моделей с reasoning/web */}
+        {showSettingsBar && (
+          <button
+            className="
+              w-9 h-9 rounded-[9px]
+              border border-[var(--border-glass)]
+              bg-[var(--bg-glass)]
+              backdrop-blur-[20px] [-webkit-backdrop-filter:var(--blur)]
+              flex items-center justify-center
+              cursor-pointer transition-all duration-150
+              shrink-0 [-webkit-tap-highlight-color:transparent]
+              text-[var(--gray-400)]
+              active:scale-[0.9] active:text-[var(--accent-yellow)]
+            "
+            onClick={() => {
+              if (isStreaming) return
+              setShowSettings(true)
+              haptic('light')
+            }}
+          >
+            <Settings size={16} />
+          </button>
+        )}
 
         {/* Кнопка избранного чата */}
         {activeChatId && !activeChatId.startsWith('pending-') && (
@@ -1067,86 +1120,156 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         )}
       </div>
 
-      {/* 🆕 ── Панель настроек codex-моделей (reasoning / web) ── */}
-      {showSettingsBar && (
-        <div
-          className="
-            shrink-0 relative z-30
-            flex items-center gap-2 flex-wrap
-            px-4 py-2
-            bg-[rgba(8,8,10,0.85)]
-            backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)]
-            border-b border-white/[0.04]
-          "
-        >
-          {showReasoning && (
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--gray-500)] font-medium">
-                <Brain size={12} className="text-violet-400" />
-                Мышление
-              </span>
-              <div className="flex items-center gap-1">
-                {REASONING_OPTIONS.map((opt) => {
-                  const active = reasoningEffort === opt.value
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => {
-                        if (isStreaming) return
-                        setReasoningEffort(opt.value)
-                        haptic('light')
-                      }}
-                      disabled={isStreaming}
+      {/* 🆕 ── Settings sheet (стиль как в Image/Video) ── */}
+      {showSettings && showSettingsBar && (
+        <>
+          <div
+            className="gen-settings-overlay"
+            onClick={() => setShowSettings(false)}
+          />
+          <div className="gen-settings-sheet">
+            <div className="sticky top-0 pt-2.5 pb-1 flex justify-center bg-[var(--bg-glass-heavy)]">
+              <div className="w-10 h-1 rounded-full bg-white/15" />
+            </div>
+
+            <div className="flex items-center justify-between px-5 py-2 border-b border-white/[0.04]">
+              <div className="flex flex-col gap-0.5">
+                <div className="text-[15px] font-semibold text-white">
+                  {selectedModelName}
+                </div>
+                <div className="text-[11px] text-[var(--gray-500)]">
+                  Настройки генерации
+                </div>
+              </div>
+              <button
+                className="
+                  w-8 h-8 rounded-full
+                  bg-white/[0.04] text-[var(--gray-500)]
+                  flex items-center justify-center
+                  cursor-pointer
+                  active:scale-90 active:bg-white/[0.08]
+                "
+                onClick={() => setShowSettings(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-5 p-5">
+              {/* Reasoning */}
+              {showReasoning && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-white/45">
+                    <Brain size={12} className="text-violet-400" />
+                    Уровень мышления
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {REASONING_OPTIONS.map((opt) => {
+                      const active = reasoningEffort === opt.value
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            if (isStreaming) return
+                            setReasoningEffort(opt.value)
+                            haptic('light')
+                          }}
+                          disabled={isStreaming}
+                          className={`
+                            py-2.5 px-2 rounded-[var(--radius-xs)]
+                            text-[12px] font-medium border
+                            transition-all duration-150
+                            [-webkit-tap-highlight-color:transparent]
+                            active:scale-[0.96]
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            ${active
+                              ? 'bg-[rgba(167,139,250,0.12)] border-[rgba(167,139,250,0.35)] text-violet-300'
+                              : 'bg-white/[0.03] border-[var(--border-glass)] text-white/55'
+                            }
+                          `}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="text-[10px] text-white/30 leading-relaxed">
+                    Выше уровень — глубже рассуждение, но дольше ответ.
+                  </div>
+                </div>
+              )}
+
+              {/* Web search */}
+              {showWebSearch && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-white/45">
+                    <Globe size={12} className="text-emerald-400" />
+                    Онлайн-поиск
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (isStreaming) return
+                      setWebSearch((v) => !v)
+                      haptic('light')
+                    }}
+                    disabled={isStreaming}
+                    className={`
+                      relative w-full h-11 rounded-[var(--radius-xs)]
+                      border transition-all duration-300 overflow-hidden
+                      [-webkit-tap-highlight-color:transparent]
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      ${webSearch
+                        ? 'bg-[rgba(52,211,153,0.08)] border-[rgba(52,211,153,0.25)]'
+                        : 'bg-white/[0.03] border-white/[0.06]'
+                      }
+                    `}
+                  >
+                    <div
                       className={`
-                        px-2 py-1 rounded-[7px]
-                        text-[11px] font-semibold
-                        border transition-all duration-150
-                        [-webkit-tap-highlight-color:transparent]
-                        active:scale-[0.94]
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        ${active
-                          ? 'bg-[rgba(167,139,250,0.14)] border-[rgba(167,139,250,0.35)] text-violet-300'
-                          : 'bg-white/[0.03] border-[var(--border-glass)] text-[var(--gray-500)]'
+                        absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-[8px]
+                        transition-all duration-300 ease-out
+                        ${webSearch
+                          ? 'left-[calc(50%+0px)] bg-[rgba(52,211,153,0.18)]'
+                          : 'left-1 bg-white/[0.06]'
                         }
                       `}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                    />
+                    <div className="relative grid grid-cols-2 h-full items-center">
+                      <span className={`text-[12px] font-medium ${!webSearch ? 'text-white/85' : 'text-white/35'}`}>
+                        📴 Выключен
+                      </span>
+                      <span className={`text-[12px] font-medium inline-flex items-center justify-center gap-1 ${webSearch ? 'text-emerald-300' : 'text-white/35'}`}>
+                        🌐 Включён
+                      </span>
+                    </div>
+                  </button>
+                  <div className="text-[10px] text-white/30 leading-relaxed">
+                    Модель ищет актуальную информацию в интернете.
+                  </div>
+                </div>
+              )}
 
-          {showWebSearch && (
-            <button
-              onClick={() => {
-                if (isStreaming) return
-                setWebSearch((v) => !v)
-                haptic('light')
-              }}
-              disabled={isStreaming}
-              className={`
-                inline-flex items-center gap-1.5
-                px-2.5 py-1 rounded-[7px]
-                text-[11px] font-semibold
-                border transition-all duration-150
-                [-webkit-tap-highlight-color:transparent]
-                active:scale-[0.94]
-                disabled:opacity-50 disabled:cursor-not-allowed
-                ${webSearch
-                  ? 'bg-[rgba(52,211,153,0.14)] border-[rgba(52,211,153,0.35)] text-emerald-300'
-                  : 'bg-white/[0.03] border-[var(--border-glass)] text-[var(--gray-500)]'
-                }
-              `}
-              title="Онлайн-поиск в интернете"
-            >
-              <Globe size={12} />
-              Онлайн-поиск
-              {webSearch && <Check size={12} />}
-            </button>
-          )}
-        </div>
+              {/* Готово */}
+              <button
+                className="
+                  mt-1 w-full py-3 rounded-[var(--radius-sm)]
+                  bg-[var(--accent-yellow)] text-black
+                  text-[14px] font-semibold
+                  flex items-center justify-center gap-2
+                  cursor-pointer transition-all duration-150
+                  active:scale-[0.98] active:bg-[var(--accent-yellow-bright)]
+                  [-webkit-tap-highlight-color:transparent]
+                "
+                onClick={() => {
+                  setShowSettings(false)
+                  haptic('light')
+                }}
+              >
+                <Check size={16} /> Готово
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── Messages ── */}
@@ -1220,7 +1343,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   `}
                   style={{ maxWidth: msg.imageUrls.length === 1 ? 240 : 280 }}
                 >
-                                    {msg.imageUrls.map((url, i) => (
+                  {msg.imageUrls.map((url, i) => (
                     <a
                       key={i}
                       href={url}
@@ -1292,7 +1415,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 <span className="text-[10px] text-[var(--gray-600)]">
                   {formatTime(msg.createdAt)}
                 </span>
-                {msg.content && (
+                                {msg.content && (
                   <div className="flex gap-1 items-center">
                     <button
                       className="
@@ -1677,3 +1800,4 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     </div>
   )
 }
+                        
