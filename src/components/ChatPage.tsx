@@ -21,6 +21,7 @@ import {
   FileSpreadsheet,
   FileType,
   Gift,
+  Brain, // 🆕 иконка reasoning
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites, useModels } from '@/hooks'
@@ -74,6 +75,17 @@ interface DocAttachment {
 
 const MAX_DOCS = 5
 
+// 🆕 Тип уровня reasoning
+type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
+
+// 🆕 Опции для панели reasoning
+const REASONING_OPTIONS: { value: ReasoningEffort; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'xhigh', label: 'X-High' },
+]
+
 const examplePrompts = [
   'Объясни квантовые вычисления простыми словами',
   'Напиши стихотворение о закате над морем',
@@ -126,6 +138,27 @@ function getDocIcon(filename: string, mimeType: string) {
   return FileText
 }
 
+// 🆕 Определяет, поддерживает ли модель управление reasoning.
+//    Надёжно: сначала capabilities, потом fallback по slug (gpt-5.6-*).
+function modelSupportsReasoning(model: any): boolean {
+  if (!model) return false
+  if (Array.isArray(model.capabilities) && model.capabilities.includes('reasoning')) {
+    return true
+  }
+  const slug = model.slug || ''
+  return typeof slug === 'string' && slug.startsWith('gpt-5.6')
+}
+
+// 🆕 Определяет, поддерживает ли модель web access.
+//    Надёжно: capabilities.web_search ИЛИ поле webSearch (уже используется в дропдропе).
+function modelSupportsWebSearch(model: any): boolean {
+  if (!model) return false
+  if (Array.isArray(model.capabilities) && model.capabilities.includes('web_search')) {
+    return true
+  }
+  return !!model.webSearch
+}
+
 export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
   const { balance } = useUser()
@@ -159,6 +192,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
 
+  // 🆕 Состояние настроек codex-моделей (GPT 5.6)
+  const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('low')
+  const [webSearch, setWebSearch] = useState(false)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -166,7 +203,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const docInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const didLoadRef = useRef(false)
-  const stickToBottomRef = useRef(true)   // ← добавить
+  const stickToBottomRef = useRef(true)
 
   const currentModel = useMemo(
     () =>
@@ -176,6 +213,17 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
   const supportsVision = currentModel?.supportsVision ?? false
+
+  // 🆕 Флаги видимости панели настроек
+  const showReasoning = useMemo(
+    () => modelSupportsReasoning(currentModel),
+    [currentModel],
+  )
+  const showWebSearch = useMemo(
+    () => modelSupportsWebSearch(currentModel),
+    [currentModel],
+  )
+  const showSettingsBar = showReasoning || showWebSearch
 
   const freeAccess = useMemo(
     () => getFreeAccessInfo(currentModel || {}, {}),
@@ -224,7 +272,6 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   }, [existingChatId])
 
   // Отслеживаем, находится ли пользователь внизу.
-  // Если он проскроллил вверх во время стриминга — автоскролл выключается.
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
@@ -239,8 +286,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     return () => el.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // При изменении сообщений (новое сообщение / финальный ответ)
-  // всегда скроллим вниз и снова "прилипаем".
+  // При изменении сообщений всегда скроллим вниз.
   useEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
@@ -632,6 +678,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         content: text,
         imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
+        // 🆕 codex-настройки (GPT 5.6). Шлём только если модель их поддерживает,
+        //    иначе undefined — бэк применит дефолты и остальные модели не заденет.
+        // @ts-ignore
+        reasoningEffort: showReasoning ? reasoningEffort : undefined,
+        webSearch: showWebSearch ? webSearch : undefined,
       },
       {
         onConversation: (data) => {
@@ -713,6 +764,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     isFreeForUser,
     haptic,
     hapticNotification,
+    // 🆕 добавлены зависимости codex-настроек
+    reasoningEffort,
+    webSearch,
+    showReasoning,
+    showWebSearch,
   ])
 
   const stopStreaming = useCallback(() => {
@@ -863,7 +919,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           )}
         </button>
 
-        {/* Кнопка избранного чата (рядом с кнопкой выбора модели, НЕ внутри неё) */}
+        {/* Кнопка избранного чата */}
         {activeChatId && !activeChatId.startsWith('pending-') && (
           <button
             className={`
@@ -888,7 +944,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           </button>
         )}
 
-        {/* Model dropdown (сиблинг кнопки, абсолютное позиционирование внутри bar-а) */}
+        {/* Model dropdown */}
         {showModelPicker && (
           <div
             className="
@@ -954,6 +1010,20 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                           <Globe size={9} />
                         </span>
                       )}
+
+                      {/* 🆕 Бейдж reasoning (управляемое мышление) */}
+                      {modelSupportsReasoning(m) && (
+                        <span
+                          className="
+                            inline-flex items-center
+                            text-[9px] px-1 py-px rounded
+                            bg-[rgba(167,139,250,0.14)] text-violet-400 font-bold
+                          "
+                          title="Управляемое мышление"
+                        >
+                          <Brain size={9} />
+                        </span>
+                      )}
                     </span>
                     <span className="text-[11px] text-[var(--gray-600)]">
                       {m.provider}
@@ -996,6 +1066,88 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           </div>
         )}
       </div>
+
+      {/* 🆕 ── Панель настроек codex-моделей (reasoning / web) ── */}
+      {showSettingsBar && (
+        <div
+          className="
+            shrink-0 relative z-30
+            flex items-center gap-2 flex-wrap
+            px-4 py-2
+            bg-[rgba(8,8,10,0.85)]
+            backdrop-blur-[20px] [-webkit-backdrop-filter:blur(20px)]
+            border-b border-white/[0.04]
+          "
+        >
+          {showReasoning && (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--gray-500)] font-medium">
+                <Brain size={12} className="text-violet-400" />
+                Мышление
+              </span>
+              <div className="flex items-center gap-1">
+                {REASONING_OPTIONS.map((opt) => {
+                  const active = reasoningEffort === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        if (isStreaming) return
+                        setReasoningEffort(opt.value)
+                        haptic('light')
+                      }}
+                      disabled={isStreaming}
+                      className={`
+                        px-2 py-1 rounded-[7px]
+                        text-[11px] font-semibold
+                        border transition-all duration-150
+                        [-webkit-tap-highlight-color:transparent]
+                        active:scale-[0.94]
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        ${active
+                          ? 'bg-[rgba(167,139,250,0.14)] border-[rgba(167,139,250,0.35)] text-violet-300'
+                          : 'bg-white/[0.03] border-[var(--border-glass)] text-[var(--gray-500)]'
+                        }
+                      `}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {showWebSearch && (
+            <button
+              onClick={() => {
+                if (isStreaming) return
+                setWebSearch((v) => !v)
+                haptic('light')
+              }}
+              disabled={isStreaming}
+              className={`
+                inline-flex items-center gap-1.5
+                px-2.5 py-1 rounded-[7px]
+                text-[11px] font-semibold
+                border transition-all duration-150
+                [-webkit-tap-highlight-color:transparent]
+                active:scale-[0.94]
+                disabled:opacity-50 disabled:cursor-not-allowed
+                ${webSearch
+                  ? 'bg-[rgba(52,211,153,0.14)] border-[rgba(52,211,153,0.35)] text-emerald-300'
+                  : 'bg-white/[0.03] border-[var(--border-glass)] text-[var(--gray-500)]'
+                }
+              `}
+              title="Онлайн-поиск в интернете"
+            >
+              <Globe size={12} />
+              Онлайн-поиск
+              {webSearch && <Check size={12} />}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Messages ── */}
       <div
@@ -1068,7 +1220,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   `}
                   style={{ maxWidth: msg.imageUrls.length === 1 ? 240 : 280 }}
                 >
-                  {msg.imageUrls.map((url, i) => (
+                                    {msg.imageUrls.map((url, i) => (
                     <a
                       key={i}
                       href={url}
