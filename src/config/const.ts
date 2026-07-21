@@ -1,1 +1,1 @@
-export const SUPPORT_TG_LINK = 'https://t.me/@macheezzz'
+export const SUPPORT_TG_LINK = 'https://t.me/@spichki_ai_help'
