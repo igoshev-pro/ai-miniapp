@@ -17,9 +17,11 @@ import {
   Flame,
   Loader2,
   ExternalLink,
+  LogOut,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useBilling } from '@/hooks'
+import { useAuthStore } from '@/stores/auth.store'
 import { SUPPORT_TG_LINK } from '@/config/const'
 
 interface Props {
@@ -83,6 +85,31 @@ export function ProfilePage({ onNavigate }: Props) {
       window.open(SUPPORT_TG_LINK, '_blank')
     }
   }, [haptic, webApp])
+
+  // 🆕 Логаут
+  const handleLogout = useCallback(() => {
+    hapticNotification('warning')
+
+    // Снимаем подтверждение закрытия, иначе TG спросит «точно выйти?»
+    try {
+      webApp?.disableClosingConfirmation?.()
+    } catch {}
+
+    // clearToken сам: рвёт WS + чистит useUserStore.clear()
+    useAuthStore.getState().clearToken()
+
+    // Чистим persisted-токен из localStorage (spichki-auth)
+    try {
+      useAuthStore.persist?.clearStorage?.()
+    } catch {}
+
+    // В Telegram закрываем Mini App, в браузере — перезагружаем на экран логина.
+    if (webApp) {
+      webApp.close()
+    } else {
+      window.location.reload()
+    }
+  }, [hapticNotification, webApp])
 
   if (!isLoaded) {
     return (
@@ -309,6 +336,14 @@ export function ProfilePage({ onNavigate }: Props) {
           <HelpCircle size={16} />
           <span>Поддержка</span>
           <ExternalLink size={14} />
+        </button>
+
+        <button
+          className="profile-menu-item profile-menu-item--danger"
+          onClick={handleLogout}
+        >
+          <LogOut size={16} />
+          <span>Выйти</span>
         </button>
       </div>
     </div>

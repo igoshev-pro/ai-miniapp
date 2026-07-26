@@ -7757,3 +7757,8 @@ body.tg-app .gen-settings-sheet {
   opacity: 1;
   outline: none;
 }
+
+.profile-menu-item--danger,
+.profile-menu-item--danger svg {
+  color: #f87171;
+}
