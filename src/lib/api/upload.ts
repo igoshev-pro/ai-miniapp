@@ -157,8 +157,10 @@ const DOCUMENT_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain',
   'text/csv',
+  'text/markdown',   // 🆕
+  'text/x-markdown', // 🆕 (некоторые браузеры)
 ]
-const DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv']
+const DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv', '.md', '.markdown']
 const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024 // 20 MB
 
 export function validateDocumentFile(file: File): string | null {
@@ -166,7 +168,7 @@ export function validateDocumentFile(file: File): string | null {
   const okMime = DOCUMENT_MIME_TYPES.includes(file.type)
   const okExt = DOCUMENT_EXTENSIONS.includes(ext)
   if (!okMime && !okExt) {
-    return 'Поддерживаются: PDF, Word, Excel, TXT, CSV'
+    return 'Поддерживаются: PDF, Word, Excel, TXT, CSV, Markdown' // 🆕
   }
   if (file.size > MAX_DOCUMENT_SIZE) {
     return `Файл слишком большой (${(file.size / 1024 / 1024).toFixed(1)} MB). Максимум 20 MB`

@@ -641,7 +641,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         text: d.extractedText || '',
       }))
 
-        images.forEach((img: any) => {
+    images.forEach((img: any) => {
       if (img.previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(img.previewUrl)
       }
@@ -833,7 +833,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     return true
   }, [isStreaming, input, images, docs])
 
-    return (
+  return (
     <div
       className="
         fs-page
@@ -859,7 +859,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       <input
         ref={docInputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.md,.markdown,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,text/markdown"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -1415,7 +1415,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                 <span className="text-[10px] text-[var(--gray-600)]">
                   {formatTime(msg.createdAt)}
                 </span>
-                                {msg.content && (
+                {msg.content && (
                   <div className="flex gap-1 items-center">
                     <button
                       className="
@@ -1800,4 +1800,3 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     </div>
   )
 }
-                        
