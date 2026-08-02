@@ -11,6 +11,7 @@ export interface ModelItem {
   hasVariants?: boolean // true = показывать "от X 🔥"
   supportsVision?: boolean
   webSearch?: boolean    // умеет искать в интернете (🌐)
+  capabilities?: string[]   // 🆕
 
   // 🆕 Бесплатный доступ по подписке
   isFreeInPlan?: boolean
@@ -31,6 +32,7 @@ export const allModels: ModelItem[] = [
   // { id: 't6', name: 'DeepSeek V3.2', slug: 'deepseek-v3.2', provider: 'DeepSeek', category: 'text', description: 'Улучшенная версия с DSA и reasoning', cost: 0.1, hasVariants: true },
   { id: 't7', name: 'Grok 4.1 Fast', slug: 'grok-4.1-fast', provider: 'xAI', category: 'text', description: 'Быстрая версия Grok от xAI', cost: 0.3, hasVariants: true, supportsVision: true },
   { id: 't8', name: 'Grok 4', slug: 'grok-4', provider: 'xAI', category: 'text', description: 'Флагманская reasoning модель', cost: 1.2, hasVariants: true, supportsVision: true },
+  { id: 't8b', name: 'Grok 4.5', slug: 'grok-4.5', provider: 'xAI', category: 'text', description: 'Новейшая reasoning-модель xAI, web search', cost: 1.2, hasVariants: true, supportsVision: true, webSearch: true, capabilities: ['streaming', 'reasoning', 'vision', 'web_search'] },
   { id: 't9', name: 'Perplexity Sonar', slug: 'perplexity-sonar', provider: 'Perplexity', category: 'text', description: 'Поисковая модель с актуальными данными', cost: 1.0, hasVariants: true, webSearch: true },
   { id: 't10', name: 'Gemini 3.1 Pro', slug: 'gemini-3.1-pro', provider: 'Google', category: 'text', description: 'Продвинутая модель Google', cost: 0.2, hasVariants: true, supportsVision: true },
   {

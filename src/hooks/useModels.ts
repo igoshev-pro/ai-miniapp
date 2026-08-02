@@ -85,6 +85,7 @@ function mapBackendModel(m: BackendModel, index: number): ModelItem {
     hasVariants: m.hasVariants ?? false,
     supportsVision,
     webSearch,
+    capabilities: Array.isArray(m.capabilities) ? m.capabilities : [],  // 🆕
 
     // 🆕 пробрасываем free-доступ
     isFreeInPlan: !!m.isFreeInPlan,
