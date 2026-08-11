@@ -92,6 +92,14 @@ function getFileExtension(url: string, type: string): string {
   return 'bin'
 }
 
+// добавить рядом с getFileExtension
+const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'])
+
+function isImageUrl(url: string): boolean {
+  const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/)
+  if (!match) return false
+  return IMAGE_EXTENSIONS.has(match[1].toLowerCase())
+}
 
 /* ─── Component ─── */
 
@@ -325,7 +333,11 @@ export function MediaResult({ generation, onRetry }: Props) {
       )}
 
       {/* ── Video ── */}
-      {type === 'video' && <VideoPlayer url={activeUrl} />}
+      {type === 'video' && (
+        isImageUrl(activeUrl)
+          ? <VideoResultFrame url={activeUrl} />
+          : <VideoPlayer url={activeUrl} />
+      )}
 
       {/* ── Audio ── */}
       {type === 'audio' && (
@@ -466,6 +478,34 @@ function VideoPlayer({ url }: { url: string }) {
   )
 }
 
+/* ─── Доп. кадр в результате видео (напр. "последний кадр" Seedance 2.5) ─── */
+
+function VideoResultFrame({ url }: { url: string }) {
+  const [imgError, setImgError] = useState(false)
+
+  return (
+    <div className="relative rounded-[14px] overflow-hidden bg-black/40 border border-white/[0.06]">
+      {imgError ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-10 px-5 text-white/55">
+          <AlertCircle size={24} className="text-red-400" />
+          <span className="text-[13px]">Не удалось загрузить кадр</span>
+        </div>
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={url}
+          alt="Дополнительный кадр"
+          className="block w-full h-auto"
+          loading="lazy"
+          onError={() => setImgError(true)}
+        />
+      )}
+      <span className="absolute bottom-2 left-2 text-[10px] font-medium bg-black/60 text-white/80 px-2 py-1 rounded-md backdrop-blur-sm">
+        🖼 Дополнительный кадр
+      </span>
+    </div>
+  )
+}
 
 /* ─── Action button ─── */
 
