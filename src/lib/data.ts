@@ -73,6 +73,7 @@ export const allModels: ModelItem[] = [
   { id: 'i8', name: 'GPT-5 Image', slug: 'gpt-5-image', provider: 'OpenAI', category: 'image', description: 'Новейший генератор OpenAI', cost: 0.70, hasVariants: true },
   { id: 'i9', name: 'Midjourney Img2Img', slug: 'midjourney-img2img', provider: 'Midjourney', category: 'image', description: 'Трансформация изображений', cost: 1.30 },
   { id: 'i10', name: 'Flux 2 Img2Img', slug: 'flux-2-img2img', provider: 'Black Forest', category: 'image', description: 'Flux для трансформации', cost: 5.00 },
+  { id: 'i11', name: 'Gemini Omni Character', slug: 'gemini-omni-character', provider: 'Google', category: 'image', description: 'Консистентный персонаж по референс-фото', cost: 9 },
 
   // ═══════════════════════════════════════ ВИДЕО (9) ═══════════════════════════════════════
   { id: 'v1', name: 'Veo 3.1 Fast', slug: 'veo-3.1-fast', provider: 'Google', category: 'video', description: 'Быстрая версия Veo, 720p–4K', cost: 15.00, hasVariants: true },
@@ -88,6 +89,7 @@ export const allModels: ModelItem[] = [
   { id: 'v11', name: 'Seedance 1.5 Pro', slug: 'seedance-1.5-pro', provider: 'ByteDance', category: 'video', description: 'Текст/фото → видео, звук, 4–12с', cost: 2.8, hasVariants: true },
   { id: 'v12', name: 'Seedance 2', slug: 'seedance-2', provider: 'ByteDance', category: 'video', description: 'Мультиреференс, 4–15с', cost: 18, hasVariants: true },
   { id: 'v13', name: 'Seedance 2 Fast', slug: 'seedance-2-fast', provider: 'ByteDance', category: 'video', description: 'Быстрая, 480/720p', cost: 9, hasVariants: true },
+  { id: 'v14', name: 'Gemini Omni Video', slug: 'gemini-omni-video', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 720p–4K', cost: 47.3, hasVariants: true },
 
   // ═══════════════════════════════════════ АУДИО (6) ═══════════════════════════════════════
   { id: 'a1', name: 'Suno V5', slug: 'suno', provider: 'Suno', category: 'audio', description: 'Генерация музыки с вокалом — Suno V5', cost: 12, hasVariants: false },
@@ -96,6 +98,7 @@ export const allModels: ModelItem[] = [
   { id: 'a4', name: 'ElevenLabs Dialogue', slug: 'elevenlabs-dialogue', provider: 'ElevenLabs', category: 'audio', description: 'Генерация диалогов с разными голосами', cost: 6.70, hasVariants: true },
   { id: 'a5', name: 'ElevenLabs Isolation', slug: 'elevenlabs-isolation', provider: 'ElevenLabs', category: 'audio', description: 'Удаление шума, изоляция голоса', cost: 0.10 },
   { id: 'a6', name: 'ElevenLabs STT', slug: 'elevenlabs-stt', provider: 'ElevenLabs', category: 'audio', description: 'Распознавание речи в текст', cost: 2.00 },
+  { id: 'a7', name: 'Gemini Omni Audio', slug: 'gemini-omni-audio', provider: 'Google', category: 'audio', description: 'Дизайн голосового профиля', cost: 4.5 },
 ]
 
 // 🆕 ХЕЛПЕР ФОРМАТИРОВАНИЯ ЦЕНЫ: "от 0,8 🔥" / "от 15 🔥" / "от ? 🔥"

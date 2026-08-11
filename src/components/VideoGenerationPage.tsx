@@ -192,6 +192,11 @@ const FALLBACK: Record<string, FallbackCaps> = {
     resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
+  'gemini-omni-video': {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8, 10],
+    resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
 }
 
 const DEFAULT_FALLBACK: FallbackCaps = {
