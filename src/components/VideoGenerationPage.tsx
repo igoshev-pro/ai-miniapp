@@ -70,6 +70,9 @@ const RES_META: Record<string, { label: string; sub?: string; tier: number }> = 
   '768P': { label: '768p', sub: 'SD', tier: 1 },
   '4k': { label: '4K', sub: 'Ultra HD', tier: 3 },
   '4К': { label: '4K', sub: 'Ultra HD', tier: 3 },
+  '1': { label: '1x', sub: 'Улучшение', tier: 1 },
+  '2': { label: '2x', sub: 'Увеличение', tier: 2 },
+  '4': { label: '4x', sub: 'Увеличение', tier: 3 },
 }
 
 const MODE_META: Record<string, { label: string; icon: typeof Rocket }> = {
@@ -191,6 +194,11 @@ const FALLBACK: Record<string, FallbackCaps> = {
     durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'topaz-video-upscale': {
+    aspectRatios: [], durations: [], resolutions: ['1', '2', '4'],
+    modes: [], supportsImageInput: false, maxInputImages: 0,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'gemini-omni-video': {
     aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8, 10],
@@ -388,12 +396,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isKling25 = slug === 'kling-2.5-turbo'
   const isKling = isKling3
   const isMotion = slug === 'motion-control'
+  const isTopaz = slug === 'topaz-video-upscale'
   const isSeedance15 = slug === 'seedance-1.5-pro'
   const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast'
   const isSeedance = isSeedance15 || isSeedance2
 
   // 🆕 Sora 2 / Sora 2 Pro — поддерживают до 10 референс-изображений
   const isSora = slug === 'sora-2' || slug === 'sora-2-pro'
+
+  // Topaz Video Upscale — исходное видео на апскейл
+  const [topazVideoUrl, setTopazVideoUrl] = useState('')
+  const [topazVideoDuration, setTopazVideoDuration] = useState<number | null>(null)
+  const [uploadingTopazVideo, setUploadingTopazVideo] = useState(false)
+  const topazVideoFileRef = useRef<HTMLInputElement>(null)
 
   /* ── UI config ── */
 
@@ -569,12 +584,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (refVideos.length > 0) p.refVideoSeconds = refVideoSeconds
     }
 
+    if (isTopaz) {
+      if (topazVideoDuration) p.duration = Math.max(1, Math.ceil(topazVideoDuration))
+      p.videoRef = true // включает формулу rate×duration на бэке
+      // p.resolution уже проставлен генерическим блоком выше (caps.resolutions)
+    }
+
     return p
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
     isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, // 🆕
     isKling, multiShots, klingMultiDuration, // 🆕
+    isTopaz, topazVideoDuration
   ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
@@ -714,6 +736,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setMotionVideoUrl('')
     setMotionVideoDuration(null)
     setCharacterOrientation('video')
+
+    setTopazVideoUrl('')
+    setTopazVideoDuration(null)
 
     setCfgScale(0.5)
     setNsfwChecker(true)
@@ -927,6 +952,61 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     [haptic],
   )
 
+  const uploadTopazVideo = useCallback(
+    async (file: File) => {
+      if (!file.type.match(/video\/(mp4|quicktime|mov)/) && !/\.(mp4|mov)$/i.test(file.name)) {
+        toast.error('Только MP4 или MOV')
+        return
+      }
+      if (file.size > 300 * 1024 * 1024) {
+        toast.error('Макс 300MB')
+        return
+      }
+
+      const localUrl = URL.createObjectURL(file)
+      const probeDuration = await new Promise<number | null>((resolve) => {
+        const v = document.createElement('video')
+        v.preload = 'metadata'
+        v.onloadedmetadata = () => {
+          resolve(isFinite(v.duration) ? v.duration : null)
+          URL.revokeObjectURL(localUrl)
+        }
+        v.onerror = () => { resolve(null); URL.revokeObjectURL(localUrl) }
+        v.src = localUrl
+      })
+
+      if (probeDuration !== null && probeDuration > 600) {
+        toast.warning('Видео длиннее 10 минут — будет использовано первые 10 мин')
+      }
+
+      setUploadingTopazVideo(true)
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const token = useAuthStore.getState().token
+        const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/upload/video`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: fd,
+        })
+        if (!r.ok) throw new Error('Upload failed')
+        const d = await r.json()
+        const url = d.data?.url || d.url
+        if (!url) throw new Error('No URL')
+
+        setTopazVideoUrl(url)
+        setTopazVideoDuration(probeDuration)
+        haptic('light')
+        toast.success('Видео загружено')
+      } catch (e: any) {
+        toast.error(e.message || 'Ошибка загрузки видео')
+      } finally {
+        setUploadingTopazVideo(false)
+      }
+    },
+    [haptic],
+  )
+
   const uploadRefVideo = useCallback(async (file: File) => {
     if (!/\.(mp4|mov)$/i.test(file.name) && !file.type.match(/video\/(mp4|quicktime)/)) {
       toast.error('Только MP4 или MOV'); return
@@ -1027,7 +1107,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const doGen = useCallback(async () => {
     const prompt = input.trim()
-    if (!prompt) return
+    if (!prompt && !isTopaz) return
 
     if (isVeo) {
       if (veoMode === 'frames' && !startFrame) {
@@ -1074,6 +1154,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         toast.warning('Загрузите видео с движениями')
         return
       }
+    }
+
+    if (isTopaz && !topazVideoUrl) {
+      toast.warning('Загрузите видео для апскейла')
+      return
     }
 
     if (!isFreeForUser && balance < displayedCost) {
@@ -1156,6 +1241,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           elementInputUrls: el.urls,
         }))
       if (validElements.length) s.klingElements = validElements
+    } else if (isTopaz) {
+      s.videoUrls = [topazVideoUrl]
+      s.duration = Math.max(1, Math.ceil(topazVideoDuration || 0))
+      // s.resolution (upscale factor) уже проставлен generic-блоком выше
     } else if (isKling25) {
       s.cfgScale = cfgScale
       s.nsfwChecker = nsfwChecker
@@ -1220,6 +1309,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refVideoSeconds, refAudios,
     seedanceImages, seedanceMaxImages, // 🆕
     isSora, soraImages, soraMaxImages, // 🆕
+    isTopaz, topazVideoUrl, topazVideoDuration
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -1253,7 +1343,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     generating ||
     (isVeo && veoMode === 'frames' && !startFrame) ||
     (isVeo && veoMode === 'reference' && refImages.length === 0) ||
-    (!isVeo && !isKling && requiresInputImage && !imgUrl)
+    (!isVeo && !isKling && requiresInputImage && !imgUrl) ||
+    (isTopaz && !topazVideoUrl)   // 🆕
 
   /* ── Badges ── */
 
@@ -1279,6 +1370,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (caps.supportsSound) {
       const sndOn = isKling && multiShots ? true : sound
       badges.push({ key: 'sound', label: sndOn ? '🔊' : '🔇', accent: sndOn })
+    }
+    if (isTopaz && topazVideoUrl) {
+      badges.push({ key: 'topaz-vid', label: '🎬 Видео', accent: true })
     }
     if (isI2V) {
       // 🆕 для Seedance и Sora показываем количество фото
@@ -1965,6 +2059,55 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     )}
                   </div>
                 </>
+              )}
+
+              {isTopaz && (
+                <Field label={<><Film size={12} /> Видео для апскейла</>}>
+                  {topazVideoUrl ? (
+                    <div className="relative rounded-[10px] overflow-hidden border border-white/[0.08]">
+                      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                      <video
+                        src={topazVideoUrl}
+                        className="w-full max-h-[180px] object-contain bg-black block"
+                        controls
+                        playsInline
+                      />
+                      <button
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                        onClick={() => { setTopazVideoUrl(''); setTopazVideoDuration(null) }}
+                      >
+                        <X size={13} />
+                      </button>
+                      {topazVideoDuration !== null && (
+                        <span className="absolute bottom-1.5 left-1.5 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
+                          {Math.ceil(topazVideoDuration)}с
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      className="
+          w-full py-6 rounded-[10px]
+          border-[1.5px] border-dashed border-white/[0.12]
+          bg-white/[0.03] text-white/30
+          flex flex-col items-center justify-center gap-1.5 text-[12px]
+          cursor-pointer transition-all
+          active:bg-white/[0.07] active:border-white/[0.22]
+          disabled:opacity-50
+        "
+                      onClick={() => topazVideoFileRef.current?.click()}
+                      disabled={uploadingTopazVideo}
+                    >
+                      {uploadingTopazVideo
+                        ? <Loader2 size={22} className="animate-spin" />
+                        : <Upload size={22} />}
+                      <span>{uploadingTopazVideo ? 'Загрузка...' : 'Загрузить видео'}</span>
+                    </button>
+                  )}
+                  <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                    MP4 или MOV, до 300MB. Цена = ставка × длительность видео.
+                  </div>
+                </Field>
               )}
 
               {/* ═══ KLING 3.0 ═══ */}
@@ -2751,6 +2894,18 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         onChange={(e) => {
           const f = e.target.files?.[0]
           if (f) uploadRefAudio(f)
+          e.target.value = ''
+        }}
+      />
+
+      <input
+        ref={topazVideoFileRef}
+        type="file"
+        accept="video/mp4,video/quicktime,.mp4,.mov"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) uploadTopazVideo(f)
           e.target.value = ''
         }}
       />
