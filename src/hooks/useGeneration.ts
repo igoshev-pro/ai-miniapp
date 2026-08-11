@@ -379,6 +379,10 @@ export function useGeneration() {
         if (s.negativePrompt) body.negativePrompt = s.negativePrompt
         if (s.videoUrls && (s.videoUrls as string[]).length > 0) body.videoUrls = s.videoUrls
         if (s.audioUrls && (s.audioUrls as string[]).length > 0) body.audioUrls = s.audioUrls
+        if (s.firstFrameUrl) body.firstFrameUrl = s.firstFrameUrl
+        if (s.lastFrameUrl) body.lastFrameUrl = s.lastFrameUrl
+        if (s.returnLastFrame !== undefined) body.returnLastFrame = s.returnLastFrame
+        if (s.outputFormat) body.outputFormat = s.outputFormat
         if (s.characterOrientation) body.characterOrientation = s.characterOrientation
         if (s.fixedLens !== undefined) body.fixedLens = s.fixedLens
         if (s.webSearch !== undefined) body.webSearch = s.webSearch

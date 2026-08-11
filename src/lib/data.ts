@@ -90,7 +90,8 @@ export const allModels: ModelItem[] = [
   { id: 'v12', name: 'Seedance 2', slug: 'seedance-2', provider: 'ByteDance', category: 'video', description: 'Мультиреференс, 4–15с', cost: 18, hasVariants: true },
   { id: 'v13', name: 'Seedance 2 Fast', slug: 'seedance-2-fast', provider: 'ByteDance', category: 'video', description: 'Быстрая, 480/720p', cost: 9, hasVariants: true },
   { id: 'v14', name: 'Gemini Omni Video', slug: 'gemini-omni-video', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 720p–4K', cost: 47.3, hasVariants: true },
-
+  { id: 'v15', name: 'Seedance 2.5', slug: 'seedance-2-5', provider: 'ByteDance', category: 'video', description: 'First/last кадр, мультиреференс, до 30с', cost: 12.6, hasVariants: true },
+  
   // ═══════════════════════════════════════ АУДИО (6) ═══════════════════════════════════════
   { id: 'a1', name: 'Suno V5', slug: 'suno', provider: 'Suno', category: 'audio', description: 'Генерация музыки с вокалом — Suno V5', cost: 12, hasVariants: false },
   { id: 'a2', name: 'ElevenLabs TTS Turbo', slug: 'elevenlabs-tts-turbo', provider: 'ElevenLabs', category: 'audio', description: 'Быстрая озвучка текста', cost: 2.70, hasVariants: true },

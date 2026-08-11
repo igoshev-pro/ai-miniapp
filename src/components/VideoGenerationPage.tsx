@@ -195,6 +195,12 @@ const FALLBACK: Record<string, FallbackCaps> = {
     resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
+  'seedance-2-5': {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive'],
+    durations: Array.from({ length: 30 }, (_, i) => i + 1),
+    resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 4,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
   'topaz-video-upscale': {
     aspectRatios: [], durations: [], resolutions: ['1', '2', '4'],
     modes: [], supportsImageInput: false, maxInputImages: 0,
@@ -372,12 +378,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   // 🆕 Множественные референс-фото для Seedance (1.5: до 2, 2/2-fast: до 10)
   const [seedanceImages, setSeedanceImages] = useState<string[]>([])
+
+  // 🆕 Seedance 2.5 — first/last кадр (отдельно от галереи референсов)
+  const [seedanceFirstFrame, setSeedanceFirstFrame] = useState('')
+  const [seedanceLastFrame, setSeedanceLastFrame] = useState('')
+  const [seedanceReturnLastFrame, setSeedanceReturnLastFrame] = useState(false)
+  const [seedanceOutputFormat, setSeedanceOutputFormat] = useState<'mp4' | 'mov'>('mp4')
+
   // 🆕 Множественные референс-фото для Sora 2 / Sora 2 Pro (до 10)
   const [soraImages, setSoraImages] = useState<string[]>([])
 
   const [uploading, setUploading] = useState(false)
   // 🆕 добавлены target 'seedance' и 'sora'
-  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora'>('single')
+  const uploadTarget = useRef<'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora' | 'seedance-first' | 'seedance-last'>('single')
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
@@ -398,7 +411,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isMotion = slug === 'motion-control'
   const isTopaz = slug === 'topaz-video-upscale'
   const isSeedance15 = slug === 'seedance-1.5-pro'
-  const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast'
+  const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast' || slug === 'seedance-2-5'
+  const isSeedance25 = slug === 'seedance-2-5'   // 🆕 только для first/last frame UI
   const isSeedance = isSeedance15 || isSeedance2
 
   // 🆕 Sora 2 / Sora 2 Pro — поддерживают до 10 референс-изображений
@@ -751,6 +765,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setRefAudios([])
     setSeedanceImages([]) // 🆕
 
+    setSeedanceFirstFrame('')
+    setSeedanceLastFrame('')
+    setSeedanceReturnLastFrame(false)
+    setSeedanceOutputFormat('mp4')
+
     // 🆕 Sora reset
     setSoraImages([])
 
@@ -866,6 +885,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 : el,
             ),
           )
+        } else if (target === 'seedance-first') {
+          setSeedanceFirstFrame(url)
+        } else if (target === 'seedance-last') {
+          setSeedanceLastFrame(url)
         } else if (target === 'seedance') {
           // 🆕 множественные фото для Seedance
           setSeedanceImages((prev) => {
@@ -1076,7 +1099,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [haptic])
 
   const triggerUpload = useCallback(
-    (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora', elementIdx?: number) => {
+    (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora' | 'seedance-first' | 'seedance-last', elementIdx?: number) => {
       uploadTarget.current = target
       if (target === 'element' && elementIdx !== undefined) {
         elementUploadIdxRef.current = elementIdx
@@ -1108,6 +1131,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const doGen = useCallback(async () => {
     const prompt = input.trim()
     if (!prompt && !isTopaz) return
+
+    if (isSeedance25 && seedanceLastFrame && !seedanceFirstFrame) {
+      toast.warning('Для конечного кадра нужен начальный')
+      return
+    }
 
     if (isVeo) {
       if (veoMode === 'frames' && !startFrame) {
@@ -1251,12 +1279,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       const frames = imgUrl ? [imgUrl, endFrame].filter(Boolean) : []
       if (frames.length) s.imageUrls = frames
     } else if (isSeedance) {
-      // 🔧 Множественные референс-фото → imageUrls
-      // Бэк положит в input_urls (1.5 Pro) или reference_image_urls (2/2-fast)
       if (seedanceImages.length > 0) {
         s.imageUrls = seedanceImages.slice(0, seedanceMaxImages)
       } else if (imgUrl) {
-        // fallback на одиночное фото (legacy)
         s.imageUrls = [imgUrl]
       }
       if (isSeedance15) {
@@ -1265,10 +1290,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         s.webSearch = webSearch
         if (refVideos.length) {
           s.videoUrls = refVideos
-          // 🆕 суммарные секунды видео-референсов (для посекундной цены на бэке)
           s.refVideoSeconds = refVideoSeconds
         }
         if (refAudios.length) s.audioUrls = refAudios
+
+        // 🆕 Seedance 2.5 — first/last кадр + доп. параметры
+        if (isSeedance25) {
+          if (seedanceFirstFrame) s.firstFrameUrl = seedanceFirstFrame
+          if (seedanceLastFrame) s.lastFrameUrl = seedanceLastFrame
+          if (seedanceReturnLastFrame) s.returnLastFrame = true
+          s.outputFormat = seedanceOutputFormat
+        }
       }
     } else if (isSora) {
       // 🆕 Sora 2 / Pro — массив референсов
@@ -1309,7 +1341,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refVideoSeconds, refAudios,
     seedanceImages, seedanceMaxImages, // 🆕
     isSora, soraImages, soraMaxImages, // 🆕
-    isTopaz, topazVideoUrl, topazVideoDuration
+    isTopaz, topazVideoUrl, topazVideoDuration,
+    isSeedance25, seedanceFirstFrame, seedanceLastFrame, seedanceReturnLastFrame, seedanceOutputFormat
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -1390,6 +1423,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         accent: cnt > 0,
       })
     }
+    if (isSeedance25 && (seedanceFirstFrame || seedanceLastFrame)) {
+      badges.push({
+        key: 'sd25-frames',
+        label: seedanceFirstFrame && seedanceLastFrame ? '🖼 Старт→Конец' : '🖼 Кадр',
+        accent: true,
+      })
+    }
     if (caps.supportsResizeMode && imgUrl) {
       badges.push({
         key: 'resize',
@@ -1434,6 +1474,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isMotion, motionVideoUrl, characterOrientation,
     isSeedance, seedanceImages, // 🆕
     isSora, soraImages, // 🆕
+    seedanceFirstFrame, seedanceLastFrame
   ])
 
   const getGenCost = (gen: any): number | undefined => {
@@ -2561,6 +2602,69 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </div>
                   </Field>
 
+                  {isSeedance25 && (
+                    <>
+                      <Field label={<><Film size={12} /> Начальный / конечный кадр (опц.)</>}>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <FrameSlot
+                            label="Старт"
+                            url={seedanceFirstFrame}
+                            uploading={uploading && uploadTarget.current === 'seedance-first'}
+                            onUpload={() => triggerUpload('seedance-first')}
+                            onRemove={() => setSeedanceFirstFrame('')}
+                          />
+                          <FrameSlot
+                            label="Конец"
+                            url={seedanceLastFrame}
+                            uploading={uploading && uploadTarget.current === 'seedance-last'}
+                            onUpload={() => {
+                              if (!seedanceFirstFrame) {
+                                toast.warning('Сначала загрузите начальный кадр')
+                                return
+                              }
+                              triggerUpload('seedance-last')
+                            }}
+                            onRemove={() => setSeedanceLastFrame('')}
+                          />
+                        </div>
+                        <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                          Отдельно от референс-фото выше. Задаёт конкретный начальный и/или
+                          конечный кадр видео (переход между ними). Необязательно.
+                        </div>
+                      </Field>
+
+                      <Field label={<><ImageIcon size={12} /> Вернуть последний кадр</>}>
+                        <ToggleRow
+                          active={seedanceReturnLastFrame}
+                          onLabel={<>✅ Да</>}
+                          offLabel={<>— Нет</>}
+                          onChange={(v) => { setSeedanceReturnLastFrame(v); haptic('light') }}
+                        />
+                        <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                          Дополнительно получить кадр окончания видео как изображение
+                          (удобно для продолжения ролика).
+                        </div>
+                      </Field>
+
+                      <Field label={<><FileText size={12} /> Формат файла</>}>
+                        <Grid cols={2}>
+                          <OptBtn
+                            active={seedanceOutputFormat === 'mp4'}
+                            onClick={() => { setSeedanceOutputFormat('mp4'); haptic('light') }}
+                          >
+                            MP4
+                          </OptBtn>
+                          <OptBtn
+                            active={seedanceOutputFormat === 'mov'}
+                            onClick={() => { setSeedanceOutputFormat('mov'); haptic('light') }}
+                          >
+                            MOV
+                          </OptBtn>
+                        </Grid>
+                      </Field>
+                    </>
+                  )}
+
                   {/* 1.5 Pro: фиксированная камера */}
                   {isSeedance15 && (
                     <Field label={<><Video size={12} /> Камера</>}>
@@ -2958,7 +3062,6 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           } else if (isMotion) {
             if (imgUrl) chips.push({ url: imgUrl, label: 'Фото', onRemove: () => setImgUrl('') })
           } else if (isSeedance) {
-            // 🆕 чипы из множественной галереи Seedance
             seedanceImages.forEach((url, idx) =>
               chips.push({
                 url,
@@ -2966,6 +3069,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 onRemove: () => setSeedanceImages((p) => p.filter((_, i) => i !== idx)),
               }),
             )
+            // 🆕 first/last кадр Seedance 2.5
+            if (isSeedance25 && seedanceFirstFrame) {
+              chips.push({ url: seedanceFirstFrame, label: 'Старт', onRemove: () => setSeedanceFirstFrame('') })
+            }
+            if (isSeedance25 && seedanceLastFrame) {
+              chips.push({ url: seedanceLastFrame, label: 'Конец', onRemove: () => setSeedanceLastFrame('') })
+            }
           } else if (isSora) {
             // 🆕 чипы из множественной галереи Sora
             soraImages.forEach((url, idx) =>
