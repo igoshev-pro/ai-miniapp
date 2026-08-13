@@ -26,7 +26,7 @@ interface Props {
 type AudioType =
   | 'suno' | 'elevenlabs-tts' | 'elevenlabs-tts-turbo' | 'elevenlabs-sfx'
   | 'elevenlabs-isolation' | 'elevenlabs-stt'
-  | 'elevenlabs-dialogue' | 'gemini-omni-audio' | 'generic'
+  | 'elevenlabs-dialogue' | 'generic'
 
 interface AudioCaps {
   type: AudioType
@@ -93,11 +93,6 @@ const EXAMPLES: Record<string, string[]> = {
     'Звук шагов по деревянному полу в пустой комнате',
     'Космический корабль взлетает с ракетной площадки',
   ],
-  'gemini-omni-audio': [
-    'Тёплый, уверенный мужской голос средних лет с лёгкой хрипотцой, спокойный темп речи',
-    'Энергичный женский голос, молодой, с яркой позитивной интонацией',
-    'Низкий, размеренный голос рассказчика документальных фильмов',
-  ],
   default: ['Опишите что хотите сгенерировать...'],
 }
 
@@ -159,13 +154,6 @@ const FALLBACK_BY_TYPE: Record<AudioType, AudioCaps> = {
     supportsStability: false, supportsSimilarity: false,
     supportsAudioInput: true, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
   },
-  'gemini-omni-audio': {
-    type: 'gemini-omni-audio', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
-    supportsDuration: false, durationRange: [0, 0], durationStep: 0,
-    supportsVoice: false, voices: [], supportsLanguage: false, languages: [],
-    supportsStability: false, supportsSimilarity: false,
-    supportsAudioInput: false, supportsLoop: false, supportsPromptInfluence: false, supportsSpeed: false,
-  },
   generic: {
     type: 'generic', supportsCustomMode: false, supportsInstrumental: false, supportsStyle: false,
     supportsDuration: false, durationRange: [0, 0], durationStep: 0,
@@ -178,7 +166,6 @@ const FALLBACK_BY_TYPE: Record<AudioType, AudioCaps> = {
 /* ─── Helpers ─── */
 
 function detectType(slug: string): AudioType {
-  if (slug.includes('gemini-omni-audio')) return 'gemini-omni-audio'
   if (slug.includes('suno')) return 'suno'
   if (slug.includes('dialogue')) return 'elevenlabs-dialogue'
   if (slug.includes('isolation')) return 'elevenlabs-isolation'

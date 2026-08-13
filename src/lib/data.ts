@@ -91,7 +91,9 @@ export const allModels: ModelItem[] = [
   { id: 'v13', name: 'Seedance 2 Fast', slug: 'seedance-2-fast', provider: 'ByteDance', category: 'video', description: 'Быстрая, 480/720p', cost: 9, hasVariants: true },
   { id: 'v14', name: 'Gemini Omni Video', slug: 'gemini-omni-video', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 720p–4K', cost: 47.3, hasVariants: true },
   { id: 'v15', name: 'Seedance 2.5', slug: 'seedance-2-5', provider: 'ByteDance', category: 'video', description: 'First/last кадр, мультиреференс, до 30с', cost: 12.6, hasVariants: true },
-  
+  { id: 'v16', name: 'Topaz Video Upscale', slug: 'topaz-video-upscale', provider: 'Topaz', category: 'video', description: 'AI-апскейл видео: 1x/2x/4x', cost: 4.95, hasVariants: true },
+
+
   // ═══════════════════════════════════════ АУДИО (6) ═══════════════════════════════════════
   { id: 'a1', name: 'Suno V5', slug: 'suno', provider: 'Suno', category: 'audio', description: 'Генерация музыки с вокалом — Suno V5', cost: 12, hasVariants: false },
   { id: 'a2', name: 'ElevenLabs TTS Turbo', slug: 'elevenlabs-tts-turbo', provider: 'ElevenLabs', category: 'audio', description: 'Быстрая озвучка текста', cost: 2.70, hasVariants: true },
@@ -99,7 +101,8 @@ export const allModels: ModelItem[] = [
   { id: 'a4', name: 'ElevenLabs Dialogue', slug: 'elevenlabs-dialogue', provider: 'ElevenLabs', category: 'audio', description: 'Генерация диалогов с разными голосами', cost: 6.70, hasVariants: true },
   { id: 'a5', name: 'ElevenLabs Isolation', slug: 'elevenlabs-isolation', provider: 'ElevenLabs', category: 'audio', description: 'Удаление шума, изоляция голоса', cost: 0.10 },
   { id: 'a6', name: 'ElevenLabs STT', slug: 'elevenlabs-stt', provider: 'ElevenLabs', category: 'audio', description: 'Распознавание речи в текст', cost: 2.00 },
-  { id: 'a7', name: 'Gemini Omni Audio', slug: 'gemini-omni-audio', provider: 'Google', category: 'audio', description: 'Дизайн голосового профиля', cost: 4.5 },
+  // Gemini Omni Audio (a7) отключена — модель возвращает профиль голоса
+  // (metadata.resultObject), а не аудиофайл: показывать пользователю нечего.
 ]
 
 // 🆕 ХЕЛПЕР ФОРМАТИРОВАНИЯ ЦЕНЫ: "от 0,8 🔥" / "от 15 🔥" / "от ? 🔥"

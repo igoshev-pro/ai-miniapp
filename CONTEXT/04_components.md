@@ -382,7 +382,8 @@ Auto-resize textarea: max 120px
 aspectRatio, resolution, quality, mode, outputFormat, seed
 negativePrompt
 Img2Img: до caps.maxInputImages входных картинок
-requiresInputImage = slug.includes('img2img')
+requiresInputImage = slug.includes('img2img') || slug === 'gemini-omni-character'
+  // gemini-omni-character: KIE требует image_urls, без фото задача падает
 Random seed через кнопку Shuffle (0 .. 2147483647)
 UI labels (mapping):
 
@@ -396,14 +397,40 @@ sound (boolean)
 removeWatermark (boolean) — только для Sora
 Img2Vid: 1 входная картинка
 requiresInputImage = slug.includes('img2vid') || slug === 'kling-3.0-motion'
-FALLBACK по 11 моделям — если бэк не вернул uiConfig:
+FALLBACK — если бэк не вернул uiConfig: sora-2/-pro, kling-3.0(/-img2vid/-motion),
+kling-2.5-turbo, runway, hailuo-*, veo-3.1-*, wan-*, seedance-1.5-pro/-2/-2-fast/-2-5,
+gemini-omni-video, topaz-video-upscale
 
-sora-2, sora-2-img2vid, sora-2-pro
-kling-3.0, kling-3.0-img2vid, kling-3.0-motion
-runway
-hailuo-2.3-standard, hailuo-2.3-pro
-veo-3.1-fast, veo-3.1-pro
 Sora warning: спец. предупреждение про модерацию реальных людей
+
+Ветки по модели (флаги isXxx в начале компонента):
+
+Ts
+
+isVeo, isKling3, isKling25, isMotion, isSora, isTopaz
+isSeedance15 | isSeedance2 (включает seedance-2-5) | isSeedance25
+Каждая ветка формирует СВОИ поля в settings внутри doGen()
+и свои priceParams в useMemo — при добавлении модели правятся оба места
++ массивы зависимостей обоих useMemo/useCallback.
+
+Особенности новых моделей (Aug 2026):
+
+Seedance 2.5 (seedance-2-5)
+  Отдельные состояния seedanceFirstFrame / seedanceLastFrame —
+  это НЕ обычные референсы (те идут в imageUrls, до 4 шт).
+  Плюс seedanceReturnLastFrame, seedanceOutputFormat ('mp4'|'mov').
+  Последний кадр приходит в resultUrls как картинка → MediaResult
+  рендерит его через VideoResultFrame (детект по расширению файла).
+
+Topaz Video Upscale (topaz-video-upscale)
+  Нет промпта (doGen пропускает проверку пустого input).
+  topazVideoUrl — обязателен, грузится через POST /upload/video.
+  resolution = upscale_factor ('1'|'2'|'4'), RES_META содержит их метки.
+  Цена = rate × длительность исходного видео → priceParams.videoRef = true
+  и p.duration = topazDurationSec (clamp 1..600 — это лимит DTO на бэке).
+
+Gemini Omni Video (gemini-omni-video)
+  Обычная jobs-модель: duration 4/6/8/10, 720p/1080p/4k, 16:9 / 9:16.
 
 Особенности AudioGenerationPage.tsx (самая сложная)
 
@@ -411,9 +438,13 @@ Sora warning: спец. предупреждение про модерацию �
 
 Ts
 
-type AudioType = 'suno' | 'elevenlabs-tts' | 'elevenlabs-sfx' 
+type AudioType = 'suno' | 'elevenlabs-tts' | 'elevenlabs-tts-turbo' | 'elevenlabs-sfx' 
                | 'elevenlabs-isolation' | 'elevenlabs-stt' 
                | 'elevenlabs-dialogue' | 'generic'
+// gemini-omni-audio была добавлена и убрана (Aug 2026): модель отдаёт
+// профиль голоса в metadata.resultObject, а не аудиофайл — MediaResult
+// работает только с resultUrls, показывать нечего. Отключена на бэке
+// (isActive=false), из этого файла и data.ts удалена.
 detectType(slug) — детекция по подстрокам в slug.
 
 FALLBACK_BY_TYPE — индивидуальные caps для каждого типа.

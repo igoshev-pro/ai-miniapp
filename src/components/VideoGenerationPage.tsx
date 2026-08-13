@@ -542,6 +542,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     return Math.min(15, sum)
   }, [isSeedance2, refVideoDurations])
 
+  // 🆕 Topaz: длительность исходного видео в секундах для цены и запроса.
+  // Бэк валидирует duration в диапазоне 1..600, поэтому клампим здесь же —
+  // это ровно те 10 минут, о которых предупреждает тост при загрузке.
+  const topazDurationSec = useMemo(() => {
+    if (!isTopaz || !topazVideoDuration) return 0
+    return Math.min(600, Math.max(1, Math.ceil(topazVideoDuration)))
+  }, [isTopaz, topazVideoDuration])
+
   // 🆕 Сырая сумма шотов (до clamp) — для подсказки если превышен максимум
   const rawShotsSum = useMemo(() => {
     if (!isKling || !multiShots) return 0
@@ -599,7 +607,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
 
     if (isTopaz) {
-      if (topazVideoDuration) p.duration = Math.max(1, Math.ceil(topazVideoDuration))
+      // 🔧 бэк принимает duration только 1..600 — длинное видео режем,
+      //    иначе POST падает с 400 (валидация DTO)
+      if (topazVideoDuration) p.duration = topazDurationSec
       p.videoRef = true // включает формулу rate×duration на бэке
       // p.resolution уже проставлен генерическим блоком выше (caps.resolutions)
     }
@@ -610,7 +620,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
     isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, // 🆕
     isKling, multiShots, klingMultiDuration, // 🆕
-    isTopaz, topazVideoDuration
+    isTopaz, topazVideoDuration, topazDurationSec
   ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
@@ -1271,7 +1281,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (validElements.length) s.klingElements = validElements
     } else if (isTopaz) {
       s.videoUrls = [topazVideoUrl]
-      s.duration = Math.max(1, Math.ceil(topazVideoDuration || 0))
+      s.duration = topazDurationSec
       // s.resolution (upscale factor) уже проставлен generic-блоком выше
     } else if (isKling25) {
       s.cfgScale = cfgScale
@@ -1341,7 +1351,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isSeedance, isSeedance15, fixedLens, webSearch, refVideos, refVideoSeconds, refAudios,
     seedanceImages, seedanceMaxImages, // 🆕
     isSora, soraImages, soraMaxImages, // 🆕
-    isTopaz, topazVideoUrl, topazVideoDuration,
+    isTopaz, topazVideoUrl, topazVideoDuration, topazDurationSec,
     isSeedance25, seedanceFirstFrame, seedanceLastFrame, seedanceReturnLastFrame, seedanceOutputFormat
   ])
 

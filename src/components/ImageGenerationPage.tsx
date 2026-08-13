@@ -170,7 +170,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   }, [uiConfig])
 
   const isImg2ImgModel = caps.supportsImg2Img && caps.maxInputImages > 0
-  const requiresInputImage = selectedModelSlug.includes('img2img')
+  // 🆕 Gemini Omni Character без референс-фото падает на стороне провайдера
+  //    (KIE требует image_urls) — блокируем кнопку заранее, как у img2img.
+  const requiresInputImage =
+    selectedModelSlug.includes('img2img') ||
+    selectedModelSlug === 'gemini-omni-character'
 
   // удобные геттеры текущих значений из paramValues
   const mode = paramValues.mode as string | undefined
