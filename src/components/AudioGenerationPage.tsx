@@ -648,8 +648,12 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
   /* ── Misc ── */
 
+  // Стор хранит генерации новыми вперёд (addGeneration кладёт в начало).
+  // В ленте нужен обратный порядок — как в диалоге: свежее внизу.
+  // Разворачиваем на рендере, а не в сторе: порядок стора завязан на
+  // историю и другие экраны.
   const audioGens = useMemo(
-    () => generations.filter((g: any) => g.type === 'audio'),
+    () => generations.filter((g: any) => g.type === 'audio').slice().reverse(),
     [generations],
   )
 
@@ -661,26 +665,29 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, max) + 'px'
   }, [input, caps.type])
 
-    // Скролл ленты наверх при первом появлении генераций (заход на страницу)
+  // Скролл ленты вниз при первом появлении генераций (заход на страницу):
+  // свежие результаты теперь внизу, как последние сообщения в диалоге.
   const didInitialScrollRef = useRef(false)
   useEffect(() => {
     if (didInitialScrollRef.current) return
     if (audioGens.length === 0) return
 
-
-
-
     const id = setTimeout(() => {
       const el = resultsContainerRef.current
       if (!el) return
-      el.scrollTop = 0
+      el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
     }, 100)
 
-
-
-
     return () => clearTimeout(id)
+  }, [audioGens.length])
+
+  // Догоняем низ, когда добавилась новая генерация.
+  useEffect(() => {
+    if (!didInitialScrollRef.current) return
+    const el = resultsContainerRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [audioGens.length])
 
   /* ── Upload audio ── */
@@ -831,11 +838,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       setExtendTrack(null)   // 🆕
       setContinueAt('')      // 🆕
       hapticNotification('success')
-      setTimeout(
-        () =>
-          resultsContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' }),
-        100,
-      )
+      setTimeout(() => {
+        const el = resultsContainerRef.current
+        if (!el) return
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      }, 100)
     }
     }, [
     input, audioUrl, extendTrack, continueAt, balance, displayedCost, slug, caps, isTTS,

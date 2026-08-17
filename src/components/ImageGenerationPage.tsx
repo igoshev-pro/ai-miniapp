@@ -367,7 +367,14 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig])
 
-  const imageGenerations = generations.filter((g: any) => g.type === 'image')
+  // Стор хранит генерации новыми вперёд (addGeneration кладёт в начало).
+  // В ленте нужен обратный порядок — как в диалоге: свежее внизу.
+  // Разворачиваем на рендере, а не в сторе: порядок стора завязан на
+  // историю и другие экраны.
+  const imageGenerations = generations
+    .filter((g: any) => g.type === 'image')
+    .slice()
+    .reverse()
 
   // Авто-высота textarea
   useEffect(() => {
@@ -378,73 +385,132 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [input])
 
-  // Скролл ленты наверх при первом появлении генераций (заход на страницу)
-  const scrolledToTopRef = useRef(false)
+  // Скролл ленты вниз при первом появлении генераций (заход на страницу):
+  // свежие результаты теперь внизу, как последние сообщения в диалоге.
+  const didInitialScrollRef = useRef(false)
   useEffect(() => {
-    if (scrolledToTopRef.current) return
+    if (didInitialScrollRef.current) return
     if (imageGenerations.length === 0) return
-    messagesContainerRef.current?.scrollTo({ top: 0 })
-    scrolledToTopRef.current = true
+    const el = messagesContainerRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+    didInitialScrollRef.current = true
+  }, [imageGenerations.length])
+
+  // Догоняем низ, когда добавилась новая генерация.
+  useEffect(() => {
+    if (!didInitialScrollRef.current) return
+    const el = messagesContainerRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [imageGenerations.length])
 
   // ─── Upload image ─────────────────────────────────────────
-  const handleImageUpload = useCallback(async (file: File) => {
-    if (!file) return
-    if (uploadingRef.current) return // 🆕 уже идёт загрузка — игнор повторного вызова
-    if (!file.type.match(/image\/(jpeg|png|webp)/)) {
-      toast.error('Поддерживаются только JPEG, PNG, WebP')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Файл слишком большой. Максимум 10MB')
-      return
-    }
-    if (inputImages.length >= caps.maxInputImages) {
+  /**
+   * 🆕 Загрузка нескольких файлов за раз (мультивыбор в системном диалоге).
+   *
+   * Нельзя просто позвать handleImageUpload в цикле: он читает inputImages
+   * из замыкания (между вызовами значение не обновится, лимит посчитается
+   * неверно) и держит uploadingRef-лок, который отсёк бы все файлы кроме
+   * первого. Поэтому здесь свой проход: свободные слоты считаем один раз,
+   * лок ставим на весь пакет, ссылки добавляем одним setState в конце.
+   */
+  const handleFilesSelected = useCallback(async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return
+    if (uploadingRef.current) return
+
+    const files = Array.from(fileList)
+
+    const freeSlots = caps.maxInputImages - inputImages.length
+    if (freeSlots <= 0) {
       toast.error(`Максимум ${caps.maxInputImages} изображений`)
       return
     }
 
-    uploadingRef.current = true // 🆕 синхронно блокируем повторный вызов
+    const valid: File[] = []
+    let skippedType = 0
+    let skippedSize = 0
+
+    for (const file of files) {
+      if (!file.type.match(/image\/(jpeg|png|webp)/)) { skippedType++; continue }
+      if (file.size > 10 * 1024 * 1024) { skippedSize++; continue }
+      valid.push(file)
+    }
+
+    if (skippedType > 0) toast.error(`Пропущено ${skippedType}: только JPEG, PNG, WebP`)
+    if (skippedSize > 0) toast.error(`Пропущено ${skippedSize}: больше 10MB`)
+    if (valid.length === 0) return
+
+    // Больше свободных слотов не берём — остаток честно называем
+    const toUpload = valid.slice(0, freeSlots)
+    if (valid.length > freeSlots) {
+      toast.warning(
+        `Загружаем ${freeSlots} из ${valid.length}: лимит ${caps.maxInputImages}`,
+      )
+    }
+
+    uploadingRef.current = true
     setUploadingImage(true)
+
+    const token = useAuthStore.getState().token
+    const API = process.env.NEXT_PUBLIC_API_URL || ''
+    const uploaded: string[] = []
+    let failed = 0
+
     try {
-      const formData = new FormData()
-      formData.append('file', file)
+      // Последовательно, а не Promise.all: параллельные аплоады с телефона
+      // легко упираются в канал, да и порядок картинок сохраняется.
+      for (const file of toUpload) {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
 
-      const token = useAuthStore.getState().token
-      const API = process.env.NEXT_PUBLIC_API_URL || ''
+          const response = await fetch(`${API}/upload/image`, {
+            method: 'POST',
+            headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: formData,
+          })
 
-      const response = await fetch(`${API}/upload/image`, {
-        method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
-      })
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({}))
+            throw new Error((err as any).message || 'Upload failed')
+          }
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}))
-        throw new Error((err as any).message || 'Upload failed')
+          const data = await response.json()
+          const url = data.data?.url || data.url
+          if (!url) throw new Error('No URL in response')
+
+          uploaded.push(url)
+        } catch (err) {
+          console.error('[Upload]', err)
+          failed++
+        }
       }
 
-      const data = await response.json()
-      const url = data.data?.url || data.url
-      if (!url) throw new Error('No URL in response')
-
-      setInputImages((prev) => [...prev, url])
-      haptic('light')
-      toast.success('Фото загружено')
-    } catch (err: any) {
-      console.error('[Upload]', err)
-      toast.error(err.message || 'Ошибка загрузки изображения')
+      if (uploaded.length > 0) {
+        setInputImages((prev) => [...prev, ...uploaded])
+        haptic('light')
+        toast.success(
+          uploaded.length === 1
+            ? 'Фото загружено'
+            : `Загружено фото: ${uploaded.length}`,
+        )
+      }
+      if (failed > 0) {
+        toast.error(
+          failed === toUpload.length
+            ? 'Не удалось загрузить фото'
+            : `Не загрузилось: ${failed}`,
+        )
+      }
     } finally {
-      uploadingRef.current = false // 🆕 снимаем лок
+      uploadingRef.current = false
       setUploadingImage(false)
     }
   }, [inputImages, caps.maxInputImages, haptic])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) handleImageUpload(file)
+    handleFilesSelected(e.target.files)
     e.target.value = ''
   }
 
@@ -507,14 +573,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     if (result) {
       setInput('')
       hapticNotification('success')
-      setTimeout(
-        () =>
-          messagesContainerRef.current?.scrollTo({
-            top: 0,
-            behavior: 'smooth',
-          }),
-        100,
-      )
+      setTimeout(() => {
+        const el = messagesContainerRef.current
+        if (!el) return
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      }, 100)
     }
   }, [
     input, negativePrompt, balance, displayedCost, selectedModelSlug,
@@ -1415,6 +1478,10 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
+        // Мультивыбор только там, где модель принимает больше одной картинки.
+        // Без этого атрибута системный диалог на десктопе даёт выбрать
+        // ровно один файл (в мобильной галерее мультивыбор есть и так).
+        multiple={caps.maxInputImages > 1}
         onChange={handleFileChange}
         className="hidden"
       />

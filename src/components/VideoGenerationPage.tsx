@@ -29,6 +29,13 @@ interface Props {
 
 type VeoMode = 'text' | 'frames' | 'reference'
 
+/**
+ * 🆕 Цели загрузки, куда можно класть несколько фото за раз.
+ * single / start / end / seedance-first / seedance-last принимают ровно
+ * одну картинку — там мультивыбор в системном диалоге только путал бы.
+ */
+const MULTI_UPLOAD_TARGETS = ['ref', 'element', 'seedance', 'sora']
+
 const VEO_MODE_TO_GENERATION_TYPE: Record<VeoMode, string> = {
   text: 'TEXT_2_VIDEO',
   frames: 'FIRST_AND_LAST_FRAMES_2_VIDEO',
@@ -873,8 +880,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   /* ── Misc ── */
 
+  // Стор хранит генерации новыми вперёд (addGeneration кладёт в начало).
+  // В ленте нужен обратный порядок — как в диалоге: свежее внизу.
+  // Разворачиваем на рендере, а не в сторе: порядок стора завязан на
+  // историю и другие экраны.
   const vidGens = useMemo(
-    () => generations.filter((g: any) => g.type === 'video'),
+    () => generations.filter((g: any) => g.type === 'video').slice().reverse(),
     [generations],
   )
 
@@ -884,39 +895,45 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px'
   }, [input])
 
-  // Скролл ленты наверх при первом появлении генераций (заход на страницу)
+  // Скролл ленты вниз при первом появлении генераций (заход на страницу):
+  // свежие результаты теперь внизу, как последние сообщения в диалоге.
   const didInitialScrollRef = useRef(false)
   useEffect(() => {
     if (didInitialScrollRef.current) return
     if (vidGens.length === 0) return
 
-
-
-
     const id = setTimeout(() => {
       const el = resultsContainerRef.current
       if (!el) return
-      el.scrollTop = 0
+      el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
     }, 100)
 
-
-
-
     return () => clearTimeout(id)
+  }, [vidGens.length])
+
+  // Догоняем низ, когда добавилась новая генерация или доехала карточка
+  // с результатом (высота ленты меняется после подгрузки медиа).
+  useEffect(() => {
+    if (!didInitialScrollRef.current) return
+    const el = resultsContainerRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [vidGens.length])
 
   /* ── Upload (image) ── */
 
   const upload = useCallback(
-    async (file: File) => {
+    // silent — режим пакетной загрузки: тосты за весь пакет показывает
+    // uploadBatch одним сообщением, иначе на 5 фото прилетело бы 5 всплывашек.
+    async (file: File, silent = false): Promise<boolean> => {
       if (!file.type.match(/image\/(jpeg|png|webp)/)) {
-        toast.error('Только JPEG, PNG, WebP')
-        return
+        if (!silent) toast.error('Только JPEG, PNG, WebP')
+        return false
       }
       if (file.size > 10 * 1024 * 1024) {
-        toast.error('Макс 10MB')
-        return
+        if (!silent) toast.error('Макс 10MB')
+        return false
       }
       setUploading(true)
       try {
@@ -934,6 +951,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         if (!url) throw new Error('No URL')
 
         const target = uploadTarget.current
+
+        // Цели с накоплением молча отбрасывают файл при достижении лимита.
+        // Ловим этот факт, чтобы пакетная загрузка не отрапортовала
+        // "загружено 5", когда в набор реально попали только 3.
+        let added = true
+        const capped = () => { added = false }
+
         if (target === 'single') {
           setImgUrl(url)
         } else if (target === 'start') {
@@ -944,18 +968,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           setRefImages((prev) => {
             const fbMax = FALLBACK[slug]?.maxInputImages
             const max = fbMax && fbMax > 1 ? fbMax : (caps.maxInputImages > 1 ? caps.maxInputImages : 3)
-            if (prev.length >= max) return prev
+            if (prev.length >= max) { capped(); return prev }
             return [...prev, url]
           })
         } else if (target === 'element') {
           const idx = elementUploadIdxRef.current
-          setElements((prev) =>
-            prev.map((el, i) =>
-              i === idx && el.urls.length < 4
-                ? { ...el, urls: [...el.urls, url] }
-                : el,
-            ),
-          )
+          setElements((prev) => {
+            if (!(prev[idx] && prev[idx].urls.length < 4)) { capped(); return prev }
+            return prev.map((el, i) =>
+              i === idx ? { ...el, urls: [...el.urls, url] } : el,
+            )
+          })
         } else if (target === 'seedance-first') {
           setSeedanceFirstFrame(url)
         } else if (target === 'seedance-last') {
@@ -963,21 +986,28 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         } else if (target === 'seedance') {
           // 🆕 множественные фото для Seedance
           setSeedanceImages((prev) => {
-            if (prev.length >= seedanceMaxImages) return prev
+            if (prev.length >= seedanceMaxImages) { capped(); return prev }
             return [...prev, url]
           })
         } else if (target === 'sora') {
           // 🆕 множественные фото для Sora
           setSoraImages((prev) => {
-            if (prev.length >= soraMaxImages) return prev
+            if (prev.length >= soraMaxImages) { capped(); return prev }
             return [...prev, url]
           })
         }
 
+        if (!added) {
+          if (!silent) toast.warning('Достигнут лимит фото')
+          return false
+        }
+
         haptic('light')
-        toast.success('Изображение загружено')
+        if (!silent) toast.success('Изображение загружено')
+        return true
       } catch (e: any) {
-        toast.error(e.message || 'Ошибка загрузки')
+        if (!silent) toast.error(e.message || 'Ошибка загрузки')
+        return false
       } finally {
         setUploading(false)
       }
@@ -1169,15 +1199,92 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
   }, [haptic])
 
+  const [allowMultiUpload, setAllowMultiUpload] = useState(false)
+
   const triggerUpload = useCallback(
     (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora' | 'seedance-first' | 'seedance-last', elementIdx?: number) => {
       uploadTarget.current = target
       if (target === 'element' && elementIdx !== undefined) {
         elementUploadIdxRef.current = elementIdx
       }
-      fileRef.current?.click()
+      // Атрибут multiple читается диалогом в момент click(), поэтому
+      // выставляем его прямо на input перед открытием — состояние React
+      // до следующего рендера не успело бы примениться.
+      const multi = MULTI_UPLOAD_TARGETS.includes(target)
+      const input = fileRef.current
+      if (input) input.multiple = multi
+      setAllowMultiUpload(multi)
+      input?.click()
     },
     [],
+  )
+
+  /**
+   * 🆕 Последовательная загрузка пакета файлов.
+   *
+   * upload() пишет результат через функциональный setState и ограничивает
+   * количество внутри самого сеттера, поэтому вызывать его по очереди
+   * безопасно: лимиты (maxInputImages, seedanceMaxImages, soraMaxImages)
+   * проверяются на актуальном значении, а лишние файлы просто игнорируются.
+   */
+  const uploadBatch = useCallback(
+    async (fileList: FileList | null) => {
+      if (!fileList || fileList.length === 0) return
+      const files = Array.from(fileList)
+
+      // Один файл — обычный путь со своими тостами.
+      if (files.length === 1) {
+        await upload(files[0])
+        return
+      }
+
+      // Сколько ещё влезет в текущую цель. Считаем здесь, до отправки:
+      // грузить на сервер файлы, которые всё равно не попадут в набор,
+      // бессмысленно.
+      const target = uploadTarget.current
+      let freeSlots = files.length
+      if (target === 'ref') {
+        const fbMax = FALLBACK[slug]?.maxInputImages
+        const max = fbMax && fbMax > 1 ? fbMax : (caps.maxInputImages > 1 ? caps.maxInputImages : 3)
+        freeSlots = max - refImages.length
+      } else if (target === 'seedance') {
+        freeSlots = seedanceMaxImages - seedanceImages.length
+      } else if (target === 'sora') {
+        freeSlots = soraMaxImages - soraImages.length
+      } else if (target === 'element') {
+        const el = elements[elementUploadIdxRef.current]
+        freeSlots = el ? 4 - el.urls.length : 0
+      }
+
+      if (freeSlots <= 0) {
+        toast.error('Достигнут лимит фото')
+        return
+      }
+
+      const toUpload = files.slice(0, freeSlots)
+      if (files.length > freeSlots) {
+        toast.warning(`Загружаем ${freeSlots} из ${files.length}: достигнут лимит`)
+      }
+
+      let ok = 0
+      for (const file of toUpload) {
+        if (await upload(file, true)) ok++
+      }
+
+      if (ok > 0) toast.success(`Загружено фото: ${ok}`)
+      if (ok < toUpload.length) {
+        toast.error(
+          ok === 0
+            ? 'Не удалось загрузить фото'
+            : `Не загрузилось: ${toUpload.length - ok}`,
+        )
+      }
+    },
+    [
+      upload, slug, caps.maxInputImages, refImages.length,
+      seedanceMaxImages, seedanceImages.length,
+      soraMaxImages, soraImages.length, elements,
+    ],
   )
 
   /* ── Telegram BackButton ── */
@@ -1393,11 +1500,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (ok) {
       setInput('')
       hapticNotification('success')
-      setTimeout(
-        () =>
-          resultsContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' }),
-        100,
-      )
+      setTimeout(() => {
+        const el = resultsContainerRef.current
+        if (!el) return
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      }, 100)
     }
   }, [
     input, balance, displayedCost, slug, imgUrl,
@@ -3027,10 +3134,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         ref={fileRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
+        // Переключается в triggerUpload под конкретную цель: референсы
+        // и наборы фото принимают несколько файлов, одиночные слоты — нет.
+        multiple={allowMultiUpload}
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) upload(f)
+          uploadBatch(e.target.files)
           e.target.value = ''
         }}
       />
