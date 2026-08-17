@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
+import { useSavedSettings, validators } from '@/hooks/useSavedSettings'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
@@ -309,6 +310,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const [input, setInput] = useState('')
 
+  const { getValidParams, getLastModel, rememberModel, saveParams } =
+    useSavedSettings('video')
+
   const resolveInitialSlug = useCallback((): string => {
     if (initialModel) {
       const norm = initialModel.toLowerCase().trim()
@@ -317,8 +321,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       )
       if (byExact) return byExact.slug
     }
+    const last = getLastModel(videoModels.map((m: any) => m.slug))
+    if (last) return last
     return videoModels[0]?.slug ?? 'veo3_fast'
-  }, [initialModel, videoModels])
+  }, [initialModel, videoModels, getLastModel])
 
   const [slug, setSlug] = useState<string>(() => resolveInitialSlug())
   const [showModelPicker, setShowModelPicker] = useState(false)
@@ -719,16 +725,16 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
-    const slugExists = videoModels.some((m: any) => m.slug === slug)
-    if (!slugExists) {
-      const first = videoModels[0]
-      if (first) {
+    const slugs = videoModels.map((m: any) => m.slug)
+    if (!slugs.includes(slug)) {
+      const next = getLastModel(slugs) || videoModels[0]?.slug
+      if (next) {
         setSyncedSlug(null)
-        setSlug(first.slug)
+        setSlug(next)
       }
     }
     initialAppliedRef.current = true
-  }, [initialModel, videoModels, slug])
+  }, [initialModel, videoModels, slug, getLastModel])
 
   /* ── Batch reset when caps changed ── */
 
@@ -739,13 +745,34 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     const defR = getDefault(uiConfig, 'resolution') ?? caps.resolutions[0] ?? ''
     const defMode = getDefault(uiConfig, 'mode') ?? caps.modes[0]
 
-    setAspectRatio(defAr)
-    setDuration(defDur)
-    setResolution(defR)
-    setMode(defMode)
-    setSound(false)
-    setRemoveWatermark(true)
-    setResizeMode('crop')
+    // 🆕 Последние настройки этой модели поверх дефолтов.
+    // Разрешение/длительность/формат/режим проверяются по актуальным
+    // caps: бэкенд мог убрать 1080p или сузить список длительностей,
+    // и старое значение сломало бы расчёт цены.
+    const saved = getValidParams(slug, uiConfig, {
+      aspectRatio: validators.oneOf(caps.aspectRatios),
+      resolution: validators.oneOf(caps.resolutions),
+      duration: validators.oneOf(caps.durations),
+      mode: validators.oneOf(caps.modes || []),
+      sound: validators.bool,
+      removeWatermark: validators.bool,
+      resizeMode: validators.oneOf(['crop', 'pad']),
+      fixedLens: validators.bool,
+      webSearch: validators.bool,
+      nsfwChecker: validators.bool,
+      cfgScale: validators.range(0, 1),
+      seedanceOutputFormat: validators.oneOf(['mp4', 'mov']),
+      seedanceReturnLastFrame: validators.bool,
+      characterOrientation: validators.oneOf(['video', 'image']),
+    })
+
+    setAspectRatio(saved.aspectRatio ?? defAr)
+    setDuration(saved.duration ?? defDur)
+    setResolution(saved.resolution ?? defR)
+    setMode(saved.mode ?? defMode)
+    setSound(saved.sound ?? false)
+    setRemoveWatermark(saved.removeWatermark ?? true)
+    setResizeMode(saved.resizeMode ?? 'crop')
     setImgUrl('')
 
     setVeoMode('text')
@@ -759,17 +786,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     setMotionVideoUrl('')
     setMotionVideoDuration(null)
-    setCharacterOrientation('video')
+    setCharacterOrientation(saved.characterOrientation ?? 'video')
 
     setTopazVideoUrl('')
     setTopazVideoDuration(null)
 
-    setCfgScale(0.5)
-    setNsfwChecker(true)
+    setCfgScale(saved.cfgScale ?? 0.5)
+    setNsfwChecker(saved.nsfwChecker ?? true)
 
     // Seedance reset
-    setFixedLens(false)
-    setWebSearch(false)
+    setFixedLens(saved.fixedLens ?? false)
+    setWebSearch(saved.webSearch ?? false)
     setRefVideos([])
     setRefVideoDurations([]) // 🆕
     setRefAudios([])
@@ -777,8 +804,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     setSeedanceFirstFrame('')
     setSeedanceLastFrame('')
-    setSeedanceReturnLastFrame(false)
-    setSeedanceOutputFormat('mp4')
+    setSeedanceReturnLastFrame(saved.seedanceReturnLastFrame ?? false)
+    setSeedanceOutputFormat(saved.seedanceOutputFormat ?? 'mp4')
 
     // 🆕 Sora reset
     setSoraImages([])
@@ -786,6 +813,40 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uiConfig, slug])
+
+  /* ── 🆕 Автосохранение настроек ──
+   * Одним эффектом вместо вызова в каждом onClick: контролов у видео
+   * больше тридцати, и точечные вызовы легко забыть.
+   *
+   * syncedSlug === slug обязателен: пока батч-сброс выше не отработал,
+   * в стейте ещё значения ПРЕДЫДУЩЕЙ модели, и они записались бы под
+   * новый slug.
+   */
+  useEffect(() => {
+    if (syncedSlug !== slug) return
+
+    saveParams(slug, {
+      aspectRatio,
+      duration,
+      resolution,
+      mode,
+      sound,
+      removeWatermark,
+      resizeMode,
+      cfgScale,
+      nsfwChecker,
+      fixedLens,
+      webSearch,
+      characterOrientation,
+      seedanceReturnLastFrame,
+      seedanceOutputFormat,
+    })
+  }, [
+    slug, syncedSlug, saveParams,
+    aspectRatio, duration, resolution, mode, sound, removeWatermark,
+    resizeMode, cfgScale, nsfwChecker, fixedLens, webSearch,
+    characterOrientation, seedanceReturnLastFrame, seedanceOutputFormat,
+  ])
 
   useEffect(() => {
     if (veoForcesDuration8) setDuration(8)
@@ -1371,6 +1432,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (newSlug === slug) return
     setSyncedSlug(null)
     setSlug(newSlug)
+    rememberModel(newSlug)
   }
 
   const formatCost = (n: number) => (n % 1 === 0 ? n : n.toFixed(2))

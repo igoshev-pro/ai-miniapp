@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites, useModels } from '@/hooks'
+import { useSavedSettings, validators } from '@/hooks/useSavedSettings'
 import { useChatStore, type ChatMessage } from '@/stores/chat.store'
 import { useModelsStore } from '@/stores/models.store'
 import {
@@ -180,10 +181,24 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     [initialModel],
   )
 
+  const { getValidParams, getLastModel, rememberModel, saveParams } =
+    useSavedSettings('text')
+
   const [input, setInput] = useState('')
-  const [selectedModelName, setSelectedModelName] = useState(
-    initialResolved?.name || 'ChatGPT 4o',
-  )
+  const [selectedModelName, setSelectedModelName] = useState(() => {
+    // Явная модель из навигации важнее сохранённой.
+    if (initialModel) return initialResolved?.name || 'ChatGPT 4o'
+
+    // Открыт существующий чат → модель диктует переписка, не настройки.
+    if (existingChatId) return initialResolved?.name || 'ChatGPT 4o'
+
+    const models = getModels()
+    const lastSlug = getLastModel(
+      models.filter((m) => m.category === 'text').map((m) => m.slug),
+    )
+    const last = lastSlug ? models.find((m) => m.slug === lastSlug) : undefined
+    return last?.name || initialResolved?.name || 'ChatGPT 4o'
+  })
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [images, setImages] = useState<ImageAttachment[]>([])
@@ -213,6 +228,56 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const modelSlug = currentModel?.slug || 'gpt-4o'
   const modelCost = currentModel?.cost || 1
   const supportsVision = currentModel?.supportsVision ?? false
+
+  /* ── 🆕 Сохранённые настройки ── */
+
+  // При первом рендере useModelsStore мог быть ещё пуст (getModels()
+  // отдаёт fallback-список), и последняя модель не нашлась. Как только
+  // реальный список приехал — подставляем её. Только для нового чата:
+  // в существующем модель определяется перепиской.
+  const restoredModelRef = useRef(false)
+  useEffect(() => {
+    if (restoredModelRef.current) return
+    if (initialModel || existingChatId) {
+      restoredModelRef.current = true
+      return
+    }
+    if (allModels.length === 0) return
+
+    restoredModelRef.current = true
+    const lastSlug = getLastModel(
+      allModels.filter((m) => m.category === 'text').map((m) => m.slug),
+    )
+    if (!lastSlug) return
+    const last = allModels.find((m) => m.slug === lastSlug)
+    if (last && last.name !== selectedModelName) {
+      setSelectedModelName(last.name)
+    }
+  }, [allModels, initialModel, existingChatId, getLastModel, selectedModelName])
+
+  // Настройки хранятся по slug: reasoning у GPT 5.6 и у другой модели —
+  // независимые значения. uiConfig для текстовых моделей нет, поэтому
+  // валидируем оба параметра своими предикатами.
+  const syncedSettingsRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!modelSlug || syncedSettingsRef.current === modelSlug) return
+    syncedSettingsRef.current = modelSlug
+
+    const saved = getValidParams(modelSlug, null, {
+      reasoningEffort: validators.oneOf(REASONING_OPTIONS.map((o) => o.value)),
+      webSearch: validators.bool,
+    })
+
+    setReasoningEffort((saved.reasoningEffort as ReasoningEffort) ?? 'low')
+    setWebSearch(saved.webSearch ?? false)
+  }, [modelSlug, getValidParams])
+
+  useEffect(() => {
+    // Пишем только после того, как настройки для этой модели восстановлены,
+    // иначе перезатрём их значениями предыдущей.
+    if (syncedSettingsRef.current !== modelSlug) return
+    saveParams(modelSlug, { reasoningEffort, webSearch })
+  }, [modelSlug, reasoningEffort, webSearch, saveParams])
 
   // 🆕 Флаги видимости настроек
   const showReasoning = useMemo(
@@ -1030,6 +1095,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   `}
                   onClick={() => {
                     setSelectedModelName(m.name)
+                    if (m.slug) rememberModel(m.slug)
                     setShowModelPicker(false)
                     haptic('light')
                   }}

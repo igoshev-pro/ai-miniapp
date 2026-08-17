@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
+import { useSavedSettings, validators } from '@/hooks/useSavedSettings'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
@@ -216,6 +217,9 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
   const [input, setInput] = useState('')
 
+  const { getValidParams, getLastModel, rememberModel, saveParams } =
+    useSavedSettings('audio')
+
   const resolveInitialSlug = useCallback((): string => {
     if (initialModel) {
       const norm = initialModel.toLowerCase().trim()
@@ -224,8 +228,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       )
       if (byExact) return byExact.slug
     }
+    const last = getLastModel(audioModels.map((m: any) => m.slug))
+    if (last) return last
     return audioModels[0]?.slug ?? ''
-  }, [initialModel, audioModels])
+  }, [initialModel, audioModels, getLastModel])
 
   const [slug, setSlug] = useState<string>(() => resolveInitialSlug())
   const [showModelPicker, setShowModelPicker] = useState(false)
@@ -489,22 +495,24 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
-    // initialModel нет — фиксируем первую модель если текущий slug пустой/отсутствует
-    const slugExists = slug && audioModels.some((m: any) => m.slug === slug)
+    // initialModel нет — берём последнюю выбранную, иначе первую доступную
+    const slugs = audioModels.map((m: any) => m.slug)
+    const slugExists = slug && slugs.includes(slug)
     if (!slugExists) {
       setSyncedSlug(null)
-      setSlug(audioModels[0].slug)
+      setSlug(getLastModel(slugs) || audioModels[0].slug)
     }
     initialAppliedRef.current = true
-  }, [initialModel, audioModels, slug])
+  }, [initialModel, audioModels, slug, getLastModel])
 
-  // Если slug пуст — взять первый доступный
+  // Если slug пуст — взять последнюю выбранную или первую доступную
   useEffect(() => {
     if (!slug && audioModels.length > 0) {
+      const slugs = audioModels.map((m: any) => m.slug)
       setSyncedSlug(null)
-      setSlug(audioModels[0].slug)
+      setSlug(getLastModel(slugs) || audioModels[0].slug)
     }
-  }, [audioModels, slug])
+  }, [audioModels, slug, getLastModel])
 
   /* ── Telegram BackButton ── */
 
@@ -541,33 +549,59 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
         ? Math.min(30, caps.durationRange[1] || 30)
         : 30
 
+    // 🆕 Последние настройки этой модели. Голос/язык/слайдеры бэкенд
+    // в uiParameters не описывает, поэтому проверяем их сами: голос и
+    // язык — по актуальным caps (список голосов у модели мог смениться),
+    // слайдеры — по диапазону.
+    const saved = getValidParams(slug, uiConfig, {
+      voiceId: validators.oneOf(caps.voices),
+      language: validators.oneOf(caps.languages.map((l) => l.code)),
+      customMode: validators.bool,
+      instrumental: validators.bool,
+      loop: validators.bool,
+      stability: validators.range(0, 100),
+      similarity: validators.range(0, 100),
+      speed: validators.range(0, 200),
+      promptInfluence: validators.range(0, 100),
+      styleWeight: validators.range(0, 100),
+      weirdnessConstraint: validators.range(0, 100),
+      audioWeight: validators.range(0, 100),
+      vocalGender: validators.oneOf(['', 'm', 'f']),
+      duration: (v: unknown) => {
+        const n = Number(v)
+        if (!Number.isFinite(n)) return false
+        const [min, max] = caps.durationRange || [0, 0]
+        return n >= min && n <= max
+      },
+    })
+
     setInput('')
     setAudioUrl('')
 
     // Suno
-    setCustomMode(false)
-    setInstrumental(false)
+    setCustomMode(saved.customMode ?? false)
+    setInstrumental(saved.instrumental ?? false)
     setStyle('')
     setTitle('')
     setNegativeTags('')
-    setVocalGender('')
-    setStyleWeight(65)
-    setWeirdnessConstraint(50)
-    setAudioWeight(65)
+    setVocalGender(saved.vocalGender ?? '')
+    setStyleWeight(saved.styleWeight ?? 65)
+    setWeirdnessConstraint(saved.weirdnessConstraint ?? 50)
+    setAudioWeight(saved.audioWeight ?? 65)
 
     // common duration
-    setDuration(defDur)
+    setDuration(saved.duration ?? defDur)
 
     // TTS / dialogue
-    setVoiceId(defVoice)
-    setLanguage(defLangCode)
-    setStability(50)
-    setSimilarity(75)
-    setSpeed(100)
+    setVoiceId(saved.voiceId ?? defVoice)
+    setLanguage(saved.language ?? defLangCode)
+    setStability(saved.stability ?? 50)
+    setSimilarity(saved.similarity ?? 75)
+    setSpeed(saved.speed ?? 100)
 
     // SFX
-    setLoop(false)
-    setPromptInfluence(30)
+    setLoop(saved.loop ?? false)
+    setPromptInfluence(saved.promptInfluence ?? 30)
 
     // 🆕 extend
     setExtendTrack(null)
@@ -576,6 +610,41 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     setSyncedSlug(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, uiConfig])
+
+  /* ── 🆕 Автосохранение настроек ──
+   * Пишем одним эффектом, а не в каждом onClick: контролов много
+   * (голос, язык, 6 слайдеров, тумблеры), и точечные вызовы легко
+   * забыть при добавлении нового.
+   *
+   * Условие syncedSlug === slug критично: пока батч-сброс выше не
+   * отработал, в стейте ещё значения ПРЕДЫДУЩЕЙ модели, и сохранение
+   * записало бы их под новый slug.
+   */
+  useEffect(() => {
+    if (!slug || syncedSlug !== slug) return
+
+    saveParams(slug, {
+      customMode,
+      instrumental,
+      vocalGender,
+      styleWeight,
+      weirdnessConstraint,
+      audioWeight,
+      duration,
+      voiceId,
+      language,
+      stability,
+      similarity,
+      speed,
+      loop,
+      promptInfluence,
+    })
+  }, [
+    slug, syncedSlug, saveParams,
+    customMode, instrumental, vocalGender, styleWeight,
+    weirdnessConstraint, audioWeight, duration, voiceId,
+    language, stability, similarity, speed, loop, promptInfluence,
+  ])
 
   /* ── Misc ── */
 
@@ -913,6 +982,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     if (newSlug === slug) return
     setSyncedSlug(null)
     setSlug(newSlug)
+    rememberModel(newSlug)
   }
 
   /* ─── Loading state ─── */

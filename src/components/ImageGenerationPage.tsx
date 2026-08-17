@@ -7,7 +7,7 @@ import {
   Shuffle, Upload, Trash2, Zap, Sparkles, Gift,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useGeneration, useModels, useUser } from '@/hooks'
+import { useGeneration, useModels, useUser, useSavedSettings } from '@/hooks'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
@@ -102,6 +102,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const [input, setInput] = useState('')
   const [negativePrompt, setNegativePrompt] = useState('')
 
+  const { getValidParams, getLastModel, rememberModel, saveParams } =
+    useSavedSettings('image')
+
   const resolveInitialSlug = useCallback((): string => {
     if (initialModel) {
       const norm = initialModel.toLowerCase().trim()
@@ -112,8 +115,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       )
       if (byExact) return byExact.slug
     }
+    // Явная модель не передана → открываем последнюю выбранную
+    const last = getLastModel(imageModels.map((m: any) => m.slug))
+    if (last) return last
     return imageModels[0]?.slug ?? 'midjourney'
-  }, [initialModel, imageModels])
+  }, [initialModel, imageModels, getLastModel])
 
   const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
     resolveInitialSlug(),
@@ -293,16 +299,18 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
-    const slugExists = imageModels.some((m: any) => m.slug === selectedModelSlug)
-    if (!slugExists) {
-      const first = imageModels[0]
-      if (first) {
+    // Список моделей мог догрузиться уже после первого рендера —
+    // здесь второй шанс подставить последнюю выбранную модель.
+    const slugs = imageModels.map((m: any) => m.slug)
+    if (!slugs.includes(selectedModelSlug)) {
+      const next = getLastModel(slugs) || imageModels[0]?.slug
+      if (next) {
         setSyncedSlug(null)
-        setSelectedModelSlug(first.slug)
+        setSelectedModelSlug(next)
       }
     }
     initialAppliedRef.current = true
-  }, [initialModel, imageModels, selectedModelSlug])
+  }, [initialModel, imageModels, selectedModelSlug, getLastModel])
 
   // Telegram BackButton
   // useEffect(() => {
@@ -340,8 +348,17 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         getDefaultValue(uiConfig, 'aspectRatio') ?? caps.aspectRatios[0] ?? '1:1'
     }
 
-    setParamValues(defaults)
-    setOutputFormat(getDefaultValue(uiConfig, 'outputFormat') ?? 'png')
+    // 🆕 Поверх дефолтов накатываем последние настройки этой модели.
+    // getValidParams уже отфильтровал значения, которых больше нет
+    // в актуальном uiConfig, поэтому мержим без доп. проверок.
+    const restored = getValidParams(selectedModelSlug, uiConfig)
+
+    setParamValues({ ...defaults, ...restored })
+    setOutputFormat(
+      restored.outputFormat ??
+        getDefaultValue(uiConfig, 'outputFormat') ??
+        'png',
+    )
     setSeed(undefined)
     setNegativePrompt('')
     setInputImages([])
@@ -439,8 +456,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   // helper для обновления одного параметра
   const setParam = useCallback((key: string, value: any) => {
     setParamValues((prev) => ({ ...prev, [key]: value }))
+    saveParams(selectedModelSlug, { [key]: value })
     haptic('light')
-  }, [haptic])
+  }, [haptic, saveParams, selectedModelSlug])
 
   // ─── Generate ─────────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
@@ -521,6 +539,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     if (newSlug === selectedModelSlug) return
     setSyncedSlug(null)
     setSelectedModelSlug(newSlug)
+    rememberModel(newSlug)
   }
 
   // 🆕 Собираем активные бейджики для строки настроек
@@ -1191,6 +1210,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                         `}
                         onClick={() => {
                           setOutputFormat(f)
+                          saveParams(selectedModelSlug, { outputFormat: f })
                           haptic('light')
                         }}
                       >
