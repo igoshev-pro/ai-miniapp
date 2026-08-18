@@ -206,7 +206,7 @@ const FALLBACK: Record<string, FallbackCaps> = {
   'seedance-2-5': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive'],
     durations: Array.from({ length: 30 }, (_, i) => i + 1),
-    resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 4,
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 4,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'topaz-video-upscale': {
@@ -423,6 +423,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isKling = isKling3
   const isMotion = slug === 'motion-control'
   const isTopaz = slug === 'topaz-video-upscale'
+  // 🆕 Gemini Omni: принимает видео-референс (1 шт) — цена тогда фиксированная
+  const isOmni = slug === 'gemini-omni-video'
+  // Seedance 2/2-fast/2.5 принимают до 3 видео, Omni — ровно одно
+  const maxRefVideos = isOmni ? 1 : 3
   const isSeedance15 = slug === 'seedance-1.5-pro'
   const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast' || slug === 'seedance-2-5'
   const isSeedance25 = slug === 'seedance-2-5'   // 🆕 только для first/last frame UI
@@ -619,6 +623,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (refVideos.length > 0) p.refVideoSeconds = refVideoSeconds
     }
 
+    // 🆕 Omni: с видео-референсом цена фиксированная за генерацию
+    // (не зависит от длительности), поэтому refVideoSeconds не шлём.
+    if (isOmni) {
+      p.videoRef = refVideos.length > 0
+    }
+
     if (isTopaz) {
       // 🔧 бэк принимает duration только 1..600 — длинное видео режем,
       //    иначе POST падает с 400 (валидация DTO)
@@ -631,7 +641,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
-    isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, // 🆕
+    isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, isOmni, // 🆕
     isKling, multiShots, klingMultiDuration, // 🆕
     isTopaz, topazVideoDuration, topazDurationSec
   ])
@@ -1162,7 +1172,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (!url) throw new Error('No URL')
       // 🆕 добавляем url + длительность синхронно (одинаковые индексы)
       setRefVideos((prev) => {
-        if (prev.length >= 3) return prev
+        if (prev.length >= maxRefVideos) return prev
         setRefVideoDurations((durs) => [...durs, probeDuration ?? 0])
         return [...prev, url]
       })
@@ -1172,7 +1182,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } finally {
       setUploadingRefVideo(false)
     }
-  }, [haptic])
+  }, [haptic, maxRefVideos])
 
   const uploadRefAudio = useCallback(async (file: File) => {
     if (!/\.(mp3|wav|aac|ogg|m4a)$/i.test(file.name) &&
@@ -1451,6 +1461,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       s.videoUrls = [topazVideoUrl]
       s.duration = topazDurationSec
       // s.resolution (upscale factor) уже проставлен generic-блоком выше
+    } else if (isOmni) {
+      // 🆕 Omni: видео-референс (1 шт) + опциональное фото.
+      // Цена с видео фиксированная, refVideoSeconds не нужны.
+      if (refVideos.length) s.videoUrls = [refVideos[0]]
+      if (imgUrl) s.imageUrl = imgUrl
     } else if (isKling25) {
       s.cfgScale = cfgScale
       s.nsfwChecker = nsfwChecker
@@ -1507,7 +1522,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }, 100)
     }
   }, [
-    input, balance, displayedCost, slug, imgUrl,
+    input, balance, displayedCost, slug, imgUrl, isOmni,
     duration, aspectRatio, resolution, mode, sound, removeWatermark, resizeMode,
     caps, requiresInputImage, isFreeForUser,
     haptic, hapticNotification, generate,
@@ -1550,7 +1565,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isKling && multiShots && shots.filter((sh) => sh.prompt.trim()).length === 0
 
   const genDisabled =
-    (!input.trim() && !klingMultiInvalid && !(isKling && multiShots)) ||
+    // Topaz только апскейлит загруженное видео — промпт там не нужен,
+    // достаточно самого файла (проверяется ниже, topazVideoUrl).
+    (!isTopaz && !input.trim() && !klingMultiInvalid && !(isKling && multiShots)) ||
     (isKling && multiShots && klingMultiInvalid) ||
     generating ||
     (isVeo && veoMode === 'frames' && !startFrame) ||
@@ -2977,6 +2994,62 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </>
               )}
 
+              {/* 🆕 Omni: видео-референс (1 шт) — включает фикс. цену */}
+              {isOmni && (
+                <Field label={<><Film size={12} /> Видео-референс ({refVideos.length}/1)</>}>
+                  <div className="grid grid-cols-3 gap-2">
+                    {refVideos.map((url, idx) => (
+                      <div
+                        key={url + idx}
+                        className="relative aspect-video rounded-[10px] overflow-hidden border border-white/[0.08]"
+                      >
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <video
+                          src={url}
+                          className="w-full h-full object-cover bg-black block"
+                          muted
+                          playsInline
+                        />
+                        <button
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                          onClick={() => {
+                            setRefVideos((p) => p.filter((_, i) => i !== idx))
+                            setRefVideoDurations((p) => p.filter((_, i) => i !== idx))
+                          }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    {refVideos.length < 1 && (
+                      <button
+                        className="
+                          aspect-video rounded-[10px]
+                          border-[1.5px] border-dashed border-white/[0.12]
+                          bg-white/[0.03] text-white/30
+                          flex flex-col items-center justify-center gap-1 text-[10px]
+                          cursor-pointer transition-all active:bg-white/[0.07]
+                          disabled:opacity-50
+                        "
+                        onClick={() => refVideoFileRef.current?.click()}
+                        disabled={uploadingRefVideo}
+                      >
+                        {uploadingRefVideo ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Upload size={18} />
+                        )}
+                        <span>Видео</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                    MP4/MOV, до 50MB. С видео цена фиксированная и не зависит
+                    от длительности.
+                  </div>
+                </Field>
+              )}
+
               {/* ═══ SORA 2 / SORA 2 PRO ═══ */}
               {isSora && (
                 <Field
@@ -3349,7 +3422,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKey}
             placeholder={
-              isKling && multiShots
+              isTopaz
+                ? 'Промпт не нужен — загрузите видео и нажмите отправить'
+                : isKling && multiShots
                 ? 'Общий стиль / контекст (опционально)…'
                 : isMotion
                   ? 'Опишите сцену (опц., улучшает результат)…'

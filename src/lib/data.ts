@@ -89,9 +89,9 @@ export const allModels: ModelItem[] = [
   { id: 'v11', name: 'Seedance 1.5 Pro', slug: 'seedance-1.5-pro', provider: 'ByteDance', category: 'video', description: 'Текст/фото → видео, звук, 4–12с', cost: 2.8, hasVariants: true },
   { id: 'v12', name: 'Seedance 2', slug: 'seedance-2', provider: 'ByteDance', category: 'video', description: 'Мультиреференс, 4–15с', cost: 18, hasVariants: true },
   { id: 'v13', name: 'Seedance 2 Fast', slug: 'seedance-2-fast', provider: 'ByteDance', category: 'video', description: 'Быстрая, 480/720p', cost: 9, hasVariants: true },
-  { id: 'v14', name: 'Gemini Omni Video', slug: 'gemini-omni-video', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 720p–4K', cost: 47.3, hasVariants: true },
+  { id: 'v14', name: 'Gemini Omni Video', slug: 'gemini-omni-video', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 720p–4K', cost: 18.9, hasVariants: true },
   { id: 'v15', name: 'Seedance 2.5', slug: 'seedance-2-5', provider: 'ByteDance', category: 'video', description: 'First/last кадр, мультиреференс, до 30с', cost: 8.4, hasVariants: true },
-  { id: 'v16', name: 'Topaz Video Upscale', slug: 'topaz-video-upscale', provider: 'Topaz', category: 'video', description: 'AI-апскейл видео: 1x/2x/4x', cost: 4.95, hasVariants: true },
+  { id: 'v16', name: 'Topaz Video Upscale', slug: 'topaz-video-upscale', provider: 'Topaz', category: 'video', description: 'AI-апскейл видео: 1x/2x/4x', cost: 3.3, hasVariants: true },
 
 
   // ═══════════════════════════════════════ АУДИО (6) ═══════════════════════════════════════
