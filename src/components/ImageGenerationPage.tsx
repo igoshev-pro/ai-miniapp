@@ -882,49 +882,6 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             </div>
           )}
 
-          {isImg2ImgModel && inputImages.length > 0 && (
-            <div className="flex flex-col gap-2 fade-in">
-              <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
-                Исходные ({inputImages.length}/{caps.maxInputImages})
-              </div>
-              <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
-                {inputImages.map((url, idx) => (
-                  <div
-                    key={idx}
-                    className="
-                      relative shrink-0
-                      w-20 h-20 rounded-[var(--radius-xs)]
-                      border border-[var(--border-glass)]
-                      bg-[var(--bg-glass)]
-                      overflow-hidden
-                    "
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={`Input ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      className="
-                        absolute top-1 right-1
-                        w-5 h-5 rounded-full
-                        bg-black/60 backdrop-blur-sm
-                        text-white
-                        flex items-center justify-center
-                        cursor-pointer
-                        active:scale-90 active:bg-[var(--accent-red)]
-                      "
-                      onClick={() => removeInputImage(idx)}
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {imageGenerations.map((gen: any) => {
             const genCost = getGenCost(gen)
             return (
@@ -1498,6 +1455,49 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           backdrop-blur-[40px] [-webkit-backdrop-filter:var(--blur-heavy)]
         "
       >
+        {isImg2ImgModel && inputImages.length > 0 && (
+          <div className="flex flex-col gap-2 fade-in">
+            <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+              Исходные ({inputImages.length}/{caps.maxInputImages})
+            </div>
+            <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]">
+              {inputImages.map((url, idx) => (
+                <div
+                  key={idx}
+                  className="
+                    relative shrink-0
+                    w-16 h-16 rounded-[var(--radius-xs)]
+                    border border-[var(--border-glass)]
+                    bg-[var(--bg-glass)]
+                    overflow-hidden
+                  "
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Input ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    className="
+                      absolute top-1 right-1
+                      w-5 h-5 rounded-full
+                      bg-black/60 backdrop-blur-sm
+                      text-white
+                      flex items-center justify-center
+                      cursor-pointer
+                      active:scale-90 active:bg-[var(--accent-red)]
+                    "
+                    onClick={() => removeInputImage(idx)}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
           {isImg2ImgModel ? (
             <button

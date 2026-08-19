@@ -1603,6 +1603,22 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (isTopaz && topazVideoUrl) {
       badges.push({ key: 'topaz-vid', label: '🎬 Видео', accent: true })
     }
+    // 🆕 Видео-референсы (Seedance 2/2-fast/2.5, Omni) — сами превью лежат
+    // в панели настроек, поэтому снаружи показываем хотя бы счётчик.
+    if (refVideos.length > 0) {
+      badges.push({
+        key: 'refvid',
+        label: refVideos.length > 1 ? `🎬 ${refVideos.length} видео` : '🎬 Видео',
+        accent: true,
+      })
+    }
+    if (refAudios.length > 0) {
+      badges.push({
+        key: 'refaud',
+        label: refAudios.length > 1 ? `🎵 ${refAudios.length} аудио` : '🎵 Аудио',
+        accent: true,
+      })
+    }
     if (isI2V) {
       // 🆕 для Seedance и Sora показываем количество фото
       const cnt = isSeedance
@@ -1670,7 +1686,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     isMotion, motionVideoUrl, characterOrientation,
     isSeedance, seedanceImages, // 🆕
     isSora, soraImages, // 🆕
-    seedanceFirstFrame, seedanceLastFrame
+    seedanceFirstFrame, seedanceLastFrame,
+    refVideos, refAudios, // 🆕 счётчики референсов в бейджах
+    isTopaz, topazVideoUrl,
   ])
 
   const getGenCost = (gen: any): number | undefined => {
