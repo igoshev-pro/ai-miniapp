@@ -12,6 +12,8 @@ import {
   AlertCircle,
   FileText,
   Trash2,
+  MessageSquare,
+  Layers,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { apiClient, ENDPOINTS } from '@/lib/api'
@@ -35,7 +37,28 @@ import type { Generation, GenerationType } from '@/stores/generation.store'
 
 type Filter = 'all' | GenerationType | 'document'
 /** Вкладки верхнего уровня: что сгенерировано ИИ и что человек загрузил сам. */
-type Tab = 'generated' | 'uploaded'
+type Tab = 'generated' | 'uploaded' | 'favorites'
+
+/** Элемент избранного: это не только генерации, но и чаты с моделями. */
+interface FavoriteItem {
+  id: string
+  favoriteId: string
+  type: 'conversation' | 'generation' | 'model'
+  subtype?: string
+  itemId: string
+  title: string
+  thumbnailUrl?: string
+  model?: string
+  createdAt: string
+}
+
+interface FavoritesResponse {
+  success: boolean
+  data: {
+    favorites: any[]
+    pagination: { page: number; limit: number; total: number; pages: number }
+  }
+}
 
 interface HistoryResponse {
   success: boolean
@@ -67,6 +90,8 @@ interface Props {
   onBack?: () => void
   /** Открыть страницу генерации нужного типа с этой моделью. */
   onOpenGeneration?: (type: GenerationType, modelSlug?: string) => void
+  /** Открыть чат — нужен для избранных чатов и текстовых моделей. */
+  onOpenChat?: (modelSlug: string, chatId: string) => void
 }
 
 const PAGE_SIZE = 24
@@ -119,6 +144,31 @@ const UPLOAD_FILTERS: { id: Filter; label: string; icon: React.ReactNode }[] = [
   { id: 'document', label: 'Документы', icon: <FileText size={13} /> },
 ]
 
+/** В избранном лежат ещё чаты и модели — тут свой набор. */
+type FavFilter = 'all' | 'generation' | 'conversation' | 'model'
+
+const FAV_FILTERS: { id: FavFilter; label: string; icon: React.ReactNode }[] = [
+  { id: 'all', label: 'Все', icon: <Star size={13} /> },
+  { id: 'generation', label: 'Генерации', icon: <ImageIcon size={13} /> },
+  { id: 'conversation', label: 'Чаты', icon: <MessageSquare size={13} /> },
+  { id: 'model', label: 'Модели', icon: <Layers size={13} /> },
+]
+
+/** Бэкенд отдаёт избранное своей формой — приводим к нашей. */
+function mapFavorite(fav: any): FavoriteItem {
+  return {
+    id: fav.itemId,
+    favoriteId: fav._id,
+    type: fav.type,
+    subtype: fav.metadata?.type || undefined,
+    itemId: fav.itemId,
+    title: fav.title || 'Без названия',
+    thumbnailUrl: fav.previewUrl || undefined,
+    model: fav.metadata?.model || fav.metadata?.modelSlug || undefined,
+    createdAt: fav.createdAt,
+  }
+}
+
 /** Размер файла человеку: 2.4 МБ вместо 2516582. */
 function formatSize(bytes: number): string {
   if (!bytes) return ''
@@ -126,7 +176,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
 }
 
-export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
+export function GenerationHistoryPage({ onBack, onOpenGeneration, onOpenChat }: Props) {
   const { haptic } = useTelegram()
   const { models } = useModels()
 
@@ -134,7 +184,10 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
 
   const [items, setItems] = useState<Generation[]>([])
   const [uploads, setUploads] = useState<UploadItem[]>([])
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([])
   const [filter, setFilter] = useState<Filter>('all')
+  /** Свой фильтр у избранного: там типы не пересекаются с типами генераций. */
+  const [favFilter, setFavFilter] = useState<FavFilter>('all')
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
@@ -180,7 +233,7 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
           setItems((prev) => (append ? [...prev, ...mapped] : mapped))
           setTotal(data.data?.pagination?.total ?? mapped.length)
           setHasMore(pageNum < pages)
-        } else {
+        } else if (tab === 'uploaded') {
           // На вкладке загрузок «kind» вместо «type», и есть документы.
           if (filter !== 'all') params.kind = filter
 
@@ -195,13 +248,30 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
           setUploads((prev) => (append ? [...prev, ...list] : list))
           setTotal(data.data?.pagination?.total ?? list.length)
           setHasMore(pageNum < pages)
+        } else {
+          // Избранное живёт на своём эндпоинте и хранит не только
+          // генерации, но и чаты с моделями — фильтры здесь другие.
+          if (favFilter !== 'all') params.type = favFilter
+
+          const { data } = await apiClient.get<FavoritesResponse>(
+            ENDPOINTS.FAVORITES,
+            { params },
+          )
+
+          const list = (data.data?.favorites || []).map(mapFavorite)
+          const pages = data.data?.pagination?.pages || 1
+
+          setFavorites((prev) => (append ? [...prev, ...list] : list))
+          setTotal(data.data?.pagination?.total ?? list.length)
+          setHasMore(pageNum < pages)
         }
 
         setPage(pageNum)
       } catch {
         if (!append) {
           if (tab === 'generated') setItems([])
-          else setUploads([])
+          else if (tab === 'uploaded') setUploads([])
+          else setFavorites([])
           setFailed(true)
         } else {
           toast.error('Не удалось подгрузить ещё')
@@ -211,7 +281,7 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
         setIsLoadingMore(false)
       }
     },
-    [filter, tab],
+    [filter, favFilter, tab],
   )
 
   useEffect(() => {
@@ -316,7 +386,54 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
     [items],
   )
 
-  const isEmpty = tab === 'generated' ? visible.length === 0 : uploads.length === 0
+  const isEmpty =
+    tab === 'generated'
+      ? visible.length === 0
+      : tab === 'uploaded'
+        ? uploads.length === 0
+        : favorites.length === 0
+
+  /** Открыть элемент избранного — у каждого типа своя цель. */
+  const openFavorite = useCallback(
+    (item: FavoriteItem) => {
+      haptic('light')
+      if (item.type === 'conversation') {
+        onOpenChat?.(item.model || 'gpt-4o-mini', item.itemId)
+      } else if (item.type === 'generation') {
+        onOpenGeneration?.((item.subtype as GenerationType) || 'image')
+      } else {
+        // Модель: текстовую открываем чатом, остальные — генерацией.
+        const m = (models as any[]).find((x) => x.slug === item.itemId)
+        const category = m?.category || 'text'
+        if (category === 'text') onOpenChat?.(item.itemId, '')
+        else onOpenGeneration?.(category as GenerationType, item.itemId)
+      }
+    },
+    [haptic, onOpenChat, onOpenGeneration, models],
+  )
+
+  /** Убрать из избранного — оптимистично, как звезда на генерациях. */
+  const removeFavorite = useCallback(
+    async (item: FavoriteItem, e: React.MouseEvent) => {
+      e.stopPropagation()
+      haptic('medium')
+
+      const before = favorites
+      setFavorites((prev) => prev.filter((f) => f.favoriteId !== item.favoriteId))
+
+      try {
+        await apiClient.post(ENDPOINTS.FAVORITES_TOGGLE, {
+          type: item.type,
+          itemId: item.itemId,
+        })
+        setTotal((t) => Math.max(0, t - 1))
+      } catch {
+        setFavorites(before)
+        toast.error('Не удалось убрать из избранного')
+      }
+    },
+    [favorites, haptic],
+  )
 
   return (
     <div className="px-4 pb-[100px]">
@@ -334,17 +451,18 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
       </div>
 
       {/* ── Вкладки ── */}
-      <div className="flex gap-4 border-b border-white/[0.06] mb-3 fade-in fade-in--1">
+      <div className="flex gap-4 border-b border-white/[0.06] mb-3 fade-in fade-in--1 overflow-x-auto [-webkit-overflow-scrolling:touch] scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
           { id: 'generated' as Tab, label: 'Сгенерированные' },
           { id: 'uploaded' as Tab, label: 'Загруженные' },
+          { id: 'favorites' as Tab, label: 'Избранное' },
         ]).map((t) => {
           const active = tab === t.id
           return (
             <button
               key={t.id}
               className={`
-                relative pb-2.5 px-0.5
+                relative shrink-0 whitespace-nowrap pb-2.5 px-0.5
                 text-[14px] font-semibold font-[inherit]
                 bg-transparent border-none cursor-pointer
                 transition-colors duration-150
@@ -364,35 +482,65 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
 
       {/* ── Фильтры ── */}
       <div className="flex gap-1.5 pb-3 overflow-x-auto [-webkit-overflow-scrolling:touch] scrollbar-none fade-in fade-in--1">
-        {(tab === 'uploaded' ? UPLOAD_FILTERS : FILTERS).map((f) => {
-          const active = filter === f.id
-          return (
-            <button
-              key={f.id}
-              className={`
-                shrink-0 flex items-center gap-1.5
-                py-[7px] px-3
-                rounded-[8px] border
-                text-[12px] font-medium font-[inherit]
-                cursor-pointer transition-all duration-150
-                [-webkit-tap-highlight-color:transparent]
-                active:scale-[0.96]
-                ${active
-                  ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
-                  : 'bg-white/[0.04] border-white/[0.06] text-[var(--gray-400)]'
-                }
-              `}
-              onClick={() => {
-                if (filter === f.id) return
-                haptic('light')
-                setFilter(f.id)
-              }}
-            >
-              {f.icon}
-              {f.label}
-            </button>
-          )
-        })}
+        {tab === 'favorites'
+          ? FAV_FILTERS.map((f) => {
+              const active = favFilter === f.id
+              return (
+                <button
+                  key={f.id}
+                  className={`
+                    shrink-0 flex items-center gap-1.5
+                    py-[7px] px-3
+                    rounded-[8px] border
+                    text-[12px] font-medium font-[inherit]
+                    cursor-pointer transition-all duration-150
+                    [-webkit-tap-highlight-color:transparent]
+                    active:scale-[0.96]
+                    ${active
+                      ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                      : 'bg-white/[0.04] border-white/[0.06] text-[var(--gray-400)]'
+                    }
+                  `}
+                  onClick={() => {
+                    if (favFilter === f.id) return
+                    haptic('light')
+                    setFavFilter(f.id)
+                  }}
+                >
+                  {f.icon}
+                  {f.label}
+                </button>
+              )
+            })
+          : (tab === 'uploaded' ? UPLOAD_FILTERS : FILTERS).map((f) => {
+              const active = filter === f.id
+              return (
+                <button
+                  key={f.id}
+                  className={`
+                    shrink-0 flex items-center gap-1.5
+                    py-[7px] px-3
+                    rounded-[8px] border
+                    text-[12px] font-medium font-[inherit]
+                    cursor-pointer transition-all duration-150
+                    [-webkit-tap-highlight-color:transparent]
+                    active:scale-[0.96]
+                    ${active
+                      ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                      : 'bg-white/[0.04] border-white/[0.06] text-[var(--gray-400)]'
+                    }
+                  `}
+                  onClick={() => {
+                    if (filter === f.id) return
+                    haptic('light')
+                    setFilter(f.id)
+                  }}
+                >
+                  {f.icon}
+                  {f.label}
+                </button>
+              )
+            })}
       </div>
 
       {/* ── Содержимое ── */}
@@ -429,7 +577,9 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
           <div className="text-[13px] text-white/30 max-w-[260px] leading-[1.5]">
             {tab === 'generated'
               ? 'Всё, что вы создадите, появится здесь — можно будет вернуться и скачать в любой момент.'
-              : 'Здесь будут файлы, которые вы загружали для генерации. Их можно использовать повторно, не загружая заново.'}
+              : tab === 'uploaded'
+                ? 'Здесь будут файлы, которые вы загружали для генерации. Их можно использовать повторно, не загружая заново.'
+                : 'Отмечайте звёздочкой генерации, чаты и модели — они соберутся здесь.'}
           </div>
           {tab === 'generated' && onOpenGeneration && (
             <button
@@ -453,6 +603,102 @@ export function GenerationHistoryPage({ onBack, onOpenGeneration }: Props) {
             </button>
           )}
         </div>
+      ) : tab === 'favorites' ? (
+        <>
+          {/* Избранное — список, а не сетка: половина записей это чаты
+              и модели без превью, плиткой они выглядели бы пустыми. */}
+          <div className="flex flex-col gap-1.5 fade-in fade-in--2">
+            {favorites.map((fav) => (
+              <div
+                key={fav.favoriteId}
+                role="button"
+                tabIndex={0}
+                className="
+                  flex items-center gap-3
+                  py-[11px] px-[13px]
+                  rounded-[var(--radius-sm)]
+                  bg-[var(--bg-glass)]
+                  border border-[var(--border-glass)]
+                  cursor-pointer
+                  transition-all duration-200
+                  active:scale-[0.98]
+                  [-webkit-tap-highlight-color:transparent]
+                "
+                onClick={() => openFavorite(fav)}
+              >
+                {/* Превью или иконка типа */}
+                {fav.thumbnailUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={fav.thumbnailUrl}
+                    alt=""
+                    className="w-9 h-9 rounded-[9px] object-cover shrink-0"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div
+                    className={`
+                      w-9 h-9 rounded-[9px] shrink-0
+                      flex items-center justify-center
+                      ${fav.type === 'conversation'
+                        ? 'text-[#60a5fa] bg-[rgba(96,165,250,0.1)]'
+                        : fav.type === 'model'
+                          ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)]'
+                          : 'text-[#c084fc] bg-[rgba(192,132,252,0.1)]'
+                      }
+                    `}
+                  >
+                    {fav.type === 'conversation' ? (
+                      <MessageSquare size={16} />
+                    ) : fav.type === 'model' ? (
+                      <Layers size={16} />
+                    ) : (
+                      <ImageIcon size={16} />
+                    )}
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-white truncate">
+                    {fav.title}
+                  </div>
+                  <div className="text-[11px] text-[var(--gray-600)] mt-[2px] truncate">
+                    {fav.type === 'conversation'
+                      ? 'Чат'
+                      : fav.type === 'model'
+                        ? 'Модель'
+                        : 'Генерация'}
+                    {' · '}
+                    {formatDate(fav.createdAt)}
+                  </div>
+                </div>
+
+                <button
+                  aria-label="Убрать из избранного"
+                  className="
+                    shrink-0 w-7 h-7 rounded-md
+                    flex items-center justify-center
+                    text-yellow-400 [&_svg]:fill-yellow-400
+                    bg-transparent border-none cursor-pointer
+                    transition-transform duration-150
+                    active:scale-90
+                  "
+                  onClick={(e) => removeFavorite(fav, e)}
+                >
+                  <Star size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {hasMore && (
+            <div ref={loaderRef} className="flex justify-center py-6">
+              {isLoadingMore && (
+                <Loader2 size={20} className="animate-spin text-white/30" />
+              )}
+            </div>
+          )}
+        </>
       ) : tab === 'uploaded' ? (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 fade-in fade-in--2">

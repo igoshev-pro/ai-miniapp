@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, Newspaper, Star, Layers, User, Flame, Zap, Images } from 'lucide-react'
+import { Plus, Newspaper, Layers, User, Flame, Zap, Images } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useChatStore } from '@/stores/chat.store'
 import { useUser } from '@/hooks'
@@ -10,10 +10,10 @@ interface Props {
   onChange: (id: string) => void
 }
 
+// Избранное — вкладка внутри Истории, отдельного пункта больше нет.
 const navItems = [
   { id: 'feed', icon: Newspaper, label: 'Лента' },
   { id: 'generation-history', icon: Images, label: 'История' },
-  { id: 'favorites', icon: Star, label: 'Избранное' },
   { id: 'models', icon: Layers, label: 'Модели' },
   { id: 'profile', icon: User, label: 'Профиль' },
 ]

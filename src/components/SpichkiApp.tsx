@@ -405,6 +405,7 @@ export function SpichkiApp() {
             onOpenGeneration={(type, modelSlug) =>
               openGeneration(type, modelSlug)
             }
+            onOpenChat={(modelSlug, id) => openChat(modelSlug, id)}
           />
         )}
         {page === 'profile' && (

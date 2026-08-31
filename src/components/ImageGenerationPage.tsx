@@ -11,6 +11,7 @@ import { useGeneration, useModels, useUser, useSavedSettings } from '@/hooks'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
+import { MediaPicker } from '@/components/ui/MediaPicker'
 import { toast } from '@/stores/toast.store'
 import { useAuthStore } from '@/stores/auth.store'
 import { PriceTag } from './ui/PriceTag'
@@ -145,6 +146,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   // дочернем элементе, над которым проходит курсор.
   const [isDragOver, setIsDragOver] = useState(false)
   const dragDepth = useRef(0)
+
+  // 🆕 Выбор картинки из истории вместо повторной загрузки с устройства.
+  const [showPicker, setShowPicker] = useState(false)
 
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
@@ -561,6 +565,30 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       handleFilesSelected(e.dataTransfer.files)
     },
     [isImg2ImgModel, handleFilesSelected],
+  )
+
+  /**
+   * Добавление картинок, выбранных из истории.
+   *
+   * Файлы уже лежат в хранилище, поэтому ничего не грузим — просто
+   * подставляем готовые ссылки. Дубли отсекаем: одна и та же картинка
+   * дважды в наборе провайдеру не нужна.
+   */
+  const addFromHistory = useCallback(
+    (urls: string[]) => {
+      setInputImages((prev) => {
+        const free = caps.maxInputImages - prev.length
+        if (free <= 0) return prev
+        const fresh = urls.filter((u) => !prev.includes(u)).slice(0, free)
+        if (fresh.length === 0) return prev
+        haptic('light')
+        toast.success(
+          fresh.length === 1 ? 'Фото добавлено' : `Добавлено фото: ${fresh.length}`,
+        )
+        return [...prev, ...fresh]
+      })
+    },
+    [caps.maxInputImages, haptic],
   )
 
   const removeInputImage = (index: number) => {
@@ -1450,7 +1478,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                         active:scale-[0.98] active:bg-[var(--bg-card-hover)]
                         disabled:opacity-50 disabled:cursor-default
                       "
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => setShowPicker(true)}
                       disabled={uploadingImage}
                     >
                       {uploadingImage ? (
@@ -1503,6 +1531,15 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         multiple
         onChange={handleFileChange}
         className="hidden"
+      />
+
+      {/* Выбор из истории; «С устройства» открывает системный диалог */}
+      <MediaPicker
+        open={showPicker}
+        onClose={() => setShowPicker(false)}
+        maxSelect={Math.max(0, caps.maxInputImages - inputImages.length)}
+        onPick={addFromHistory}
+        onUploadInstead={() => fileInputRef.current?.click()}
       />
 
       {/* ── Input area ── */}
@@ -1575,7 +1612,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 active:scale-[0.92]
                 disabled:opacity-50 disabled:cursor-default
               `}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setShowPicker(true)}
               disabled={uploadingImage || inputImages.length >= caps.maxInputImages}
             >
               {uploadingImage ? (

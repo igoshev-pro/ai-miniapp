@@ -1,6 +1,6 @@
 'use client'
 
-import { Newspaper, Layers, Plus, Star, User } from 'lucide-react'
+import { Newspaper, Layers, Plus, Images, User } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useChatStore } from '@/stores/chat.store'
 
@@ -9,12 +9,15 @@ interface Props {
   onChange: (id: string) => void
 }
 
+// Избранное переехало внутрь Истории отдельной вкладкой: в нижнем меню
+// пять слотов, и History нужнее — в неё заходят за своими работами,
+// а в избранное заглядывают заметно реже.
 const navItems = [
-  { id: 'feed',      icon: Newspaper, label: 'Лента' },
-  { id: 'favorites', icon: Star,      label: 'Избранное' },
-  { id: 'create',    icon: Plus,      label: 'Новый чат' },
-  { id: 'models',    icon: Layers,    label: 'Модели' },
-  { id: 'profile',   icon: User,      label: 'Профиль' },
+  { id: 'feed',                icon: Newspaper, label: 'Лента' },
+  { id: 'generation-history',  icon: Images,    label: 'История' },
+  { id: 'create',              icon: Plus,      label: 'Новый чат' },
+  { id: 'models',              icon: Layers,    label: 'Модели' },
+  { id: 'profile',             icon: User,      label: 'Профиль' },
 ]
 
 export function BottomNav({ active, onChange }: Props) {

@@ -14,6 +14,7 @@ import { useSavedSettings, validators } from '@/hooks/useSavedSettings'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
+import { MediaPicker } from '@/components/ui/MediaPicker'
 import { toast } from '@/stores/toast.store'
 import { useAuthStore } from '@/stores'
 import { formatFreeBadge, formatFreeLabel, getFreeAccessInfo } from '@/lib/api/freeAccess'
@@ -1215,6 +1216,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [isDragOver, setIsDragOver] = useState(false)
   const dragDepth = useRef(0)
 
+  // 🆕 Выбор картинки из истории. Цель запоминаем ту же, что у кнопки:
+  // «оживить кадр», референсы Veo, набор Seedance — разные наборы.
+  const [showPicker, setShowPicker] = useState(false)
+  const [pickerMax, setPickerMax] = useState(1)
+
   const triggerUpload = useCallback(
     (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora' | 'seedance-first' | 'seedance-last', elementIdx?: number) => {
       uploadTarget.current = target
@@ -1319,6 +1325,99 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   // Topaz принимает видео, а не картинки — там перетаскивание фото ни к чему.
   const dropEnabled = !isTopaz
+
+  /** Сколько картинок ещё влезет в конкретную цель. */
+  const freeSlotsFor = useCallback(
+    (target: string): number => {
+      if (target === 'ref') {
+        const fbMax = FALLBACK[slug]?.maxInputImages
+        const max = fbMax && fbMax > 1 ? fbMax : (caps.maxInputImages > 1 ? caps.maxInputImages : 3)
+        return Math.max(0, max - refImages.length)
+      }
+      if (target === 'seedance') return Math.max(0, seedanceMaxImages - seedanceImages.length)
+      if (target === 'sora') return Math.max(0, soraMaxImages - soraImages.length)
+      // single / start / end — ровно один кадр, замена допустима.
+      return 1
+    },
+    [
+      slug, caps.maxInputImages, refImages.length,
+      seedanceMaxImages, seedanceImages.length,
+      soraMaxImages, soraImages.length,
+    ],
+  )
+
+  /**
+   * Кладёт выбранные из истории ссылки в текущую цель.
+   *
+   * Загружать нечего — файлы уже в хранилище, поэтому в обход upload()
+   * пишем URL прямо в нужный набор. Одиночные цели берут первую ссылку.
+   */
+  const addPickedUrls = useCallback(
+    (urls: string[]) => {
+      if (urls.length === 0) return
+      const target = uploadTarget.current
+
+      if (target === 'ref') {
+        setRefImages((prev) => {
+          const free = freeSlotsFor('ref')
+          const fresh = urls.filter((u) => !prev.includes(u)).slice(0, free)
+          return fresh.length ? [...prev, ...fresh] : prev
+        })
+      } else if (target === 'seedance') {
+        setSeedanceImages((prev) => {
+          const fresh = urls
+            .filter((u) => !prev.includes(u))
+            .slice(0, Math.max(0, seedanceMaxImages - prev.length))
+          return fresh.length ? [...prev, ...fresh] : prev
+        })
+      } else if (target === 'sora') {
+        setSoraImages((prev) => {
+          const fresh = urls
+            .filter((u) => !prev.includes(u))
+            .slice(0, Math.max(0, soraMaxImages - prev.length))
+          return fresh.length ? [...prev, ...fresh] : prev
+        })
+      } else if (target === 'start') {
+        setStartFrame(urls[0])
+      } else if (target === 'end') {
+        setEndFrame(urls[0])
+      } else if (target === 'seedance-first') {
+        setSeedanceFirstFrame(urls[0])
+      } else if (target === 'seedance-last') {
+        setSeedanceLastFrame(urls[0])
+      } else if (target === 'element') {
+        const idx = elementUploadIdxRef.current
+        setElements((prev) =>
+          prev.map((el, i) => {
+            if (i !== idx) return el
+            const fresh = urls
+              .filter((u) => !el.urls.includes(u))
+              .slice(0, Math.max(0, 4 - el.urls.length))
+            return fresh.length ? { ...el, urls: [...el.urls, ...fresh] } : el
+          }),
+        )
+      } else {
+        setImgUrl(urls[0])
+      }
+
+      haptic('light')
+      toast.success(urls.length === 1 ? 'Фото добавлено' : `Добавлено фото: ${urls.length}`)
+    },
+    [freeSlotsFor, seedanceMaxImages, soraMaxImages, haptic],
+  )
+
+  /** Открывает выбор из истории для нужной цели (аналог triggerUpload). */
+  const openPicker = useCallback(
+    (target: Parameters<typeof triggerUpload>[0], elementIdx?: number) => {
+      uploadTarget.current = target
+      if (target === 'element' && elementIdx !== undefined) {
+        elementUploadIdxRef.current = elementIdx
+      }
+      setPickerMax(target === 'element' ? 4 : freeSlotsFor(target))
+      setShowPicker(true)
+    },
+    [freeSlotsFor, triggerUpload],
+  )
 
   const isFileDrag = (e: React.DragEvent) =>
     Array.from(e.dataTransfer.types || []).includes('Files')
@@ -2297,7 +2396,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         label="Референс (персонаж)"
                         url={imgUrl}
                         uploading={uploading && uploadTarget.current === 'single'}
-                        onUpload={() => triggerUpload('single')}
+                        onUpload={() => openPicker('single')}
                         onRemove={() => setImgUrl('')}
                       />
                     </div>
@@ -2604,7 +2703,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                               prev.map((e, i) => (i === idx ? { ...e, description: v } : e)),
                             )
                           }
-                          onAddImage={() => triggerUpload('element', idx)}
+                          onAddImage={() => openPicker('element', idx)}
                           onRemoveImage={(imgIdx) =>
                             setElements((prev) =>
                               prev.map((e, i) =>
@@ -2711,7 +2810,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         label="Начальный кадр"
                         url={imgUrl}
                         uploading={uploading && uploadTarget.current === 'single'}
-                        onUpload={() => triggerUpload('single')}
+                        onUpload={() => openPicker('single')}
                         onRemove={() => {
                           setImgUrl('')
                           setEndFrame('')
@@ -2825,7 +2924,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           active:bg-white/[0.07] active:border-white/[0.22]
                           disabled:opacity-50 disabled:cursor-not-allowed
                         "
-                        onClick={() => triggerUpload('ref')}
+                        onClick={() => openPicker('ref')}
                         disabled={uploading}
                       >
                         {uploading && uploadTarget.current === 'ref'
@@ -2890,7 +2989,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             cursor-pointer transition-all active:bg-white/[0.07]
                             disabled:opacity-50
                           "
-                          onClick={() => triggerUpload('seedance')}
+                          onClick={() => openPicker('seedance')}
                           disabled={uploading}
                         >
                           {uploading && uploadTarget.current === 'seedance' ? (
@@ -3202,7 +3301,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           cursor-pointer transition-all active:bg-white/[0.07]
                           disabled:opacity-50
                         "
-                        onClick={() => triggerUpload('sora')}
+                        onClick={() => openPicker('sora')}
                         disabled={uploading}
                       >
                         {uploading && uploadTarget.current === 'sora' ? (
@@ -3326,6 +3425,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           uploadBatch(e.target.files)
           e.target.value = ''
         }}
+      />
+
+      {/* Выбор из истории; цель уже записана в uploadTarget через openPicker */}
+      <MediaPicker
+        open={showPicker}
+        onClose={() => setShowPicker(false)}
+        maxSelect={pickerMax}
+        onPick={addPickedUrls}
+        onUploadInstead={() => triggerUpload(uploadTarget.current)}
       />
 
       {/* Скрытый video input (Motion Control) */}
@@ -3513,14 +3621,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 active:scale-90
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
-                onClick={() => {
-                  if (isVeo && veoMode === 'frames') triggerUpload('start')
-                  else if (isVeo && veoMode === 'reference') triggerUpload('ref')
-                  else if (isKling25) triggerUpload('single')
-                  else if (isSeedance) triggerUpload('seedance') // 🆕
-                  else if (isSora) triggerUpload('sora')
-                  else triggerUpload('single')
-                }}
+                // Цель выбирается так же, как при перетаскивании файла.
+                onClick={() => openPicker(dropTarget())}
                 disabled={uploading}
               >
                 {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
