@@ -146,7 +146,7 @@ export function MediaPicker({
           {/* Шапка */}
           <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
             <div className="text-[16px] font-bold text-white">
-              Выбрать изображение
+              Добавить изображение
             </div>
             <button
               className="
@@ -161,6 +161,40 @@ export function MediaPicker({
             >
               <X size={15} />
             </button>
+          </div>
+
+          {/* Загрузка с устройства — первым действием, а не внизу списка.
+              Это привычный путь; выбор из истории лишь дополняет его. */}
+          {onUploadInstead && (
+            <div className="px-4 pb-3 shrink-0">
+              <button
+                className="
+                  w-full flex items-center justify-center gap-2
+                  py-3 rounded-[10px]
+                  bg-white/[0.05] border border-dashed border-white/[0.14]
+                  text-[13px] font-semibold text-white/80 font-[inherit]
+                  cursor-pointer
+                  transition-all duration-150
+                  active:scale-[0.98] active:bg-white/[0.08]
+                "
+                onClick={() => {
+                  onClose()
+                  onUploadInstead()
+                }}
+              >
+                <Upload size={15} />
+                Загрузить с устройства
+              </button>
+            </div>
+          )}
+
+          {/* Разделитель: ниже — то, что уже есть на сервере */}
+          <div className="flex items-center gap-3 px-4 pb-2 shrink-0">
+            <div className="h-px flex-1 bg-white/[0.06]" />
+            <span className="text-[11px] text-white/30 whitespace-nowrap">
+              или выбрать из своих
+            </span>
+            <div className="h-px flex-1 bg-white/[0.06]" />
           </div>
 
           {/* Вкладки */}
@@ -281,28 +315,8 @@ export function MediaPicker({
             )}
           </div>
 
-          {/* Низ */}
+          {/* Низ — только подтверждение выбора: загрузка вынесена наверх */}
           <div className="flex items-center gap-2 px-4 py-3 border-t border-white/[0.06] shrink-0">
-            {onUploadInstead && (
-              <button
-                className="
-                  flex items-center gap-1.5
-                  py-2.5 px-3 rounded-[10px]
-                  bg-white/[0.05] border border-white/[0.08]
-                  text-[13px] text-white/70 font-[inherit]
-                  cursor-pointer shrink-0
-                  transition-transform duration-150 active:scale-[0.97]
-                "
-                onClick={() => {
-                  onClose()
-                  onUploadInstead()
-                }}
-              >
-                <Upload size={14} />
-                С устройства
-              </button>
-            )}
-
             <button
               disabled={selected.length === 0}
               className="
