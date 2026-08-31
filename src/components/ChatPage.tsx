@@ -206,6 +206,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
 
+  // 🆕 Drag-n-drop с рабочего стола. dragDepth считает вложенные
+  // dragenter/dragleave — иначе подсветка мигает на дочерних элементах.
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragDepth = useRef(0)
+
   // 🆕 Состояние настроек codex-моделей (GPT 5.6)
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('low')
   const [webSearch, setWebSearch] = useState(false)
@@ -511,7 +516,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   )
 
   const handleDocsSelected = useCallback(
-    (fileList: FileList | null) => {
+    (fileList: FileList | File[] | null) => {
       if (!fileList || fileList.length === 0) return
       const files = Array.from(fileList)
       const available = MAX_DOCS - docs.length
@@ -578,7 +583,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   }, [haptic])
 
   const handleFilesSelected = useCallback(
-    (fileList: FileList | null) => {
+    (fileList: FileList | File[] | null) => {
       if (!fileList || fileList.length === 0) return
       const files = Array.from(fileList)
       const currentCount = images.length
@@ -615,6 +620,58 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
       newAttachments.forEach((att) => startUpload(att))
     },
     [images.length, haptic, hapticNotification, startUpload],
+  )
+
+  /* ── Drag-n-drop ── */
+
+  const isFileDrag = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types || []).includes('Files')
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    e.preventDefault()
+    dragDepth.current += 1
+    setIsDragOver(true)
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) setIsDragOver(false)
+  }, [])
+
+  /**
+   * Раскладываем перетащенное по типу: картинки — во вложения-изображения,
+   * остальное — в документы. Так работает привычнее, чем требовать от
+   * пользователя попасть в нужную кнопку.
+   */
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return
+      e.preventDefault()
+      dragDepth.current = 0
+      setIsDragOver(false)
+
+      const dropped = Array.from(e.dataTransfer.files)
+      if (dropped.length === 0) return
+
+      const imageFiles = dropped.filter((f) => f.type.startsWith('image/'))
+      const otherFiles = dropped.filter((f) => !f.type.startsWith('image/'))
+
+      if (imageFiles.length > 0) {
+        if (supportsVision) handleFilesSelected(imageFiles)
+        else toast.warning('Эта модель не понимает изображения')
+      }
+
+      if (otherFiles.length > 0) handleDocsSelected(otherFiles)
+    },
+    [supportsVision, handleFilesSelected, handleDocsSelected],
   )
 
   const removeImage = useCallback(
@@ -906,7 +963,33 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         bg-[var(--bg-primary,#08080a)]
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
       "
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {/* ── Оверлей перетаскивания ── */}
+      {isDragOver && (
+        <div
+          className="
+            absolute inset-0 z-[60]
+            flex flex-col items-center justify-center gap-3
+            bg-black/70 backdrop-blur-sm
+            border-2 border-dashed border-[var(--accent-yellow)]
+            rounded-[var(--radius-md)]
+            pointer-events-none
+          "
+        >
+          <Paperclip size={32} className="text-[var(--accent-yellow)]" />
+          <div className="text-[15px] font-semibold text-white">
+            Отпустите, чтобы прикрепить
+          </div>
+          <div className="text-[12px] text-white/50">
+            Картинки и документы
+          </div>
+        </div>
+      )}
+
       {/* Скрытый file input для картинок */}
       <input
         ref={fileInputRef}

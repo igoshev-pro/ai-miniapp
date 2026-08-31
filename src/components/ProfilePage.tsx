@@ -18,6 +18,8 @@ import {
   Loader2,
   ExternalLink,
   LogOut,
+  Images,
+  ChevronRight,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useBilling } from '@/hooks'
@@ -332,6 +334,18 @@ export function ProfilePage({ onNavigate }: Props) {
 
       {/* Меню */}
       <div className="profile-section fade-in fade-in--4">
+        <button
+          className="profile-menu-item"
+          onClick={() => {
+            haptic('light')
+            onNavigate?.('generation-history')
+          }}
+        >
+          <Images size={16} />
+          <span>Мои генерации</span>
+          <ChevronRight size={14} />
+        </button>
+
         <button className="profile-menu-item" onClick={openSupport}>
           <HelpCircle size={16} />
           <span>Поддержка</span>

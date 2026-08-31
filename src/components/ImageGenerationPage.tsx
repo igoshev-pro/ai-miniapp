@@ -140,6 +140,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const [uploadingImage, setUploadingImage] = useState(false)
   const uploadingRef = useRef(false) // 🆕 синхронный лок от двойной загрузки
 
+  // 🆕 Drag-n-drop с рабочего стола. dragDepth считает вложенные
+  // dragenter/dragleave: без счётчика подсветка мигает на каждом
+  // дочернем элементе, над которым проходит курсор.
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragDepth = useRef(0)
+
   const [syncedSlug, setSyncedSlug] = useState<string | null>(null)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -415,7 +421,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
    * первого. Поэтому здесь свой проход: свободные слоты считаем один раз,
    * лок ставим на весь пакет, ссылки добавляем одним setState в конце.
    */
-  const handleFilesSelected = useCallback(async (fileList: FileList | null) => {
+  const handleFilesSelected = useCallback(async (fileList: FileList | File[] | null) => {
     if (!fileList || fileList.length === 0) return
     if (uploadingRef.current) return
 
@@ -432,12 +438,12 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     let skippedSize = 0
 
     for (const file of files) {
-      if (!file.type.match(/image\/(jpeg|png|webp)/)) { skippedType++; continue }
+      if (!file.type.match(/image\/(jpeg|png|webp|gif)/)) { skippedType++; continue }
       if (file.size > 10 * 1024 * 1024) { skippedSize++; continue }
       valid.push(file)
     }
 
-    if (skippedType > 0) toast.error(`Пропущено ${skippedType}: только JPEG, PNG, WebP`)
+    if (skippedType > 0) toast.error(`Пропущено ${skippedType}: только JPEG, PNG, WebP, GIF`)
     if (skippedSize > 0) toast.error(`Пропущено ${skippedSize}: больше 10MB`)
     if (valid.length === 0) return
 
@@ -513,6 +519,49 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     handleFilesSelected(e.target.files)
     e.target.value = ''
   }
+
+  // ─── Drag-n-drop ──────────────────────────────────────────
+  // Реагируем только на перетаскивание файлов: без проверки types
+  // подсветка срабатывала бы и на выделенный текст со страницы.
+  const isFileDrag = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types || []).includes('Files')
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      if (!isImg2ImgModel || !isFileDrag(e)) return
+      e.preventDefault()
+      dragDepth.current += 1
+      setIsDragOver(true)
+    },
+    [isImg2ImgModel],
+  )
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!isImg2ImgModel || !isFileDrag(e)) return
+      // preventDefault обязателен, иначе браузер откроет файл вместо drop
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    [isImg2ImgModel],
+  )
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) setIsDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!isImg2ImgModel || !isFileDrag(e)) return
+      e.preventDefault()
+      dragDepth.current = 0
+      setIsDragOver(false)
+      handleFilesSelected(e.dataTransfer.files)
+    },
+    [isImg2ImgModel, handleFilesSelected],
+  )
 
   const removeInputImage = (index: number) => {
     setInputImages((prev) => prev.filter((_, i) => i !== index))
@@ -650,7 +699,32 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
         bg-[var(--bg-primary,#08080a)]
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
       "
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {/* ── Оверлей перетаскивания ── */}
+      {isDragOver && (
+        <div
+          className="
+            absolute inset-0 z-[60]
+            flex flex-col items-center justify-center gap-3
+            bg-black/70 backdrop-blur-sm
+            border-2 border-dashed border-[var(--accent-yellow)]
+            rounded-[var(--radius-md)]
+            pointer-events-none
+          "
+        >
+          <Upload size={32} className="text-[var(--accent-yellow)]" />
+          <div className="text-[15px] font-semibold text-white">
+            Отпустите, чтобы загрузить
+          </div>
+          <div className="text-[12px] text-white/50">
+            Осталось слотов: {Math.max(0, caps.maxInputImages - inputImages.length)}
+          </div>
+        </div>
+      )}
       {/* ── Model bar ── */}
       <div
         className="
@@ -889,21 +963,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 key={gen.id}
                 className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]"
               >
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className="
-                      text-[11px] font-semibold
-                      py-1 px-2
-                      rounded-[6px]
-                      bg-white/[0.04] border border-white/[0.06]
-                      text-[var(--gray-500)]
-                    "
-                  >
+                <div className="text-[13px] text-white/45 leading-[1.4] break-words">
+                  <span className="inline-block text-[10px] font-semibold bg-white/[0.06] px-2 py-0.5 rounded mr-1.5 text-white/50 align-middle">
                     {gen.model}
                   </span>
-                  <span className="text-[12px] text-[var(--gray-300)] flex-1 min-w-0 truncate">
-                    {gen.prompt}
-                  </span>
+                  {gen.prompt}
                 </div>
 
                 <MediaResult
@@ -928,21 +992,19 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
           {isGenerating && (
             <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="text-[13px] text-white/45 leading-[1.4] break-words">
                 <span
                   className="
-                    text-[11px] font-semibold
-                    py-1 px-2
-                    rounded-[6px]
+                    inline-block text-[10px] font-semibold
+                    py-0.5 px-2 mr-1.5 align-middle
+                    rounded
                     bg-[rgba(250,204,21,0.08)] border border-[rgba(250,204,21,0.2)]
                     text-[var(--accent-yellow)]
                   "
                 >
                   {currentModel?.name ?? selectedModelSlug}
                 </span>
-                <span className="text-[12px] text-[var(--gray-400)] flex-1 min-w-0 truncate">
-                  {input || 'Генерация...'}
-                </span>
+                {input || 'Генерация...'}
               </div>
 
               <div
@@ -1434,11 +1496,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
-        // Мультивыбор только там, где модель принимает больше одной картинки.
-        // Без этого атрибута системный диалог на десктопе даёт выбрать
-        // ровно один файл (в мобильной галерее мультивыбор есть и так).
-        multiple={caps.maxInputImages > 1}
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        // Мультивыбор включён всегда: caps приходит асинхронно, и пока
+        // uiConfig не загружен maxInputImages === 0 — диалог открылся бы
+        // одиночным. Лишние файлы сверх лимита отсекает handleFilesSelected.
+        multiple
         onChange={handleFileChange}
         className="hidden"
       />

@@ -18,6 +18,7 @@ import { ImageGenerationPage } from './ImageGenerationPage'
 import { VideoGenerationPage } from './VideoGenerationPage'
 import { AudioGenerationPage } from './AudioGenerationPage'
 import { ChatsHistoryPage } from './ChatsHistoryPage'
+import { GenerationHistoryPage } from './GenerationHistoryPage'
 import { ProfilePage } from './ProfilePage'
 import { TopUpPage } from './TopUpPage'
 import { TransactionsPage } from './TransactionsPage'
@@ -27,7 +28,18 @@ import { FavoritesPage } from './FavoritesPage'
 import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
 import { BotLoginButton } from './auth/BotLoginButton'
+import { EmailAuthForm } from './auth/EmailAuthForm'
 import { useAuth } from '@/hooks'
+
+/**
+ * Вход по почте: форма в окне авторизации.
+ *
+ * Выключено до настройки SMTP — регистрация и вход работали бы и сейчас,
+ * но письмо для восстановления пароля отправить не с чего, и человек,
+ * забывший пароль, остался бы без доступа. Когда почта настроена
+ * (SMTP_* в .env бэкенда) — поставить true.
+ */
+const EMAIL_AUTH_ENABLED = false
 
 type Page =
   | 'home'
@@ -37,6 +49,7 @@ type Page =
   | 'video-generation'
   | 'audio-generation'
   | 'chats-history'
+  | 'generation-history'
   | 'profile'
   | 'topup'
   | 'transactions'
@@ -57,6 +70,7 @@ const AUTH_REQUIRED_PAGES: Set<Page> = new Set([
   'subscription',
   'referral',
   'chats-history',
+  'generation-history',
   'favorites',
 ])
 
@@ -211,6 +225,7 @@ export function SpichkiApp() {
       else if (target === 'transactions') navigateTo('transactions')
       else if (target === 'subscription') navigateTo('subscription')
       else if (target === 'referral') navigateTo('referral')
+      else if (target === 'generation-history') navigateTo('generation-history')
       else if (target.startsWith('subscribe:')) navigateTo('subscription')
     },
     [navigateTo],
@@ -224,6 +239,7 @@ export function SpichkiApp() {
         favorites: 'favorites',
         profile: 'profile',
         topup: 'topup',
+        'generation-history': 'generation-history',
       }
 
       const targetPage = pageMap[id]
@@ -383,6 +399,14 @@ export function SpichkiApp() {
         {page === 'chats-history' && (
           <ChatsHistoryPage onChatTap={(model, id) => openChat(model, id)} />
         )}
+        {page === 'generation-history' && (
+          <GenerationHistoryPage
+            onBack={goBack}
+            onOpenGeneration={(type, modelSlug) =>
+              openGeneration(type, modelSlug)
+            }
+          />
+        )}
         {page === 'profile' && (
           <ProfilePage onNavigate={handleProfileNavigate} />
         )}
@@ -415,7 +439,7 @@ export function SpichkiApp() {
           />
           <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
             <div
-              className="w-full max-w-sm rounded-2xl p-6 text-center"
+              className="w-full max-w-sm rounded-2xl p-6 text-center max-h-[85vh] overflow-y-auto"
               style={{
                 background: 'rgba(18, 18, 22, 0.95)',
                 border: '1px solid rgba(255,255,255,0.08)',
@@ -426,10 +450,34 @@ export function SpichkiApp() {
                 Требуется авторизация
               </h2>
               <p className="mb-5 text-sm text-white/60">
-                Войди через Telegram, чтобы использовать генерацию, чаты, пополнение и другие функции
+                Войдите, чтобы использовать генерацию, чаты, пополнение и другие функции
               </p>
 
               <BotLoginButton />
+
+              {/* Вход по почте — только вне Telegram: внутри мини-приложения
+                  человек уже авторизован своим аккаунтом, и форма там лишняя.
+
+                  Пока скрыто флагом EMAIL_AUTH_ENABLED: бэкенд готов, но
+                  SMTP не настроен, а без него забывший пароль упрётся в
+                  тупик — письмо со ссылкой не придёт. Включить = поставить
+                  флаг в true (см. объявление вверху файла). */}
+              {EMAIL_AUTH_ENABLED && !isTelegram && (
+                <>
+                  <div className="flex items-center gap-3 my-4">
+                    <div className="h-px flex-1 bg-white/[0.08]" />
+                    <span className="text-[11px] text-white/30">или по почте</span>
+                    <div className="h-px flex-1 bg-white/[0.08]" />
+                  </div>
+
+                  <EmailAuthForm
+                    onSuccess={() => {
+                      // pendingNav отработает эффект по появлению токена.
+                      setShowAuthModal(false)
+                    }}
+                  />
+                </>
+              )}
 
               <button
                 onClick={() => {

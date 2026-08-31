@@ -1211,6 +1211,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const [allowMultiUpload, setAllowMultiUpload] = useState(false)
 
+  // 🆕 Drag-n-drop с рабочего стола (см. одноимённый блок в ImageGenerationPage).
+  const [isDragOver, setIsDragOver] = useState(false)
+  const dragDepth = useRef(0)
+
   const triggerUpload = useCallback(
     (target: 'single' | 'start' | 'end' | 'ref' | 'element' | 'seedance' | 'sora' | 'seedance-first' | 'seedance-last', elementIdx?: number) => {
       uploadTarget.current = target
@@ -1238,7 +1242,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
    * проверяются на актуальном значении, а лишние файлы просто игнорируются.
    */
   const uploadBatch = useCallback(
-    async (fileList: FileList | null) => {
+    async (fileList: FileList | File[] | null) => {
       if (!fileList || fileList.length === 0) return
       const files = Array.from(fileList)
 
@@ -1295,6 +1299,74 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       seedanceMaxImages, seedanceImages.length,
       soraMaxImages, soraImages.length, elements,
     ],
+  )
+
+  /* ── Drag-n-drop ── */
+
+  /**
+   * Куда положить перетащенные файлы. Повторяет выбор цели у кнопки-скрепки:
+   * у каждой модели свой набор картинок (кадры, референсы, элементы).
+   */
+  const dropTarget = useCallback(():
+    | 'single' | 'start' | 'ref' | 'seedance' | 'sora' => {
+    if (isVeo && veoMode === 'frames') return 'start'
+    if (isVeo && veoMode === 'reference') return 'ref'
+    if (isKling25) return 'single'
+    if (isSeedance) return 'seedance'
+    if (isSora) return 'sora'
+    return 'single'
+  }, [isVeo, veoMode, isKling25, isSeedance, isSora])
+
+  // Topaz принимает видео, а не картинки — там перетаскивание фото ни к чему.
+  const dropEnabled = !isTopaz
+
+  const isFileDrag = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types || []).includes('Files')
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      if (!dropEnabled || !isFileDrag(e)) return
+      e.preventDefault()
+      dragDepth.current += 1
+      setIsDragOver(true)
+    },
+    [dropEnabled],
+  )
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!dropEnabled || !isFileDrag(e)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    [dropEnabled],
+  )
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) setIsDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!dropEnabled || !isFileDrag(e)) return
+      e.preventDefault()
+      dragDepth.current = 0
+      setIsDragOver(false)
+
+      const target = dropTarget()
+      uploadTarget.current = target
+      // Одиночные цели берут только первый файл: класть остальные некуда.
+      const files = e.dataTransfer.files
+      if (MULTI_UPLOAD_TARGETS.includes(target)) {
+        uploadBatch(files)
+      } else if (files.length > 0) {
+        if (files.length > 1) toast.warning('Здесь нужна одна картинка — взяли первую')
+        upload(files[0])
+      }
+    },
+    [dropEnabled, dropTarget, uploadBatch, upload],
   )
 
   /* ── Telegram BackButton ── */
@@ -1705,7 +1777,30 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         bg-[var(--bg-primary,#08080a)]
         pt-[calc(var(--header-height)+var(--safe-area-top,0px))]
       "
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {/* ── Оверлей перетаскивания ── */}
+      {isDragOver && (
+        <div
+          className="
+            absolute inset-0 z-[60]
+            flex flex-col items-center justify-center gap-3
+            bg-black/70 backdrop-blur-sm
+            border-2 border-dashed border-[var(--accent-yellow)]
+            rounded-[var(--radius-md)]
+            pointer-events-none
+          "
+        >
+          <Upload size={32} className="text-[var(--accent-yellow)]" />
+          <div className="text-[15px] font-semibold text-white">
+            Отпустите, чтобы загрузить
+          </div>
+        </div>
+      )}
+
       {/* ── Model bar ── */}
       <div
         className="
@@ -1967,13 +2062,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
           {generating && (
             <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold py-1 px-2 rounded-[6px] bg-[rgba(250,204,21,0.08)] border border-[rgba(250,204,21,0.2)] text-[var(--accent-yellow)]">
+              <div className="text-[13px] text-white/45 leading-[1.4] break-words">
+                <span className="inline-block text-[10px] font-semibold py-0.5 px-2 mr-1.5 align-middle rounded bg-[rgba(250,204,21,0.08)] border border-[rgba(250,204,21,0.2)] text-[var(--accent-yellow)]">
                   {model?.name ?? slug}
                 </span>
-                <span className="text-[12px] text-[var(--gray-400)] flex-1 min-w-0 truncate">
-                  {input || 'Генерация...'}
-                </span>
+                {input || 'Генерация...'}
               </div>
               <div
                 className="

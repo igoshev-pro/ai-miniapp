@@ -1,6 +1,12 @@
 export const ENDPOINTS = {
   AUTH_TELEGRAM: '/auth/telegram',
   AUTH_TELEGRAM_WIDGET: '/auth/telegram-widget',
+
+  // 🆕 Вход по почте
+  AUTH_REGISTER: '/auth/register',
+  AUTH_LOGIN: '/auth/login',
+  AUTH_PASSWORD_FORGOT: '/auth/password/forgot',
+  AUTH_PASSWORD_RESET: '/auth/password/reset',
   USER_ME: '/users/me',
 
   // Models
@@ -23,6 +29,10 @@ export const ENDPOINTS = {
   GENERATION_STATUS: (id: string) => `/generation/status/${id}`,
   GENERATION_HISTORY: '/generation/history',
   GENERATION_FAVORITE: (id: string) => `/generation/${id}/favorite`,
+
+  // 🆕 Загруженные пользователем файлы (вкладка «Загруженные»)
+  UPLOADS_MY: '/upload/my',
+  UPLOADS_DELETE: (id: string) => `/upload/my/${id}`,
 
   // 🆕 Pricing & UI config
   GENERATION_CALCULATE_PRICE: '/generation/calculate-price',

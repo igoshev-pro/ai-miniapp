@@ -56,6 +56,32 @@ async function reauthWithInitData(): Promise<string | null> {
   }
 }
 
+/**
+ * Продление сессии для входа НЕ через Telegram (почта, Google).
+ *
+ * У таких пользователей нет initData, поэтому reauthWithInitData им не
+ * поможет — без этой попытки первый же 401 выбрасывал бы их из аккаунта.
+ * /auth/refresh выдаёт новый JWT по текущему, ещё принимаемому токену.
+ */
+async function refreshExistingToken(): Promise<string | null> {
+  const current = useAuthStore.getState().token
+  if (!current) return null
+
+  try {
+    const res = await axios.get(`${API_BASE_URL}/auth/refresh`, {
+      headers: { Authorization: `Bearer ${current}` },
+    })
+    const token = res.data?.data?.token as string | undefined
+    if (token) {
+      useAuthStore.getState().setToken(token)
+      return token
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // Обработка ошибок
 apiClient.interceptors.response.use(
   (res) => res,
@@ -73,7 +99,11 @@ apiClient.interceptors.response.use(
     if (status === 401 && original && !original._retried) {
       original._retried = true
 
-      const newToken = await reauthWithInitData()
+      // Сначала Telegram (mini app), затем refresh — он работает для
+      // почты и Google, где initData нет.
+      const newToken =
+        (await reauthWithInitData()) || (await refreshExistingToken())
+
       if (newToken) {
         original.headers = original.headers || {}
         ;(original.headers as Record<string, string>).Authorization =
@@ -81,7 +111,7 @@ apiClient.interceptors.response.use(
         return apiClient(original) // retry оригинального запроса
       }
 
-      // Браузер или переавторизация не удалась — чистим токен
+      // Сессия действительно недействительна — чистим токен
       useAuthStore.getState().clearToken()
     }
 

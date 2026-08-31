@@ -1305,13 +1305,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
           {isGenerating && (
             <div className="flex flex-col gap-2 animate-[fadeIn_0.3s_ease-out]">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold py-1 px-2 rounded-[6px] bg-[rgba(250,204,21,0.08)] border border-[rgba(250,204,21,0.2)] text-[var(--accent-yellow)]">
+              <div className="text-[13px] text-white/45 leading-[1.4] break-words">
+                <span className="inline-block text-[10px] font-semibold py-0.5 px-2 mr-1.5 align-middle rounded bg-[rgba(250,204,21,0.08)] border border-[rgba(250,204,21,0.2)] text-[var(--accent-yellow)]">
                   {currentModel?.name ?? slug}
                 </span>
-                <span className="text-[12px] text-[var(--gray-400)] flex-1 min-w-0 truncate">
-                  {input || (audioUrl ? 'Обработка аудио...' : 'Генерация...')}
-                </span>
+                {input || (audioUrl ? 'Обработка аудио...' : 'Генерация...')}
               </div>
               <div
                 className="
