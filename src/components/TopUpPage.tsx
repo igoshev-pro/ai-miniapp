@@ -6,9 +6,22 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  Flame, Zap, Gift, Check, Loader2, ChevronRight,
-  Sparkles, Tag, TrendingDown, Crown, CreditCard, Star, Bitcoin,
-  Sliders, Minus, Plus,
+  Zap,
+  Gift,
+  Check,
+  Loader2,
+  ChevronRight,
+  Sparkles,
+  Tag,
+  TrendingDown,
+  Crown,
+  CreditCard,
+  Star,
+  Bitcoin,
+  Sliders,
+  Minus,
+  Plus,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'

@@ -23,6 +23,7 @@ import {
   Gift,
   Brain,
   Settings,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites, useModels } from '@/hooks'
@@ -1091,7 +1092,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             </span>
           ) : (
             <span className="text-[11px] text-white/40 shrink-0">
-              от {formatCost(modelCost)} 🔥
+              от {formatCost(modelCost)} <Flame size={12} className="inline-block align-[-2px]" />
             </span>
           )}
         </button>
@@ -1254,7 +1255,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                       }
                       return (
                         <span className="text-[11px] text-white/40">
-                          от {formatCost(m.cost)} 🔥
+                          от {formatCost(m.cost)} <Flame size={12} className="inline-block align-[-2px]" />
                         </span>
                       )
                     })()}
@@ -1581,7 +1582,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                     </button>
                     {msg.role === 'assistant' && msg.tokensUsed && (
                       <span className="text-[10px] text-white/30 ml-1">
-                        {msg.tokensUsed} 🔥
+                        {msg.tokensUsed} <Flame size={12} className="inline-block align-[-2px]" />
                       </span>
                     )}
                   </div>

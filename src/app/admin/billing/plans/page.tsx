@@ -479,7 +479,7 @@ function PlanModal({
                 </Field>
                 <div className="flex items-end gap-4 pb-2">
                   <Checkbox
-                    label="🔥 Популярный"
+                    label="спичек Популярный"
                     checked={!!form.isPopular}
                     onChange={(v) => update({ isPopular: v })}
                   />

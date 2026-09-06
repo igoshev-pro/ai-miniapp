@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, Newspaper, Layers, User, Flame, Zap, Images } from 'lucide-react'
+import { Plus, Newspaper, Layers, User, Zap, Images, Flame} from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useChatStore } from '@/stores/chat.store'
 import { useUser } from '@/hooks'
@@ -33,7 +33,9 @@ export function DesktopSidebar({ active, onChange }: Props) {
     <aside className="desktop-sidebar">
       {/* ─── Logo ─── */}
       <div className="desktop-sidebar__logo">
-        <span className="desktop-sidebar__logo-icon">🔥</span>
+        <span className="desktop-sidebar__logo-icon">
+          <Flame size={18} />
+        </span>
         <span className="desktop-sidebar__logo-text">SPICHKI</span>
       </div>
 
@@ -91,7 +93,9 @@ export function DesktopSidebar({ active, onChange }: Props) {
             <span className="desktop-sidebar__balance-hint">Баланс</span>
             <span className="desktop-sidebar__balance-amount">
               {formatted}
-              <span className="desktop-sidebar__balance-unit"> 🔥</span>
+              <span className="desktop-sidebar__balance-unit">
+                <Flame size={13} className="inline-block align-[-2px]" />
+              </span>
             </span>
           </div>
         </div>

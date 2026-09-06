@@ -132,11 +132,23 @@ export function MediaPicker({
         className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="fixed inset-0 z-[101] flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none">
+      {/* Лист прижат к низу, но на мобильном под ним стоит BottomNav (fixed,
+          высота 84px + safe-area). Без нижнего отступа жёлтая кнопка
+          «Добавить» уезжает под панель и до неё не дотянуться —
+          поэтому поднимаем лист на высоту навигации и на неё же
+          уменьшаем максимальную высоту. На десктопе панели нет. */}
+      <div
+        className="
+          media-picker__layer
+          fixed inset-0 z-[101] flex items-end sm:items-center justify-center
+          p-0 sm:p-4 pointer-events-none
+        "
+      >
         <div
           className="
+            media-picker__sheet
             w-full sm:max-w-[520px]
-            max-h-[85vh] flex flex-col
+            flex flex-col
             rounded-t-[20px] sm:rounded-[var(--radius-md)]
             bg-[rgba(18,18,22,0.98)]
             border border-white/[0.08]

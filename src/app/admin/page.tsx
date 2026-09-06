@@ -89,7 +89,7 @@ export default function AdminDashboardPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white">Дашборд</h1>
         <p className="mt-1 text-sm text-zinc-400">
-          Добро пожаловать в админку Spichki AI 🔥
+          Добро пожаловать в админку Spichki AI
         </p>
       </div>
 

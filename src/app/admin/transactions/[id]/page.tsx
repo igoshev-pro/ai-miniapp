@@ -4,8 +4,19 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Loader2, Copy, ExternalLink, Wallet, Coins, Gift,
-  Calendar, Hash, Sparkles, Ticket, Users as UsersIcon,
+  ArrowLeft,
+  Loader2,
+  Copy,
+  ExternalLink,
+  Wallet,
+  Coins,
+  Gift,
+  Calendar,
+  Hash,
+  Sparkles,
+  Ticket,
+  Users as UsersIcon,
+  Flame,
 } from 'lucide-react'
 import { adminTransactionsApi } from '@/lib/api/admin-transactions'
 import type { AdminTransactionDetails, AdminTransaction } from '@/types/admin-transaction'
@@ -163,7 +174,7 @@ export default function AdminTransactionDetailPage() {
               tx.amount > 0 ? 'text-emerald-400' : tx.amount < 0 ? 'text-red-400' : 'text-zinc-400'
             }`}>
               {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')}
-              <span className="text-lg ml-1">🔥</span>
+              <Flame size={16} className="inline-block ml-1 align-[-2px]" />
             </div>
             {tx.paymentAmountRub != null && tx.paymentAmountRub > 0 && (
               <div className="mt-2">
@@ -345,7 +356,7 @@ function BalanceCard({
       <div className="text-[11px] uppercase tracking-wider opacity-70 mb-1">{label}</div>
       <div className="text-xl font-bold">
         {value.toLocaleString('ru-RU')}
-        <span className="text-sm ml-1 opacity-70">🔥</span>
+        <Flame size={13} className="inline-block ml-1 align-[-2px] opacity-70" />
       </div>
     </div>
   )
@@ -382,7 +393,7 @@ function RelatedRow({ tx, currentId }: { tx: AdminTransaction; currentId: string
           <div className={`text-sm font-bold ${
             tx.amount > 0 ? 'text-emerald-400' : tx.amount < 0 ? 'text-red-400' : 'text-zinc-500'
           }`}>
-            {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')}🔥
+            {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')} <Flame size={13} className="inline-block align-[-2px]" />
           </div>
           {tx.paymentAmountRub != null && tx.paymentAmountRub > 0 && (
             <div className="text-[11px] text-zinc-500">{tx.paymentAmountRub.toLocaleString('ru-RU')} ₽</div>

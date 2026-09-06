@@ -1,5 +1,5 @@
 'use client'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Flame} from 'lucide-react'
 import { PricingSimulator } from '../PricingSimulator'
 type Row = {
   conditions: Record<string, any>
@@ -81,7 +81,7 @@ export function PricingMatrixEditor({
             {/* cost */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="text-[10px] text-zinc-500 uppercase mb-1">🔥 Токены</div>
+                <div className="text-[10px] text-zinc-500 uppercase mb-1"><Flame size={13} className="inline-block align-[-2px]" /> Токены</div>
                 <input type="number" className={inp} value={row.costInTokens ?? 0} onChange={(e) => upd(i, { costInTokens: Number(e.target.value) })}/>
               </div>
               <div>

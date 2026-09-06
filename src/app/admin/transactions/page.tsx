@@ -132,7 +132,7 @@ export default function AdminTransactionsPage() {
         />
         <SummaryCard
           label="Токенов"
-          value={`${totals.tokens.toLocaleString('ru-RU')} 🔥`}
+          value={`${totals.tokens.toLocaleString('ru-RU')} спичек`}
           color="from-orange-500/15 to-red-500/15 border-orange-500/30 text-orange-300"
         />
       </div>
@@ -200,8 +200,8 @@ export default function AdminTransactionsPage() {
           >
             <option value="createdAt:desc">Сначала новые</option>
             <option value="createdAt:asc">Сначала старые</option>
-            <option value="amount:desc">Сумма (🔥) ↓</option>
-            <option value="amount:asc">Сумма (🔥) ↑</option>
+            <option value="amount:desc">Сумма по убыванию</option>
+            <option value="amount:asc">Сумма по возрастанию</option>
             <option value="paymentAmountRub:desc">Сумма (₽) ↓</option>
             <option value="paymentAmountRub:asc">Сумма (₽) ↑</option>
           </select>
@@ -263,7 +263,7 @@ export default function AdminTransactionsPage() {
                   <th className="px-4 py-3 font-medium">Тип</th>
                   <th className="px-4 py-3 font-medium">Пользователь</th>
                   <th className="px-4 py-3 font-medium">Описание</th>
-                  <th className="px-4 py-3 font-medium text-right">Сумма 🔥</th>
+                  <th className="px-4 py-3 font-medium text-right">Сумма, спичек</th>
                   <th className="px-4 py-3 font-medium text-right">₽</th>
                   <th className="px-4 py-3 font-medium">Статус</th>
                   <th className="px-4 py-3 font-medium">Provider</th>

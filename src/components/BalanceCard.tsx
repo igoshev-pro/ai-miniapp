@@ -1,6 +1,6 @@
 'use client'
 
-import { Flame, MessageSquare, Image, Video, Music } from 'lucide-react'
+import { MessageSquare, Image, Video, Music, Flame} from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 
 const generations = [

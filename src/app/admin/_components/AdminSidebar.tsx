@@ -12,8 +12,9 @@ import {
   Receipt,
   Plug,
   Settings,
+  ImageIcon,
+  // 🆕,
   Flame,
-  ImageIcon, // 🆕
 } from 'lucide-react'
 import type { AdminRole } from '@/hooks/useAdminAuth'
 

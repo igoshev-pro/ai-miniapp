@@ -11,6 +11,7 @@ import {
   Eye,
   Globe,
   Gift,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useFavorites } from '@/hooks'
@@ -348,7 +349,7 @@ function ModelCard({
                 "
               >
                 {model.category === 'text' ? 'от ' : ''}
-                {formatCost(model.cost)} 🔥
+                {formatCost(model.cost)} <Flame size={12} className="inline-block align-[-2px]" />
               </span>
             )
           })()}

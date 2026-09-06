@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Crown, Loader2, AlertCircle, Sparkles } from 'lucide-react'
+import { X, Crown, Loader2, AlertCircle, Sparkles, Flame} from 'lucide-react'
 import type { AdminUser } from '@/types/admin-user'
 import type { AdminUserSubscriptionInfo, SetSubscriptionBody } from '@/lib/api/admin-users'
 import { adminBillingApi } from '@/lib/api/admin-billing'
@@ -210,7 +210,7 @@ export function SetSubscriptionModal({
                           )}
                         </div>
                         <div className="text-[11px] text-zinc-500 mt-0.5">
-                          {p.tokensPerMonth}🔥 / мес ·{' '}
+                          {p.tokensPerMonth} <Flame size={13} className="inline-block align-[-2px]" /> / мес ·{' '}
                           {p.modelsAccess === 'full' ? 'все модели' : 'ограничено'}
                         </div>
                       </div>

@@ -1,6 +1,6 @@
 'use client'
 import { useMemo, useState, useEffect } from 'react'
-import { Zap, DollarSign, Target } from 'lucide-react'
+import { Zap, DollarSign, Target, Flame} from 'lucide-react'
 
 type Option = { value: string; label: string }
 type UiParam = {
@@ -119,7 +119,7 @@ export function PricingSimulator({
                 <Zap className="text-amber-400" size={20} />
                 <div>
                   <div className="text-[10px] uppercase text-amber-300/70">Спишется с юзера</div>
-                  <div className="text-xl font-bold text-amber-200">{matched.row.costInTokens} 🔥</div>
+                  <div className="text-xl font-bold text-amber-200">{matched.row.costInTokens} <Flame size={13} className="inline-block align-[-2px]" /></div>
                 </div>
               </div>
               <div className="flex-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 flex items-center gap-2">

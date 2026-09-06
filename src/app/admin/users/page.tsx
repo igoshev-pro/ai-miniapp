@@ -3,9 +3,19 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
-  Users as UsersIcon, Search, Ban, ShieldCheck,
-  ChevronLeft, ChevronRight, Loader2, X, Trash2,
-  MoreVertical, Wallet, Crown,
+  Users as UsersIcon,
+  Search,
+  Ban,
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  X,
+  Trash2,
+  MoreVertical,
+  Wallet,
+  Crown,
+  Flame,
 } from 'lucide-react'
 import { adminUsersApi } from '@/lib/api/admin-users'
 import type { AdminUser, AdminUsersQuery, UserRole } from '@/types/admin-user'
@@ -196,7 +206,7 @@ export default function AdminUsersPage() {
               <tr className="text-left text-xs text-zinc-500 uppercase tracking-wider">
                 <th className="px-4 py-3 font-medium">Пользователь</th>
                 <th className="px-4 py-3 font-medium">Auth</th>
-                <th className="px-4 py-3 font-medium text-right">Баланс 🔥</th>
+                <th className="px-4 py-3 font-medium text-right">Баланс <Flame size={13} className="inline-block align-[-2px]" /></th>
                 <th className="px-4 py-3 font-medium text-right">Депозит</th>
                 <th className="px-4 py-3 font-medium text-right">Рефы</th>
                 <th className="px-4 py-3 font-medium">Роль</th>
@@ -391,13 +401,13 @@ function UserRow({
       {/* Deposit */}
       <td className="px-4 py-3 text-right">
         <div className="text-sm text-white">{user.totalDeposited.toLocaleString('ru-RU')} ₽</div>
-        <div className="text-[10px] text-zinc-500">потрачено: {user.totalTokensSpent}🔥</div>
+        <div className="text-[10px] text-zinc-500">потрачено: {user.totalTokensSpent}<Flame size={13} className="inline-block align-[-2px]" /></div>
       </td>
 
       {/* Referrals */}
       <td className="px-4 py-3 text-right">
         <div className="text-sm text-white">{user.referralCount}</div>
-        <div className="text-[10px] text-zinc-500">{user.referralEarnings}🔥</div>
+        <div className="text-[10px] text-zinc-500">{user.referralEarnings}<Flame size={13} className="inline-block align-[-2px]" /></div>
       </td>
 
       {/* Role */}

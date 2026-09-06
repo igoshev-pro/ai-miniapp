@@ -2,9 +2,23 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
-  ChevronDown, Send, Check, X, Image as ImageIcon,
-  Settings, Wand2, Maximize2, Layers, Loader2,
-  Shuffle, Upload, Trash2, Zap, Sparkles, Gift,
+  ChevronDown,
+  Send,
+  Check,
+  X,
+  Image as ImageIcon,
+  Settings,
+  Wand2,
+  Maximize2,
+  Layers,
+  Loader2,
+  Shuffle,
+  Upload,
+  Trash2,
+  Zap,
+  Sparkles,
+  Gift,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser, useSavedSettings } from '@/hooks'
@@ -838,7 +852,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             >
               {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
               {showFromPrefix && <span className="text-white/35">от</span>}
-              {formatCost(displayedCost)} 🔥
+              {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
             </span>
           )}
         </button>
@@ -932,7 +946,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                     }
                     return (
                       <span className="text-[11px] text-white/40">
-                        от {formatCost(m.cost)} 🔥
+                        от {formatCost(m.cost)} <Flame size={12} className="inline-block align-[-2px]" />
                       </span>
                     )
                   })()}
@@ -1010,7 +1024,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 {gen.status === 'completed' && genCost != null && (
                   <div className="flex items-center px-0.5">
                     <span className="text-[10px] text-white/30">
-                      {formatCost(genCost)} 🔥 затрачено
+                      {formatCost(genCost)} <Flame size={12} className="inline-block align-[-2px]" /> затрачено
                     </span>
                   </div>
                 )}
@@ -1104,7 +1118,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                       >
                         {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
                         {showFromPrefix && <span className="text-white/35">от</span>}
-                        {formatCost(displayedCost)} 🔥
+                        {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
                       </span>
                       {matchedLabel && !isFallbackPrice && (
                         <span className="text-white/40">· {matchedLabel}</span>

@@ -1,7 +1,7 @@
 'use client'
 
-import { Flame } from 'lucide-react'
 import { useUser } from '@/hooks'
+import { Flame } from 'lucide-react'
 
 export function StickyHeader() {
   const { balance, isLoaded } = useUser()

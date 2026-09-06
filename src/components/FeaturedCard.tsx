@@ -1,6 +1,6 @@
 'use client'
 
-import { Flame, ArrowRight } from 'lucide-react'
+import { ArrowRight, Flame} from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 
 /**

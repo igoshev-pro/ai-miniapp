@@ -2,8 +2,22 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
-  ChevronDown, Send, Check, X, Music, Settings, Wand2,
-  Clock, Loader2, Upload, Mic, Volume2, Zap, MessageSquare, Gift,
+  ChevronDown,
+  Send,
+  Check,
+  X,
+  Music,
+  Settings,
+  Wand2,
+  Clock,
+  Loader2,
+  Upload,
+  Mic,
+  Volume2,
+  Zap,
+  MessageSquare,
+  Gift,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -1109,11 +1123,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
               {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
               {/* Посимвольная модель — фиксированная подпись */}
               {isCharBasedModel && pricePerKChars != null ? (
-                <span>{pricePerKChars} 🔥 / 1000 симв.</span>
+                <span>{pricePerKChars} <Flame size={12} className="inline-block align-[-2px]" /> / 1000 симв.</span>
               ) : (
                 <>
                   {showFromPrefix && <span className="text-white/35">от</span>}
-                  {formatCost(displayedCost)} 🔥
+                  {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
                 </>
               )}
             </span>
@@ -1205,7 +1219,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                     }
                     return (
                       <span className="text-[11px] text-white/40">
-                        от {formatCost(m.cost)} 🔥
+                        от {formatCost(m.cost)} <Flame size={12} className="inline-block align-[-2px]" />
                       </span>
                     )
                   })()}
@@ -1278,7 +1292,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                 {gen.status === 'completed' && genCost != null && (
                   <div className="flex items-center px-0.5">
                     <span className="text-[10px] text-white/30">
-                      {formatCost(genCost)} 🔥 затрачено
+                      {formatCost(genCost)} <Flame size={12} className="inline-block align-[-2px]" /> затрачено
                     </span>
                   </div>
                 )}
@@ -1559,11 +1573,11 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                       >
                         {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
                         {isCharBasedModel && pricePerKChars != null ? (
-                          <span>{pricePerKChars} 🔥 / 1000 симв.</span>
+                          <span>{pricePerKChars} <Flame size={12} className="inline-block align-[-2px]" /> / 1000 симв.</span>
                         ) : (
                           <>
                             {showFromPrefix && <span className="text-white/35">от</span>}
-                            {formatCost(displayedCost)} 🔥
+                            {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
                           </>
                         )}
                       </span>
@@ -1572,7 +1586,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                       )}
                       {isCharBasedModel && input.length > 0 && (
                         <span className="text-white/40">
-                          · {input.length} симв ≈ {formatCost(displayedCost)} 🔥
+                          · {input.length} симв ≈ {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
                         </span>
                       )}
                     </>

@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react'
 import { apiClient } from '@/lib/api/client'
 import { ENDPOINTS } from '@/lib/api/endpoints'
 import {
-  Plus, Trash2, Save, Star, Flame, DollarSign, Gift,
+  Plus,
+  Trash2,
+  Save,
+  Star,
+  DollarSign,
+  Gift,
+  Flame,
 } from 'lucide-react'
 
 type Pack = {
@@ -161,7 +167,7 @@ export default function TokenomicsPage() {
               }`}
             >
               <div className="grid grid-cols-12 gap-3 items-end">
-                <Field label="🔥 Спичек" className="col-span-2">
+                <Field label="Спичек" className="col-span-2">
                   <input type="number" className={inp} value={pack.tokens}
                     onChange={(e) => updPack(i, { tokens: Number(e.target.value) })} />
                 </Field>
@@ -191,7 +197,7 @@ export default function TokenomicsPage() {
               </div>
 
               <div className="mt-3 pt-3 border-t border-zinc-700/30 grid grid-cols-3 gap-3 text-xs">
-                <Stat label="Итого спичек" value={`${pack.tokens + pack.bonusTokens} 🔥`} />
+                <Stat label="Итого спичек" value={`${pack.tokens + pack.bonusTokens} спичек`} />
                 <Stat label="Цена за 1 спичку"
                   value={`${(pack.priceRub / Math.max(1, pack.tokens + pack.bonusTokens)).toFixed(2)} ₽`} />
                 <Stat label="Маржа"

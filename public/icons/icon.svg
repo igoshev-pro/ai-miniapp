@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bgglow" cx="50%" cy="44%" r="42%">
+      <stop offset="0" stop-color="#facc15" stop-opacity="0.16"/>
+      <stop offset="60%" stop-color="#f97316" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#08080a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0a0a0c"/>
+  <rect width="512" height="512" rx="112" fill="url(#bgglow)"/>
+  <g transform="translate(256 256) scale(16.5) translate(-12 -12)"
+     fill="none" stroke="#facc15" stroke-width="1.1"
+     stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)">
+    <path d="M12 1 7.3 9 12 15l4.7-6z"/>
+    <path d="M12 4.4 9.6 8.6 12 11.8l2.4-3.2z" stroke-width="0.75" opacity="0.55"/>
+    <path d="M8.2 4.6 5.2 11.5l2.6-.6-.4 3.9 3.1-2.4"/>
+    <path d="M15.8 4.6l3 6.9-2.6-.6.4 3.9-3.1-2.4"/>
+    <path d="M12 15v8"/>
+  </g>
+</svg>

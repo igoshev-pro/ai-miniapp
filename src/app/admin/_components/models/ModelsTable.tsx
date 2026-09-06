@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2, X, Star, Eye, Globe, Wrench } from 'lucide-react'
+import { Pencil, Trash2, X, Star, Eye, Globe, Wrench, Flame} from 'lucide-react'
 import type { AdminModel } from '@/types/admin-model'
 
 interface Props {
@@ -42,21 +42,21 @@ export function ModelsTable({
             <th className="px-4 py-3 text-center">Флаги</th>
             <th
               className="px-4 py-3 text-right"
-              title="Минимальная стоимость списания за запрос (спички 🔥)"
+              title="Минимальная стоимость списания за запрос, в спичках"
             >
-              Мин. 🔥
+              Мин. <Flame size={13} className="inline-block align-[-2px]" />
             </th>
             <th
               className="px-4 py-3 text-right"
-              title="Цена для клиента за 1M входных токенов, в спичках 🔥"
+              title="Цена для клиента за 1M входных токенов, в спичках"
             >
-              🔥 / 1M In
+              <Flame size={13} className="inline-block align-[-2px]" /> / 1M In
             </th>
             <th
               className="px-4 py-3 text-right"
-              title="Цена для клиента за 1M выходных токенов, в спичках 🔥"
+              title="Цена для клиента за 1M выходных токенов, в спичках"
             >
-              🔥 / 1M Out
+              <Flame size={13} className="inline-block align-[-2px]" /> / 1M Out
             </th>
             <th
               className="px-4 py-3 text-right"
@@ -213,21 +213,21 @@ function Row({
             onClick={() => setEditingCost(true)}
             className="text-white hover:text-indigo-400 hover:underline tabular-nums"
             disabled={busy}
-            title={`avg: ${m.preview?.avgCostInTokens ?? '—'} 🔥 · max: ${m.preview?.maxCostInTokens ?? '—'} 🔥`}
+            title={`avg: ${m.preview?.avgCostInTokens ?? '—'} · max: ${m.preview?.maxCostInTokens ?? '—'} спичек`}
           >
-            от {minCost} 🔥
+            от {minCost} <Flame size={13} className="inline-block align-[-2px]" />
           </button>
         )}
       </td>
 
-      {/* 🔥 / 1M Input (цена для клиента в спичках) */}
+      {/* <Flame size={13} className="inline-block align-[-2px]" /> / 1M Input (цена для клиента в спичках) */}
       <td className="px-4 py-3 text-right text-white tabular-nums">
-        {priceInSpichkiInput.toFixed(2)} 🔥
+        {priceInSpichkiInput.toFixed(2)} <Flame size={13} className="inline-block align-[-2px]" />
       </td>
 
-      {/* 🔥 / 1M Output (цена для клиента в спичках) */}
+      {/* <Flame size={13} className="inline-block align-[-2px]" /> / 1M Output (цена для клиента в спичках) */}
       <td className="px-4 py-3 text-right text-white tabular-nums">
-        {priceInSpichkiOutput.toFixed(2)} 🔥
+        {priceInSpichkiOutput.toFixed(2)} <Flame size={13} className="inline-block align-[-2px]" />
       </td>
 
       {/* $ провайдер — себестоимость, для контроля маржи */}

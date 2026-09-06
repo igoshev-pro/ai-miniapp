@@ -25,7 +25,7 @@ const BALANCES: Array<{
   {
     value: 'tokenBalance',
     label: 'Основные токены',
-    short: '🔥 Токены',
+    short: 'спичек Токены',
     color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-300',
   },
   {

@@ -14,12 +14,12 @@ import {
   HelpCircle,
   TrendingUp,
   Clock,
-  Flame,
   Loader2,
   ExternalLink,
   LogOut,
   Images,
   ChevronRight,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useBilling } from '@/hooks'

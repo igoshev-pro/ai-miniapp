@@ -5,11 +5,23 @@ import Script from 'next/script'
 import { TelegramProvider } from '@/context/TelegramContext'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 import { ModelsInitializer } from '@/components/providers/ModelsInitializer'
+import { PwaRegister } from '@/components/providers/PwaRegister'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'SPICHKI AI | Агрегатор ИИ',
   description: 'Все нейросети в одном месте. Telegram Mini App.',
+  manifest: '/manifest.webmanifest',
+  applicationName: 'SPICHKI AI',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Спички',
+  },
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: '/icons/apple-touch-icon.png',
+  },
 }
 
 export const viewport: Viewport = {
@@ -36,6 +48,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <TelegramProvider>
           <ModelsInitializer />
+          <PwaRegister />
           {children}
           <ToastContainer />
         </TelegramProvider>

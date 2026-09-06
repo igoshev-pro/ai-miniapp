@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Package, Plus, Loader2, Trash2, Edit3, Flame, Star, Trophy, X,
+  Package,
+  Plus,
+  Loader2,
+  Trash2,
+  Edit3,
+  Star,
+  Trophy,
+  X,
+  Flame,
 } from 'lucide-react'
 import { adminBillingApi } from '@/lib/api/admin-billing'
 import type { AdminTokenPackage } from '@/types/admin-billing'
@@ -77,9 +85,9 @@ export default function AdminPackagesPage() {
                 <th className="px-4 py-3 font-medium">#</th>
                 <th className="px-4 py-3 font-medium">ID</th>
                 <th className="px-4 py-3 font-medium">Название</th>
-                <th className="px-4 py-3 font-medium text-right">Спички 🔥</th>
+                <th className="px-4 py-3 font-medium text-right">Спички <Flame size={13} className="inline-block align-[-2px]" /></th>
                 <th className="px-4 py-3 font-medium text-right">Цена ₽</th>
-                <th className="px-4 py-3 font-medium text-right">₽/🔥</th>
+                <th className="px-4 py-3 font-medium text-right">₽/<Flame size={13} className="inline-block align-[-2px]" /></th>
                 <th className="px-4 py-3 font-medium text-right">Бонус %</th>
                 <th className="px-4 py-3 font-medium">Бейджи</th>
                 <th className="px-4 py-3 font-medium">Активен</th>
@@ -254,7 +262,7 @@ function PackageModal({
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Спичек 🔥">
+            <Field label="Спичек спичек">
               <input
                 type="number"
                 min={1}
@@ -298,7 +306,7 @@ function PackageModal({
 
           <div className="flex items-center gap-4 pt-2">
             <Checkbox
-              label="🔥 Популярный"
+              label="спичек Популярный"
               checked={!!form.popular}
               onChange={(v) => setForm({ ...form, popular: v })}
             />

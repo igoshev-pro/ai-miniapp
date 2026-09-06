@@ -4,9 +4,23 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Ban, ShieldCheck, Wallet, Trash2, Crown,
-  Loader2, Mail, MessageCircle, Globe, Calendar, Activity,
-  Coins, Gift, TrendingUp, Users as UsersIcon,
+  ArrowLeft,
+  Ban,
+  ShieldCheck,
+  Wallet,
+  Trash2,
+  Crown,
+  Loader2,
+  Mail,
+  MessageCircle,
+  Globe,
+  Calendar,
+  Activity,
+  Coins,
+  Gift,
+  TrendingUp,
+  Users as UsersIcon,
+  Flame,
 } from 'lucide-react'
 import { adminUsersApi, SetSubscriptionBody, type AdminUserDetails } from '@/lib/api/admin-users'
 import type { AdminUser, UserRole } from '@/types/admin-user'
@@ -286,21 +300,21 @@ export default function AdminUserDetailPage() {
           icon={<Coins className="w-5 h-5" />}
           label="Основной баланс"
           value={user.tokenBalance.toLocaleString('ru-RU')}
-          suffix="🔥"
+          suffix="спичек"
           color="from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-300"
         />
         <StatCard
           icon={<Gift className="w-5 h-5" />}
           label="Бонусные"
           value={user.bonusTokens.toLocaleString('ru-RU')}
-          suffix="🔥"
+          suffix="спичек"
           color="from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-300"
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5" />}
           label="Кэшбек"
           value={user.cashbackBalance.toLocaleString('ru-RU')}
-          suffix="🔥"
+          suffix="спичек"
           subValue={`всего заработано: ${user.cashbackEarnedTotal}`}
           color="from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300"
         />
@@ -308,7 +322,7 @@ export default function AdminUserDetailPage() {
           icon={<Wallet className="w-5 h-5" />}
           label="Итого доступно"
           value={totalBalance.toLocaleString('ru-RU')}
-          suffix="🔥"
+          suffix="спичек"
           color="from-zinc-700/40 to-zinc-800/40 border-zinc-600/30 text-white"
         />
 
@@ -322,7 +336,7 @@ export default function AdminUserDetailPage() {
           icon={<Activity className="w-5 h-5" />}
           label="Потрачено токенов"
           value={user.totalTokensSpent.toLocaleString('ru-RU')}
-          suffix="🔥"
+          suffix="спичек"
           color="from-orange-500/15 to-red-500/15 border-orange-500/30 text-orange-300"
         />
         <StatCard
@@ -336,7 +350,7 @@ export default function AdminUserDetailPage() {
           icon={<UsersIcon className="w-5 h-5" />}
           label="Приглашено"
           value={user.referralCount.toLocaleString('ru-RU')}
-          subValue={`заработано: ${user.referralEarnings}🔥`}
+          subValue={`заработано: ${user.referralEarnings}спичек`}
           color="from-pink-500/15 to-rose-500/15 border-pink-500/30 text-pink-300"
         />
       </div>
@@ -458,7 +472,7 @@ export default function AdminUserDetailPage() {
                     </div>
                     <div className={`text-sm font-bold whitespace-nowrap ${tx.amount > 0 ? 'text-emerald-400' : tx.amount < 0 ? 'text-red-400' : 'text-zinc-500'
                       }`}>
-                      {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')}🔥
+                      {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')}<Flame size={13} className="inline-block align-[-2px]" />
                     </div>
                   </div>
                   {tx.paymentStatus && tx.paymentStatus !== 'completed' && (
@@ -505,7 +519,7 @@ export default function AdminUserDetailPage() {
                         {g.status}
                       </div>
                       {g.tokensCost > 0 && (
-                        <div className="text-xs text-zinc-400 mt-0.5">-{g.tokensCost}🔥</div>
+                        <div className="text-xs text-zinc-400 mt-0.5">-{g.tokensCost}<Flame size={13} className="inline-block align-[-2px]" /></div>
                       )}
                     </div>
                   </div>

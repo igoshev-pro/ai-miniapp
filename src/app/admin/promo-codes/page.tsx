@@ -334,7 +334,7 @@ function PromoRow({
       case PromoCodeType.BONUS_TOKENS:
         return {
           Icon: Sparkles,
-          label: `+${promo.bonusTokens.toLocaleString('ru-RU')} 🔥`,
+          label: `+${promo.bonusTokens.toLocaleString('ru-RU')} спичек`,
           color: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
         }
       case PromoCodeType.DISCOUNT_PERCENT:

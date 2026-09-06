@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+
 import { useTelegram } from '@/context/TelegramContext'
 import { useModels, useUser } from '@/hooks'
 import { useAuthStore } from '@/stores'
@@ -30,6 +31,7 @@ import { PullToRefresh } from './ui/PullToRefresh'
 import { BotLoginButton } from './auth/BotLoginButton'
 import { EmailAuthForm } from './auth/EmailAuthForm'
 import { useAuth } from '@/hooks'
+import { Flame } from 'lucide-react'
 
 /**
  * Вход по почте: форма в окне авторизации.
@@ -126,6 +128,27 @@ export function SpichkiApp() {
     },
     [token],
   )
+
+  // Вход с лендинга: /?auth=1 открывает окно авторизации сразу, без клика
+  // по защищённой странице. Параметр убираем из адреса, остальные
+  // (например ?ref=) оставляем — их читает useAuth при регистрации.
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('auth') !== '1') return
+      params.delete('auth')
+      const qs = params.toString()
+      window.history.replaceState(
+        null,
+        '',
+        window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash,
+      )
+      if (!useAuthStore.getState().token) setShowAuthModal(true)
+    } catch {
+      // ignore
+    }
+  }, [hydrated])
 
   // После успешной авторизации — выполняем отложенное действие
   useEffect(() => {
@@ -314,7 +337,9 @@ export function SpichkiApp() {
   if (!isReady || !authReady || !hydrated) {
     return (
       <div className="app-loading">
-        <div className="app-loading__logo">🔥</div>
+        <div className="app-loading__logo">
+          <Flame size={40} />
+        </div>
         <div className="app-loading__text">SPICHKI AI</div>
         <div className="app-loading__bar">
           <div className="app-loading__bar-fill" />

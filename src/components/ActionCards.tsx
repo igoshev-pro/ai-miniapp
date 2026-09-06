@@ -1,6 +1,6 @@
 'use client'
 
-import { Flame, Crown, Gift } from 'lucide-react'
+import { Crown, Gift, Flame} from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser } from '@/hooks'
 

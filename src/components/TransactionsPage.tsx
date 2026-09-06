@@ -3,8 +3,15 @@
 
 import { useState, useEffect, useRef } from 'react'
 import {
-  ShoppingCart, Crown, Gift, Users, Zap,
-  RotateCcw, Loader2, Search,
+  ShoppingCart,
+  Crown,
+  Gift,
+  Users,
+  Zap,
+  RotateCcw,
+  Loader2,
+  Search,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, type Transaction } from '@/hooks/useBilling'
@@ -150,7 +157,7 @@ function TxRow({ tx }: { tx: Transaction }) {
         <div className="flex justify-between items-start gap-2">
           <span className="text-[13px] text-white/80 leading-[1.3]">{tx.description}</span>
           <span className={`text-[13px] font-semibold whitespace-nowrap ${income ? 'text-green-400' : 'text-red-400'}`}>
-            {income ? '+' : '-'}{tx.tokens || tx.amount} 🔥
+            {income ? '+' : '-'}{tx.tokens || tx.amount} <Flame size={12} className="inline-block align-[-2px]" />
           </span>
         </div>
 

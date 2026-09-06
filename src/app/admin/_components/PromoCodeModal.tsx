@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Loader2, X, Ticket, Sparkles, Percent, Banknote, CalendarRange } from 'lucide-react'
+import { Loader2, X, Ticket, Sparkles, Percent, Banknote, CalendarRange, Flame} from 'lucide-react'
 import {
   PromoCodeType,
   PromoApplyTo,
@@ -342,7 +342,7 @@ export function PromoCodeModal({ promo, onClose, onConfirm }: Props) {
             {type === PromoCodeType.BONUS_TOKENS && (
               <div>
                 <label className="block text-xs text-zinc-400 mb-1.5">
-                  Бонус-токены 🔥 <span className="text-red-400">*</span>
+                  Бонус-токены <Flame size={13} className="inline-block align-[-2px]" /> <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="number"

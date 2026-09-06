@@ -3,9 +3,23 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, BarChart3, Loader2, TrendingUp, TrendingDown,
-  Coins, Wallet, Sparkles, Gem, AlertCircle, Clock,
-  Users as UsersIcon, Ticket, Plug, Crown, Activity,
+  ArrowLeft,
+  BarChart3,
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  Coins,
+  Wallet,
+  Sparkles,
+  Gem,
+  AlertCircle,
+  Clock,
+  Users as UsersIcon,
+  Ticket,
+  Plug,
+  Crown,
+  Activity,
+  Flame,
 } from 'lucide-react'
 import { adminTransactionsApi } from '@/lib/api/admin-transactions'
 import type { AdminTransactionsStats } from '@/types/admin-transaction'
@@ -135,14 +149,14 @@ function StatsContent({
           icon={<Coins className="w-5 h-5" />}
           label="Куплено токенов"
           value={summary.tokensDeposited.toLocaleString('ru-RU')}
-          suffix="🔥"
+          suffix="спичек"
           color="from-blue-500/15 to-cyan-500/15 border-blue-500/30 text-blue-300"
         />
         <StatCard
           icon={<Sparkles className="w-5 h-5" />}
           label="Потрачено токенов"
           value={summary.tokensSpent.toLocaleString('ru-RU')}
-          suffix="🔥"
+          suffix="спичек"
           color="from-orange-500/15 to-red-500/15 border-orange-500/30 text-orange-300"
         />
         <StatCard
@@ -168,7 +182,7 @@ function StatsContent({
           icon={<TrendingDown className="w-5 h-5" />}
           label="Возвратов"
           value={refunds.count.toLocaleString('ru-RU')}
-          subValue={`${refunds.tokens.toLocaleString('ru-RU')} 🔥`}
+          subValue={`${refunds.tokens.toLocaleString('ru-RU')} спичек`}
           color="from-blue-500/15 to-indigo-500/15 border-blue-500/30 text-blue-300"
         />
         <StatCard
@@ -199,7 +213,7 @@ function StatsContent({
       {/* Generations chart */}
       <ChartCard
         title="Расход токенов по дням"
-        subtitle="🔥 потрачено + себестоимость в $"
+        subtitle="спичек потрачено + себестоимость в $"
         accentColor="orange"
       >
         {generationsByDay.length === 0 ? (
@@ -264,7 +278,7 @@ function StatsContent({
                   <div className="text-right">
                     <div className="text-sm text-white">{p.rub.toLocaleString('ru-RU')} ₽</div>
                     <div className="text-[11px] text-zinc-500">
-                      {p.count} платежей · {p.tokens.toLocaleString('ru-RU')} 🔥
+                      {p.count} платежей · {p.tokens.toLocaleString('ru-RU')} <Flame size={13} className="inline-block align-[-2px]" />
                     </div>
                   </div>
                 </div>
@@ -292,7 +306,7 @@ function StatsContent({
                     </code>
                   </div>
                   <div className="text-right whitespace-nowrap">
-                    <div className="text-sm text-white">{m.tokens.toLocaleString('ru-RU')} 🔥</div>
+                    <div className="text-sm text-white">{m.tokens.toLocaleString('ru-RU')} <Flame size={13} className="inline-block align-[-2px]" /></div>
                     <div className="text-[11px] text-zinc-500">
                       {m.count} · ${m.costDollars.toFixed(2)}
                     </div>
@@ -349,7 +363,7 @@ function StatsContent({
                           {s.totalRub.toLocaleString('ru-RU')} ₽
                         </div>
                         <div className="text-[11px] text-zinc-500">
-                          {s.paymentsCount} плат. · {s.totalTokens.toLocaleString('ru-RU')} 🔥
+                          {s.paymentsCount} плат. · {s.totalTokens.toLocaleString('ru-RU')} <Flame size={13} className="inline-block align-[-2px]" />
                         </div>
                       </div>
                     </div>
@@ -378,7 +392,7 @@ function StatsContent({
                   <div className="text-right whitespace-nowrap">
                     <div className="text-sm text-white">{p.usageCount} активаций</div>
                     <div className="text-[11px] text-zinc-500">
-                      +{p.bonusTokens.toLocaleString('ru-RU')} 🔥
+                      +{p.bonusTokens.toLocaleString('ru-RU')} <Flame size={13} className="inline-block align-[-2px]" />
                     </div>
                   </div>
                 </div>
@@ -777,7 +791,7 @@ function GenerationsChart({
               </text>
               <circle cx={tx + 12} cy={ty + 32} r={3} fill="rgb(249 115 22)" />
               <text x={tx + 22} y={ty + 35} fontSize="10" fill="rgb(212 212 216)">
-                Токены: {formatNumber(d.tokens)} 🔥
+                Токены: {formatNumber(d.tokens)} <Flame size={13} className="inline-block align-[-2px]" />
               </text>
               <circle cx={tx + 12} cy={ty + 48} r={3} fill="rgb(96 165 250)" />
               <text x={tx + 22} y={ty + 51} fontSize="10" fill="rgb(212 212 216)">
@@ -795,7 +809,7 @@ function GenerationsChart({
       <div className="mt-2 flex items-center gap-4 text-xs">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-sm bg-orange-500" />
-          <span className="text-zinc-400">Токены (🔥)</span>
+          <span className="text-zinc-400">Токены (<Flame size={13} className="inline-block align-[-2px]" />)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-0.5 bg-blue-400" />
@@ -853,7 +867,7 @@ function BreakdownCard({
                     </div>
                     <div className="text-[11px] text-zinc-500">
                       {it.rub > 0 && <span>{it.rub.toLocaleString('ru-RU')} ₽ · </span>}
-                      {it.tokens !== 0 && <span>{it.tokens.toLocaleString('ru-RU')} 🔥</span>}
+                      {it.tokens !== 0 && <span>{it.tokens.toLocaleString('ru-RU')} <Flame size={13} className="inline-block align-[-2px]" /></span>}
                     </div>
                   </div>
                 </div>

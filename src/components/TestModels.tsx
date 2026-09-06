@@ -1,8 +1,10 @@
+
 // src/components/TestModels.tsx
 'use client'
 
 import { useEffect } from 'react'
 import { useModels } from '@/hooks'
+import { Flame } from 'lucide-react'
 
 export function TestModels() {
   const { models, isLoaded, isLoading, loadModels } = useModels()
@@ -25,7 +27,7 @@ export function TestModels() {
           .filter(m => m.category === 'text')
           .map(m => (
             <li key={m.id} className="text-sm text-white/80">
-              {m.name} ({m.slug}) - {m.cost} 🔥 - {m.provider}
+              {m.name} ({m.slug}) - {m.cost} <Flame size={12} className="inline-block align-[-2px]" /> - {m.provider}
             </li>
           ))}
       </ul>

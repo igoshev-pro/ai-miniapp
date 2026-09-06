@@ -61,6 +61,12 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Лендинг (/start) живёт без шапки и нижней навигации приложения —
+   снимаем отступы body, включая !important-ветку body.tg-app. */
+body:has(.lp) {
+  padding: 0 !important;
+}
+
 button,
 [role='button'] {
   -webkit-user-select: none;
@@ -7766,3 +7772,30 @@ body.tg-app .gen-settings-sheet {
 .profile-menu-item--danger svg {
   color: #f87171;
 }
+
+
+/* ═══════════════ MEDIA PICKER ═══════════════ */
+/* Лист выбора фото прижат к низу экрана, а поверх низа стоит .bottom-nav
+   (fixed, 84px + safe-area). Без отступа кнопка «Добавить» оказывается
+   под панелью — до неё физически не дотянуться.
+   Отступ привязан к тем же условиям, что и показ .bottom-nav:
+   мобильная ширина ИЛИ Telegram (body.tg-app форсирует панель на любой
+   ширине), иначе на планшете в Telegram баг вернётся. */
+.media-picker__layer {
+  padding-bottom: calc(84px + var(--safe-bottom));
+}
+
+.media-picker__sheet {
+  max-height: calc(85vh - 84px - var(--safe-bottom));
+}
+
+@media (min-width: 768px) {
+  body:not(.tg-app) .media-picker__layer {
+    padding-bottom: 16px;
+  }
+
+  body:not(.tg-app) .media-picker__sheet {
+    max-height: 85vh;
+  }
+}
+

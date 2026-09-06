@@ -2,11 +2,37 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
-  ChevronDown, Send, Check, X, Video, Settings, Wand2,
-  Clock, Maximize2, Loader2, Upload, Image as ImageIcon,
-  Sparkles, Layers, Volume2, VolumeX, ShieldOff, Film, Images,
-  Type, Rocket, Gauge, Crown, Scissors,
-  Plus, Trash2, Tag, FileText, Gift, Paperclip,
+  ChevronDown,
+  Send,
+  Check,
+  X,
+  Video,
+  Settings,
+  Wand2,
+  Clock,
+  Maximize2,
+  Loader2,
+  Upload,
+  Image as ImageIcon,
+  Sparkles,
+  Layers,
+  Volume2,
+  VolumeX,
+  ShieldOff,
+  Film,
+  Images,
+  Type,
+  Rocket,
+  Gauge,
+  Crown,
+  Scissors,
+  Plus,
+  Trash2,
+  Tag,
+  FileText,
+  Gift,
+  Paperclip,
+  Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -1980,7 +2006,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             >
               {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
               {showFromPrefix && <span className="text-white/35">от</span>}
-              {formatCost(displayedCost)} 🔥
+              {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
             </span>
           )}
 
@@ -2074,7 +2100,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     }
                     return (
                       <span className="text-[11px] text-white/40">
-                        от {formatCost(m.cost)} 🔥
+                        от {formatCost(m.cost)} <Flame size={12} className="inline-block align-[-2px]" />
                       </span>
                     )
                   })()}
@@ -2151,7 +2177,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 {gen.status === 'completed' && genCost != null && (
                   <div className="flex items-center px-0.5">
                     <span className="text-[10px] text-white/30">
-                      {formatCost(genCost)} 🔥 затрачено
+                      {formatCost(genCost)} <Flame size={12} className="inline-block align-[-2px]" /> затрачено
                     </span>
                   </div>
                 )}
@@ -2225,7 +2251,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                       >
                         {showPriceLoader && <Loader2 size={10} className="animate-spin" />}
                         {showFromPrefix && <span className="text-white/35">от</span>}
-                        {formatCost(displayedCost)} 🔥
+                        {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
                       </span>
                       {matchedLabel && !isFallbackPrice && (
                         <span className="text-white/40">· {matchedLabel}</span>
@@ -2483,8 +2509,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             active={mode === m}
                             onClick={() => { setMode(m); haptic('light') }}
                           >
-                            {m === '720p' ? '720p HD · 9🔥/сек'
-                              : m === '1080p' ? '1080p FHD · 12.3🔥/сек'
+                            {m === '720p' ? '720p HD · 9 спичек/сек'
+                              : m === '1080p' ? '1080p FHD · 12.3 спички/сек'
                                 : m}
                           </OptBtn>
                         ))}
@@ -2496,13 +2522,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     <Clock size={14} className="text-[var(--accent-yellow)]" />
                     {motionVideoDuration !== null ? (
                       <>Длительность: <b className="text-white/70 mx-1">{motionEffectiveDuration}с</b>
-                        × {(mode || '720p') === '1080p' ? '12.3' : '9'}🔥/сек
+                        × {(mode || '720p') === '1080p' ? '12.3' : '9'}<Flame size={12} className="inline-block align-[-2px]" />/сек
                         {characterOrientation === 'image' && motionVideoDuration > 10 && (
                           <span className="text-amber-400/70 ml-1">(обрезано до 10с)</span>
                         )}
                       </>
                     ) : (
-                      <>Длительность определится из загруженного видео · {(mode || '720p') === '1080p' ? '12.3' : '9'}🔥/сек</>
+                      <>Длительность определится из загруженного видео · {(mode || '720p') === '1080p' ? '12.3' : '9'}<Flame size={12} className="inline-block align-[-2px]" />/сек</>
                     )}
                   </div>
                 </>
@@ -2670,7 +2696,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                                     className="animate-spin inline mr-1"
                                   />
                                 )}
-                                {formatCost(displayedCost)} 🔥
+                                {formatCost(displayedCost)} <Flame size={12} className="inline-block align-[-2px]" />
                               </span>
                             )}
                           </div>

@@ -1,5 +1,7 @@
 'use client';
 
+import { Users, Flame} from 'lucide-react'
+
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api';
 import { useTelegram } from '@/context/TelegramContext';
@@ -127,7 +129,7 @@ export default function ReferralPage({ onBack }: Props) {
     if (!data) return;
     haptic?.('medium');
     const text = encodeURIComponent(
-      `🔥 Присоединяйся к Spichki AI! Получи 9 спичек на старте и доступ к нейросетям.`,
+      `Присоединяйся к Spichki AI! Получи 9 спичек на старте и доступ к нейросетям.`,
     );
     const url = encodeURIComponent(data.referralLink);
     const shareUrl = `https://t.me/share/url?url=${url}&text=${text}`;
@@ -233,9 +235,12 @@ export default function ReferralPage({ onBack }: Props) {
     <div className="ref-page">
       {/* Заголовок */}
       <div className="ref-header">
-        <h1 className="ref-title">🤝 Приглашай друзей</h1>
+        <h1 className="ref-title">
+          <Users size={20} className="inline-block align-[-3px] mr-2" />
+          Приглашай друзей
+        </h1>
         <p className="ref-subtitle">
-          Получай <b>10 🔥</b> за каждого друга + <b>10%</b> кэшбек с его покупок
+          Получай <b>10 <Flame size={13} className="inline-block align-[-2px]" /></b> за каждого друга + <b>10%</b> кэшбек с его покупок
         </p>
       </div>
 
@@ -270,7 +275,7 @@ export default function ReferralPage({ onBack }: Props) {
           <li>
             <span className="ref-step-num">3</span>
             <span>
-              Он получает <b>9 🔥</b> на старте, ты — <b>10 🔥</b> мгновенно
+              Он получает <b>9 <Flame size={13} className="inline-block align-[-2px]" /></b> на старте, ты — <b>10 <Flame size={13} className="inline-block align-[-2px]" /></b> мгновенно
             </span>
           </li>
           <li>

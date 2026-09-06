@@ -1,7 +1,7 @@
 // src/components/ui/PriceTag.tsx
 'use client'
 
-import { Loader2 } from 'lucide-react'
+import { Loader2, Flame} from 'lucide-react'
 import { formatCost } from '@/lib/data'
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
   dimmed?: boolean
   /** Размер: 'sm' для списков, 'md' для шапок */
   size?: 'sm' | 'md'
-  /** Кастомный текст вместо цены (например "2.7 🔥 / 1000 симв.") */
+  /** Кастомный текст вместо цены (например "2.7 спички / 1000 симв.") */
   customText?: string
   className?: string
 }
@@ -98,7 +98,7 @@ export function PriceTag({
     >
       {loading && <Loader2 size={10} className="animate-spin" />}
       {showFromPrefix && <span className="text-yellow-400/70 font-normal">от</span>}
-      {formatCost(cost)} 🔥
+      {formatCost(cost)} <Flame size={12} className="inline-block align-[-2px]" />
     </span>
   )
 }
