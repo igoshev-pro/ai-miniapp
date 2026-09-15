@@ -63,6 +63,11 @@ const RESOLUTION_LABELS: Record<string, string> = {
   '1K': '1K ~1024px', '2K': '2K ~2048px', '4K': '4K ~4096px',
 }
 
+// 🆕 GPT Image 2.5: фон
+const BACKGROUND_LABELS: Record<string, string> = {
+  auto: 'Авто', opaque: 'Непрозрачный', transparent: 'Прозрачный',
+}
+
 const QUALITY_LABELS: Record<string, string> = {
   'basic': 'Basic (2K)', 'high': 'High (4K)', 'auto': 'Авто',
   'low': 'Low', 'medium': 'Medium',
@@ -183,6 +188,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     const qualities = getParamOptions(uiConfig, 'quality')
     const modes = getParamOptions(uiConfig, 'mode')
     const versions = getParamOptions(uiConfig, 'version')
+    const backgrounds = getParamOptions(uiConfig, 'background') // 🆕 GPT Image 2.5
     const inputCap = uiConfig?.inputCapabilities || {}
 
     return {
@@ -191,6 +197,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       qualities,
       modes,
       versions,
+      backgrounds,
       supportsNegativePrompt: hasParam(uiConfig, 'negativePrompt'),
       supportsImg2Img: inputCap.acceptsImages === true,
       maxInputImages: inputCap.maxInputImages ?? 0,
@@ -212,6 +219,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const quality = (paramValues.quality as string | undefined) ?? ''
   const version = paramValues.version as string | undefined
   const aspectRatio = (paramValues.aspectRatio as string | undefined) ?? '1:1'
+  const background = (paramValues.background as string | undefined) ?? ''
 
   // 🆕 Есть ли параметры влияющие на цену → значит цена "плавающая" → показываем "от"
   const hasPriceVariants = useMemo(() => {
@@ -714,6 +722,9 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     if (caps.qualities.length > 0 && quality) {
       badges.push({ key: 'q', label: QUALITY_LABELS[quality] || quality })
     }
+    if (caps.backgrounds.length > 0 && background && background !== 'auto') {
+      badges.push({ key: 'bg', label: BACKGROUND_LABELS[background] || background })
+    }
     if (isImg2ImgModel) {
       badges.push({
         key: 'img2img',
@@ -722,7 +733,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
       })
     }
     return badges
-  }, [caps, version, mode, aspectRatio, resolution, quality, isImg2ImgModel, inputImages.length])
+  }, [caps, version, mode, aspectRatio, resolution, quality, background, isImg2ImgModel, inputImages.length])
 
   // 🆕 Извлечение стоимости генерации
   const getGenCost = (gen: any): number | undefined => {
@@ -1309,6 +1320,40 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* 🆕 Фон (GPT Image 2.5) */}
+              {caps.backgrounds.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="text-[11px] font-semibold text-[var(--gray-500)] uppercase tracking-wide">
+                    Фон
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {caps.backgrounds.map((b) => (
+                      <button
+                        key={b}
+                        className={`
+                          py-2 px-2.5 rounded-[var(--radius-xs)]
+                          border text-[12px] font-medium
+                          cursor-pointer transition-all duration-150
+                          active:scale-[0.96]
+                          ${background === b
+                            ? 'bg-[rgba(250,204,21,0.1)] border-[rgba(250,204,21,0.3)] text-[var(--accent-yellow)]'
+                            : 'bg-[var(--bg-glass)] border-[var(--border-glass)] text-[var(--gray-400)]'
+                          }
+                        `}
+                        onClick={() => setParam('background', b)}
+                      >
+                        {BACKGROUND_LABELS[b] || b}
+                      </button>
+                    ))}
+                  </div>
+                  {background === 'transparent' && (
+                    <div className="text-[11px] text-[var(--gray-500)] leading-[1.4]">
+                      Для 2K/4K опишите в промте изолированный объект без фона и теней.
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -330,6 +330,7 @@ export function useGeneration() {
         if (s.resolution) body.resolution = s.resolution
         if (s.quality) body.quality = s.quality
         if (s.outputFormat) body.outputFormat = s.outputFormat
+        if (s.background) body.background = s.background // 🆕 GPT Image 2.5
         if (s.negativePrompt) body.negativePrompt = s.negativePrompt
         if (s.seed !== undefined) body.seed = s.seed
         if (s.style) body.style = s.style

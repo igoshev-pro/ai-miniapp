@@ -25,6 +25,7 @@ export interface ModelItem {
 export const allModels: ModelItem[] = [
   // ═══════════════════════════════════════ ТЕКСТОВЫЕ (11) ═══════════════════════════════════════
   { id: 't1', name: 'GPT-5.4', slug: 'gpt-5.4', provider: 'OpenAI', category: 'text', description: 'Новейшая флагманская модель OpenAI', cost: 0.8, hasVariants: true, supportsVision: true },
+  { id: 't1b', name: 'GPT-6 Astra', slug: 'gpt-6-astra', provider: 'OpenAI', category: 'text', description: 'Флагман OpenAI нового поколения, reasoning и web search', cost: 5, hasVariants: true, supportsVision: true, webSearch: true, capabilities: ['streaming', 'vision', 'reasoning', 'web_search'] },
   { id: 't2', name: 'Claude Sonnet 4.6', slug: 'claude-sonnet-4.6', provider: 'Anthropic', category: 'text', description: 'Балансированная модель Anthropic', cost: 0.8, hasVariants: true, supportsVision: true },
   { id: 't3', name: 'Claude Opus 4.6', slug: 'claude-opus-4.6', provider: 'Anthropic', category: 'text', description: 'Самая мощная модель Anthropic', cost: 1.5, hasVariants: true, supportsVision: true },
   { id: 't4', name: 'GPT-OSS 120B', slug: 'gpt-oss-120b', provider: 'OpenRouter', category: 'text', description: 'Open-source 117B MoE, бесплатная', cost: 0.1, hasVariants: true },
@@ -71,6 +72,8 @@ export const allModels: ModelItem[] = [
     { id: 'i6', name: 'Flux 2', slug: 'flux-2', provider: 'Black Forest', category: 'image', description: 'Новая версия Flux, 1K–2K', cost: 1.80, hasVariants: true },
   { id: 'i7', name: 'Imagen 4', slug: 'imagen-4', provider: 'Google', category: 'image', description: 'Генератор от Google', cost: 1.20 },
   { id: 'i8', name: 'GPT-5 Image', slug: 'gpt-5-image', provider: 'OpenAI', category: 'image', description: 'Новейший генератор OpenAI', cost: 0.70, hasVariants: true },
+  { id: 'i8b', name: 'GPT Image 2.5 Flare', slug: 'gpt-image-2.5-flare', provider: 'OpenAI', category: 'image', description: 'Быстрый генератор OpenAI, 1K–4K, до 16 референсов', cost: 2.7, hasVariants: true },
+  { id: 'i8c', name: 'GPT Image 2.5 Sunburst', slug: 'gpt-image-2.5-sunburst', provider: 'OpenAI', category: 'image', description: 'Премиум-версия GPT Image 2.5, точное редактирование', cost: 2.7, hasVariants: true },
   { id: 'i9', name: 'Midjourney Img2Img', slug: 'midjourney-img2img', provider: 'Midjourney', category: 'image', description: 'Трансформация изображений', cost: 1.30 },
   { id: 'i10', name: 'Flux 2 Img2Img', slug: 'flux-2-img2img', provider: 'Black Forest', category: 'image', description: 'Flux для трансформации', cost: 5.00 },
   { id: 'i11', name: 'Gemini Omni Character', slug: 'gemini-omni-character', provider: 'Google', category: 'image', description: 'Консистентный персонаж по референс-фото', cost: 9 },
