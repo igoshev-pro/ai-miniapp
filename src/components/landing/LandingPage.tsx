@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Smartphone, Flame} from 'lucide-react'
 import { PhoneDemo } from './PhoneDemo'
 import { PwaSection } from './PwaSection'
 import { Showcase } from './Showcase'
 import { Cursor } from './Cursor'
 import { WaterBg } from './WaterBg'
-import { assetUrl, useLandingAssets } from './assets'
+import { assetUrl, LandingAssetsContext } from './assets'
 import './landing.css'
 
 /**
@@ -193,16 +193,17 @@ function Ticker({ items, reverse }: { items: string[][]; reverse?: boolean }) {
   )
 }
 
-const COVER_FILES = ['case-text.webp', 'after-product.webp', 'case-video.webp', 'r-cover.webp']
-
-export function LandingPage({ brandMark = false }: { brandMark?: boolean }) {
+export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: boolean; assets?: string[] }) {
   const appHref = useAppHref()
   useReveal()
   // Обложки категорий: сгенерированные из public/landing, пока их нет — из приложения
-  const have = useLandingAssets(COVER_FILES)
+  // Набор файлов приходит пропом с сервера. Этот компонент сам раздаёт его
+  // через контекст, поэтому для своих обложек читает набор напрямую.
+  const have = useMemo(() => new Set(assets), [assets])
   const cover = (file: string, fallback: string) => (have.has(file) ? assetUrl(file) : fallback)
 
   return (
+    <LandingAssetsContext.Provider value={have}>
     <div className={`lp ${brandMark ? 'lp--brand' : ''}`}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -569,5 +570,6 @@ export function LandingPage({ brandMark = false }: { brandMark?: boolean }) {
         </div>
       </footer>
     </div>
+    </LandingAssetsContext.Provider>
   )
 }

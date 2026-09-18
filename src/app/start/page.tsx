@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { LandingPage } from '@/components/landing/LandingPage'
 
@@ -21,5 +21,15 @@ export default function StartPage() {
   // Логотип заказчика появляется после `bash scripts/brand.sh`; пока файла
   // нет — шапка и макет телефона показывают прежние заглушки.
   const brandMark = existsSync(path.join(process.cwd(), 'public', 'brand', 'mark-256.png'))
-  return <LandingPage brandMark={brandMark} />
+
+  // Список креативов читаем здесь, на сервере, и отдаём странице готовым.
+  // Сетевой запрос за списком не годится: на бою nginx уводит /api/* в бэкенд.
+  let assets: string[] = []
+  try {
+    assets = readdirSync(path.join(process.cwd(), 'public', 'landing')).filter((n) => !n.startsWith('.'))
+  } catch {
+    assets = []
+  }
+
+  return <LandingPage brandMark={brandMark} assets={assets} />
 }

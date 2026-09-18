@@ -1,32 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useMemo } from 'react'
 
 /**
- * Какие файлы креативов уже лежат в public/landing/.
+ * Какие файлы креативов лежат в public/landing/.
  *
- * Список берём одним запросом к /api/landing-assets (маршрут читает каталог).
- * Раньше делали HEAD на каждый файл: у dev-сервера каждый 404 рендерит
- * страницу not-found по 20–100 секунд, и два десятка промахов вешали лендинг.
- * onError на <img> тоже не годится — у SSR-картинки 404 приходит до гидрации,
- * React событие теряет и остаётся битая иконка.
+ * Список приходит с сервера: start/page.tsx читает каталог через fs во время
+ * сборки/рендера и передаёт имена в LandingPage, а тот кладёт их в контекст.
+ * Никаких сетевых запросов.
  *
- * Пока ответа нет — считаем, что файлов нет, и показываем запасные обложки.
+ * Почему не запрос: пробовали /api/landing-assets — на боевом сервере nginx
+ * отдаёт весь /api/* бэкенду NestJS (в DEPLOY.md этого нет), маршрут Next
+ * туда не доходит, ответ 404 → страница считала, что файлов нет, и ставила
+ * заглушки при полностью залитых файлах. HEAD на каждый файл тоже не годится:
+ * dev-сервер рендерит not-found по 20–100 с на промах. onError на <img>
+ * теряется до гидрации. Чтение каталога на сервере лишено всех трёх проблем.
  */
 
 const ROOT = '/landing/'
 
-let listing: Promise<Set<string>> | null = null
-
-function loadListing(): Promise<Set<string>> {
-  if (!listing) {
-    listing = fetch('/api/landing-assets', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : { files: [] }))
-      .then((j: { files?: string[] }) => new Set(j.files ?? []))
-      .catch(() => new Set<string>())
-  }
-  return listing
-}
+export const LandingAssetsContext = createContext<Set<string>>(new Set())
 
 export function assetUrl(file: string) {
   return ROOT + file
@@ -34,19 +27,8 @@ export function assetUrl(file: string) {
 
 /** Набор имён из переданного списка, которые реально есть на сервере. */
 export function useLandingAssets(files: string[]): Set<string> {
-  const [have, setHave] = useState<Set<string>>(() => new Set())
+  const all = useContext(LandingAssetsContext)
   const key = files.join('|')
-
-  useEffect(() => {
-    let alive = true
-    loadListing().then((all) => {
-      if (alive) setHave(new Set(files.filter((f) => all.has(f))))
-    })
-    return () => {
-      alive = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
-
-  return have
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => new Set(files.filter((f) => all.has(f))), [all, key])
 }
