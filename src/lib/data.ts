@@ -22,7 +22,8 @@ export interface ModelItem {
   } | null
 }
 
-export const allModels: ModelItem[] = [
+// Порядок здесь = приоритет модели по умолчанию; наружу отдаём по алфавиту.
+export const modelsByPriority: ModelItem[] = [
   // ═══════════════════════════════════════ ТЕКСТОВЫЕ (11) ═══════════════════════════════════════
   { id: 't1', name: 'GPT-5.4', slug: 'gpt-5.4', provider: 'OpenAI', category: 'text', description: 'Новейшая флагманская модель OpenAI', cost: 0.8, hasVariants: true, supportsVision: true },
   { id: 't1b', name: 'GPT-6 Astra', slug: 'gpt-6-astra', provider: 'OpenAI', category: 'text', description: 'Флагман OpenAI нового поколения, reasoning и web search', cost: 5, hasVariants: true, supportsVision: true, webSearch: true, capabilities: ['streaming', 'vision', 'reasoning', 'web_search'] },
@@ -72,8 +73,8 @@ export const allModels: ModelItem[] = [
     { id: 'i6', name: 'Flux 2', slug: 'flux-2', provider: 'Black Forest', category: 'image', description: 'Новая версия Flux, 1K–2K', cost: 1.80, hasVariants: true },
   { id: 'i7', name: 'Imagen 4', slug: 'imagen-4', provider: 'Google', category: 'image', description: 'Генератор от Google', cost: 1.20 },
   { id: 'i8', name: 'GPT-5 Image', slug: 'gpt-5-image', provider: 'OpenAI', category: 'image', description: 'Новейший генератор OpenAI', cost: 0.70, hasVariants: true },
-  { id: 'i8b', name: 'GPT Image 2.5 Flare', slug: 'gpt-image-2.5-flare', provider: 'OpenAI', category: 'image', description: 'Быстрый генератор OpenAI, 1K–4K, до 16 референсов', cost: 2.7, hasVariants: true },
-  { id: 'i8c', name: 'GPT Image 2.5 Sunburst', slug: 'gpt-image-2.5-sunburst', provider: 'OpenAI', category: 'image', description: 'Премиум-версия GPT Image 2.5, точное редактирование', cost: 2.7, hasVariants: true },
+  { id: 'i8b', name: 'GPT Image 2.5 Flare', slug: 'gpt-image-2.5-flare', provider: 'OpenAI', category: 'image', description: 'Скорость — быстрая версия, 1K–4K, до 16 референсов', cost: 1.8, hasVariants: true },
+  { id: 'i8c', name: 'GPT Image 2.5 Sunburst', slug: 'gpt-image-2.5-sunburst', provider: 'OpenAI', category: 'image', description: 'Качество — максимум деталей, точное редактирование', cost: 1.8, hasVariants: true },
   { id: 'i9', name: 'Midjourney Img2Img', slug: 'midjourney-img2img', provider: 'Midjourney', category: 'image', description: 'Трансформация изображений', cost: 1.30 },
   { id: 'i10', name: 'Flux 2 Img2Img', slug: 'flux-2-img2img', provider: 'Black Forest', category: 'image', description: 'Flux для трансформации', cost: 5.00 },
   { id: 'i11', name: 'Gemini Omni Character', slug: 'gemini-omni-character', provider: 'Google', category: 'image', description: 'Консистентный персонаж по референс-фото', cost: 9 },
@@ -93,7 +94,7 @@ export const allModels: ModelItem[] = [
   { id: 'v12', name: 'Seedance 2', slug: 'seedance-2', provider: 'ByteDance', category: 'video', description: 'Мультиреференс, 4–15с', cost: 18, hasVariants: true },
   { id: 'v13', name: 'Seedance 2 Fast', slug: 'seedance-2-fast', provider: 'ByteDance', category: 'video', description: 'Быстрая, 480/720p', cost: 9, hasVariants: true },
   { id: 'v14', name: 'Gemini Omni Video', slug: 'gemini-omni-video', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 720p–4K', cost: 18.9, hasVariants: true },
-  { id: 'v15', name: 'Seedance 2.5', slug: 'seedance-2-5', provider: 'ByteDance', category: 'video', description: 'First/last кадр, мультиреференс, до 30с', cost: 8.4, hasVariants: true },
+  { id: 'v15', name: 'Seedance 2.5', slug: 'seedance-2-5', provider: 'ByteDance', category: 'video', description: 'First/last кадр, мультиреференс, видео до 30с', cost: 8.4, hasVariants: true },
   { id: 'v16', name: 'Topaz Video Upscale', slug: 'topaz-video-upscale', provider: 'Topaz', category: 'video', description: 'AI-апскейл видео: 1x/2x/4x', cost: 3.3, hasVariants: true },
 
 
@@ -107,6 +108,16 @@ export const allModels: ModelItem[] = [
   // Gemini Omni Audio (a7) отключена — модель возвращает профиль голоса
   // (metadata.resultObject), а не аудиофайл: показывать пользователю нечего.
 ]
+
+export const allModels: ModelItem[] = sortModelsByName(modelsByPriority)
+
+// Алфавитный порядок для всех списков моделей. numeric — чтобы
+// «Seedance 2» шла перед «Seedance 2.5», а «Kling 3.0» перед «Kling 10».
+export function sortModelsByName<T extends { name: string }>(models: T[]): T[] {
+  return [...models].sort((a, b) =>
+    a.name.localeCompare(b.name, 'en', { numeric: true, sensitivity: 'base' }),
+  )
+}
 
 // 🆕 ХЕЛПЕР ФОРМАТИРОВАНИЯ ЦЕНЫ: "от 0,8 🔥" / "от 15 🔥" / "от ? 🔥"
 export function formatCost(cost: number | undefined | null): string {

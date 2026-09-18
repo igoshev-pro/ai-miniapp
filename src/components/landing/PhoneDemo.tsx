@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowUp, Check, Music, Play, Flame} from 'lucide-react'
+import { ArrowUp, Check, Flame, Music, Play } from 'lucide-react'
+import { assetUrl, useLandingAssets } from './assets'
 
 /**
  * Живое демо внутри макета телефона на лендинге: по кругу «печатает» промт,
@@ -25,8 +26,8 @@ const SCENES: Scene[] = [
   {
     id: 'chat',
     cat: 'Текст',
-    model: 'GPT‑5.4',
-    cost: '0.8',
+    model: 'GPT‑6 Astra',
+    cost: '5',
     prompt: 'Придумай 3 названия для кофейни в стиле 90‑х',
     answer:
       '1. «Дискета» — кофе и ностальгия\n2. «Тамагочи» — корми себя вовремя\n3. «Пейджер» — короткие сообщения, крепкий эспрессо',
@@ -35,17 +36,17 @@ const SCENES: Scene[] = [
   {
     id: 'image',
     cat: 'Картинка',
-    model: 'Midjourney',
-    cost: '1.3',
-    prompt: 'Стеклянный куб с золотыми искрами, макро, дым',
+    model: 'Nano Banana Pro',
+    cost: '6',
+    prompt: 'Бургер на тёмном фоне, капли соуса, фуд‑фото для меню',
     hold: 3000,
   },
   {
     id: 'video',
     cat: 'Видео',
-    model: 'Veo 3.1 Fast',
-    cost: '15',
-    prompt: 'Облёт неоновой кинокамеры, 8 секунд, 1080p',
+    model: 'Seedance 2.5',
+    cost: '8.4',
+    prompt: 'Сыр тянется от куска пиццы, пар, макро, 5 секунд',
     hold: 3600,
   },
   {
@@ -71,6 +72,9 @@ export function PhoneDemo() {
   const [phase, setPhase] = useState<Phase>('typing')
   const [typed, setTyped] = useState(0)
   const [answered, setAnswered] = useState(0)
+  // Файлы из public/landing могут ещё не лежать — тогда показываем кадры из приложения.
+  const have = useLandingAssets(['r-menu.webp', 'v-food.mp4'])
+  const videoMissing = !have.has('v-food.mp4')
 
   const scene = SCENES[idx]
 
@@ -162,14 +166,14 @@ export function PhoneDemo() {
               <div className="dm-media dm-in">
                 {phase === 'gen' ? (
                   <div className="dm-shimmer">
-                    <span className="dm-shimmer__label">Midjourney рисует…</span>
+                    <span className="dm-shimmer__label">Nano Banana Pro рисует…</span>
                   </div>
                 ) : (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/covers/image2.webp" alt="" />
+                    <img src={have.has('r-menu.webp') ? assetUrl('r-menu.webp') : '/covers/image2.webp'} alt="" />
                     <span className="dm-tag">
-                      <Check size={11} /> Готово · <b>1.3 <Flame size={10} /></b>
+                      <Check size={11} /> Готово · <b>6 <Flame size={10} /></b>
                     </span>
                   </>
                 )}
@@ -180,20 +184,26 @@ export function PhoneDemo() {
               <div className="dm-media dm-media--wide dm-in">
                 {phase === 'gen' ? (
                   <div className="dm-shimmer">
-                    <span className="dm-shimmer__label">Veo 3.1 снимает…</span>
+                    <span className="dm-shimmer__label">Seedance 2.5 снимает…</span>
                   </div>
                 ) : (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/covers/video.webp" alt="" />
-                    <span className="dm-play">
-                      <Play size={16} fill="currentColor" />
-                    </span>
+                    {videoMissing ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/covers/video.webp" alt="" />
+                        <span className="dm-play">
+                          <Play size={16} fill="currentColor" />
+                        </span>
+                      </>
+                    ) : (
+                      <video src={assetUrl('v-food.mp4')} muted autoPlay loop playsInline preload="metadata" />
+                    )}
                     <span className="dm-progress">
                       <i />
                     </span>
                     <span className="dm-tag">
-                      1080p · 8 с · <b>15 <Flame size={10} /></b>
+                      1080p · 5 с · <b>8.4 <Flame size={10} /></b>
                     </span>
                   </>
                 )}

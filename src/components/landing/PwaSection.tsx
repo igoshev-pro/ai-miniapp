@@ -1,27 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import {
-  Download,
-  ExternalLink,
-  Share,
-  MoreVertical,
-  Check,
-  MonitorDown,
-  ChevronRight,
-} from 'lucide-react'
+import { useState } from 'react'
+import { ExternalLink, Share, MoreVertical, ChevronRight } from 'lucide-react'
 
 /**
- * Блок «Установи как приложение». На Android/Chrome ловим beforeinstallprompt
- * и показываем системный диалог по кнопке. Safari на iPhone такого события
- * не даёт — там показываем пошаговую инструкцию. Внутри уже установленного
- * PWA кнопка превращается в «Открыть».
+ * Блок «Установи как приложение»: вкладки iPhone / Android / Компьютер
+ * с пошаговой инструкцией. Кнопки «Установить» нет (решение заказчика):
+ * системный диалог Chrome всё равно недоступен на iPhone, а инструкции
+ * хватает. Вкладка по умолчанию — iPhone.
  */
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
 
 type Platform = 'ios' | 'android' | 'desktop'
 
@@ -39,9 +26,9 @@ const STEPS: Record<Platform, { t: string; d: React.ReactNode }[]> = {
     { t: 'Выбери «На экран Домой»', d: <>Прокрути список вниз, нажми <kbd>Добавить</kbd>. Иконка появится рядом с остальными.</> },
   ],
   android: [
-    { t: 'Нажми «Установить приложение»', d: <>Кнопка ниже вызовет системное окно Chrome — подтверди установку.</> },
+    { t: 'Открой сайт в Chrome', d: <>Обычно Chrome сам предложит установку плашкой внизу — просто подтверди.</> },
     {
-      t: 'Если кнопки нет',
+      t: 'Если плашки нет',
       d: (
         <>
           Меню Chrome <MoreVertical size={13} style={{ verticalAlign: '-2px' }} />{' '}
@@ -67,62 +54,8 @@ const STEPS: Record<Platform, { t: string; d: React.ReactNode }[]> = {
   ],
 }
 
-function detectPlatform(): Platform {
-  const ua = navigator.userAgent
-  const isIOS =
-    /iPhone|iPad|iPod/i.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  if (isIOS) return 'ios'
-  if (/Android/i.test(ua)) return 'android'
-  return 'desktop'
-}
-
 export function PwaSection({ appHref }: { appHref: string }) {
   const [tab, setTab] = useState<Platform>('ios')
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
-  const [state, setState] = useState<'idle' | 'installed' | 'standalone'>('idle')
-  const [hint, setHint] = useState<string | null>(null)
-
-  useEffect(() => {
-    setTab(detectPlatform())
-
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as unknown as { standalone?: boolean }).standalone === true
-    if (standalone) setState('standalone')
-
-    const onPrompt = (e: Event) => {
-      e.preventDefault()
-      setDeferred(e as BeforeInstallPromptEvent)
-    }
-    const onInstalled = () => {
-      setState('installed')
-      setDeferred(null)
-    }
-    window.addEventListener('beforeinstallprompt', onPrompt)
-    window.addEventListener('appinstalled', onInstalled)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt)
-      window.removeEventListener('appinstalled', onInstalled)
-    }
-  }, [])
-
-  const install = async () => {
-    if (deferred) {
-      await deferred.prompt()
-      const { outcome } = await deferred.userChoice
-      if (outcome === 'accepted') setState('installed')
-      setDeferred(null)
-      return
-    }
-    const p = detectPlatform()
-    setTab(p)
-    setHint(
-      p === 'ios'
-        ? 'На iPhone установка идёт через меню «Поделиться» — три шага ниже.'
-        : 'Этот браузер не показал окно установки — воспользуйся шагами ниже.',
-    )
-  }
 
   return (
     <div className="lp-app">
@@ -130,10 +63,7 @@ export function PwaSection({ appHref }: { appHref: string }) {
         <h2 className="lp-h2">
           Ставится на телефон за <em>пять секунд</em>. Без App Store.
         </h2>
-        <p className="lp-lead">
-          SPICHKI AI работает как обычное приложение: своя иконка, полный экран, быстрый запуск.
-          Никаких магазинов, обновлений и «недоступно в вашем регионе».
-        </p>
+        <p className="lp-lead">Своя иконка, полный экран, без магазинов.</p>
 
         <div className="lp-tabs" role="tablist" aria-label="Платформа">
           {(['ios', 'android', 'desktop'] as Platform[]).map((p) => (
@@ -162,28 +92,9 @@ export function PwaSection({ appHref }: { appHref: string }) {
         </div>
 
         <div className="lp-install">
-          {state === 'standalone' ? (
-            <a className="lp-btn lp-btn--primary" href={appHref}>
-              <Check size={18} /> Уже установлено — открыть
-            </a>
-          ) : state === 'installed' ? (
-            <a className="lp-btn lp-btn--primary" href={appHref}>
-              <Check size={18} /> Установлено — открыть
-            </a>
-          ) : (
-            <button className="lp-btn lp-btn--primary" onClick={install} type="button">
-              {tab === 'desktop' ? <MonitorDown size={18} /> : <Download size={18} />}
-              Установить приложение
-            </button>
-          )}
-          <a className="lp-btn lp-btn--ghost" href={appHref}>
+          <a className="lp-btn lp-btn--ghost" href={appHref} target="_blank" rel="noopener noreferrer">
             Открыть в браузере <ExternalLink size={16} />
           </a>
-          {hint && (
-            <p className="lp-install__hint">
-              <b>Подсказка.</b> {hint}
-            </p>
-          )}
         </div>
       </div>
 
@@ -203,13 +114,13 @@ export function PwaSection({ appHref }: { appHref: string }) {
                 ))}
                 <span className="ph__app ph__app--hero">
                   <i />
-                  Спички
+                  Spichki AI
                 </span>
               </div>
               <div className="ph__toast">
                 <span className="ph__toast-ico" />
                 <span>
-                  <b>Спички</b> добавлены на экран
+                  <b>Spichki AI</b> добавлено на экран
                 </span>
               </div>
             </div>

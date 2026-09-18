@@ -36,6 +36,8 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
+import { isSubmitEnter } from '@/lib/keyboard'
+import { defaultSlugOf } from '@/stores/models.store'
 import { useSavedSettings, validators } from '@/hooks/useSavedSettings'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
@@ -357,7 +359,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
     const last = getLastModel(videoModels.map((m: any) => m.slug))
     if (last) return last
-    return videoModels[0]?.slug ?? 'veo3_fast'
+    return defaultSlugOf(videoModels, 'video') ?? 'veo3_fast'
   }, [initialModel, videoModels, getLastModel])
 
   const [slug, setSlug] = useState<string>(() => resolveInitialSlug())
@@ -576,15 +578,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
 
   // 🆕 Суммарная длительность видео-референсов для цены Seedance 2.
-  // Каждое видео округляем вверх (ceil), сумму клампим в [0, 15].
+  // Каждое видео округляем вверх (ceil), сумму клампим в [0, 15]
+  // (Seedance 2.5 принимает видео до 30с — там потолок 30).
+  const refVideoMaxSeconds = isSeedance25 ? 30 : 15
   const refVideoSeconds = useMemo(() => {
     if (!isSeedance2 || refVideoDurations.length === 0) return 0
     const sum = refVideoDurations.reduce(
       (acc, d) => acc + Math.ceil(Math.max(0, d || 0)),
       0,
     )
-    return Math.min(15, sum)
-  }, [isSeedance2, refVideoDurations])
+    return Math.min(refVideoMaxSeconds, sum)
+  }, [isSeedance2, refVideoDurations, refVideoMaxSeconds])
 
   // 🆕 Topaz: длительность исходного видео в секундах для цены и запроса.
   // Бэк валидирует duration в диапазоне 1..600, поэтому клампим здесь же —
@@ -771,7 +775,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     const slugs = videoModels.map((m: any) => m.slug)
     if (!slugs.includes(slug)) {
-      const next = getLastModel(slugs) || videoModels[0]?.slug
+      const next = getLastModel(slugs) || defaultSlugOf(videoModels, 'video')
       if (next) {
         setSyncedSlug(null)
         setSlug(next)
@@ -1736,10 +1740,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      doGen()
-    }
+    if (isSubmitEnter(e)) doGen()
   }
 
   const insertExample = useCallback(() => {
@@ -3177,7 +3178,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         )}
                       </div>
                       <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                        MP4/MOV, до 50MB. Суммарно ≤ 15 секунд.
+                        MP4/MOV, до 50MB. Суммарно ≤ {refVideoMaxSeconds} секунд.
                         {refVideos.length > 0 && refVideoSeconds > 0 && (
                           <span className="text-[var(--accent-yellow)]/70">
                             {' '}Учтено: {refVideoSeconds}с → тарифицируются вместе с видео.

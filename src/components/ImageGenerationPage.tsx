@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser, useSavedSettings } from '@/hooks'
+import { isSubmitEnter } from '@/lib/keyboard'
+import { defaultSlugOf } from '@/stores/models.store'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
@@ -138,7 +140,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     // Явная модель не передана → открываем последнюю выбранную
     const last = getLastModel(imageModels.map((m: any) => m.slug))
     if (last) return last
-    return imageModels[0]?.slug ?? 'midjourney'
+    return defaultSlugOf(imageModels, 'image') ?? 'midjourney'
   }, [initialModel, imageModels, getLastModel])
 
   const [selectedModelSlug, setSelectedModelSlug] = useState<string>(() =>
@@ -335,7 +337,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
     // здесь второй шанс подставить последнюю выбранную модель.
     const slugs = imageModels.map((m: any) => m.slug)
     if (!slugs.includes(selectedModelSlug)) {
-      const next = getLastModel(slugs) || imageModels[0]?.slug
+      const next = getLastModel(slugs) || defaultSlugOf(imageModels, 'image')
       if (next) {
         setSyncedSlug(null)
         setSelectedModelSlug(next)
@@ -1704,6 +1706,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (isSubmitEnter(e)) handleGenerate() }}
             rows={1}
             disabled={isGenerating}
           />

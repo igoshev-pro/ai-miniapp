@@ -27,9 +27,10 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useFavorites, useModels } from '@/hooks'
+import { isSubmitEnter } from '@/lib/keyboard'
 import { useSavedSettings, validators } from '@/hooks/useSavedSettings'
 import { useChatStore, type ChatMessage } from '@/stores/chat.store'
-import { useModelsStore } from '@/stores/models.store'
+import { useModelsStore, defaultModelOf } from '@/stores/models.store'
 import {
   apiClient,
   ENDPOINTS,
@@ -111,12 +112,12 @@ function getModels() {
 function resolveModelStatic(nameOrSlug: string | undefined) {
   const models = getModels()
   const textModels = models.filter((m) => m.category === 'text')
-  if (!nameOrSlug) return textModels[0] || models[0]
+  const fallback = defaultModelOf(textModels, 'text') || models[0]
+  if (!nameOrSlug) return fallback
   return (
     models.find((m) => m.name === nameOrSlug) ||
     models.find((m) => m.slug === nameOrSlug) ||
-    textModels[0] ||
-    models[0]
+    fallback
   )
 }
 
@@ -919,10 +920,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+    if (isSubmitEnter(e)) handleSend()
   }
 
   const copyMessage = useCallback(
@@ -1909,7 +1907,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            // onKeyDown={handleKeyDown}
+            onKeyDown={handleKeyDown}
             rows={1}
           />
 

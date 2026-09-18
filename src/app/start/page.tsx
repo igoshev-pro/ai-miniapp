@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { LandingPage } from '@/components/landing/LandingPage'
 
 export const metadata: Metadata = {
@@ -16,5 +18,8 @@ export const metadata: Metadata = {
 }
 
 export default function StartPage() {
-  return <LandingPage />
+  // Логотип заказчика появляется после `bash scripts/brand.sh`; пока файла
+  // нет — шапка и макет телефона показывают прежние заглушки.
+  const brandMark = existsSync(path.join(process.cwd(), 'public', 'brand', 'mark-256.png'))
+  return <LandingPage brandMark={brandMark} />
 }

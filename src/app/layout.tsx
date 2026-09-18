@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Спички',
+    title: 'Spichki AI',
   },
   icons: {
     icon: '/icons/icon-192.png',

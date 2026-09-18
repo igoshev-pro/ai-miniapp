@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
+import { isSubmitEnter } from '@/lib/keyboard'
+import { defaultSlugOf } from '@/stores/models.store'
 import { useSavedSettings, validators } from '@/hooks/useSavedSettings'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
@@ -244,7 +246,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     }
     const last = getLastModel(audioModels.map((m: any) => m.slug))
     if (last) return last
-    return audioModels[0]?.slug ?? ''
+    return defaultSlugOf(audioModels, 'audio') ?? ''
   }, [initialModel, audioModels, getLastModel])
 
   const [slug, setSlug] = useState<string>(() => resolveInitialSlug())
@@ -514,7 +516,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     const slugExists = slug && slugs.includes(slug)
     if (!slugExists) {
       setSyncedSlug(null)
-      setSlug(getLastModel(slugs) || audioModels[0].slug)
+      setSlug(getLastModel(slugs) || defaultSlugOf(audioModels, 'audio')!)
     }
     initialAppliedRef.current = true
   }, [initialModel, audioModels, slug, getLastModel])
@@ -524,7 +526,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     if (!slug && audioModels.length > 0) {
       const slugs = audioModels.map((m: any) => m.slug)
       setSyncedSlug(null)
-      setSlug(getLastModel(slugs) || audioModels[0].slug)
+      setSlug(getLastModel(slugs) || defaultSlugOf(audioModels, 'audio')!)
     }
   }, [audioModels, slug, getLastModel])
 
@@ -886,10 +888,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
 
   const onKey = (e: React.KeyboardEvent) => {
     if (caps.type === 'elevenlabs-dialogue') return
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      doGen()
-    }
+    if (isSubmitEnter(e)) doGen()
   }
 
   const insertExample = () => {
@@ -1512,7 +1511,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             placeholder={placeholder}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            // onKeyDown={onKey}
+            onKeyDown={onKey}
             rows={caps.type === 'elevenlabs-dialogue' ? 3 : 1}
             disabled={isGenerating || (caps.supportsAudioInput && caps.type !== 'elevenlabs-stt')}
           />
