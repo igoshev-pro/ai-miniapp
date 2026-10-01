@@ -234,8 +234,8 @@ const FALLBACK: Record<string, FallbackCaps> = {
   },
   'seedance-2-5': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive'],
-    durations: Array.from({ length: 30 }, (_, i) => i + 1),
-    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 4,
+    durations: Array.from({ length: 27 }, (_, i) => i + 4), // KIE принимает 4–30 сек
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'topaz-video-upscale': {
@@ -426,6 +426,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [seedanceLastFrame, setSeedanceLastFrame] = useState('')
   const [seedanceReturnLastFrame, setSeedanceReturnLastFrame] = useState(false)
   const [seedanceOutputFormat, setSeedanceOutputFormat] = useState<'mp4' | 'mov'>('mp4')
+  // 🆕 Seedance 2.5 — «авто»-длительность: ролик той же длины, что видео-исходник
+  const [seedanceAutoDuration, setSeedanceAutoDuration] = useState(false)
 
   // 🆕 Множественные референс-фото для Sora 2 / Sora 2 Pro (до 10)
   const [soraImages, setSoraImages] = useState<string[]>([])
@@ -590,6 +592,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     return Math.min(refVideoMaxSeconds, sum)
   }, [isSeedance2, refVideoDurations, refVideoMaxSeconds])
 
+  // 🆕 «Авто»-длительность Seedance 2.5 действует только с видео-исходником:
+  // модель повторяет его длину, поэтому цену считаем по ней же (4–30 сек).
+  const autoDurationActive = isSeedance25 && seedanceAutoDuration && refVideos.length > 0
+  const autoDurationSec = Math.min(30, Math.max(4, refVideoSeconds))
+
   // 🆕 Topaz: длительность исходного видео в секундах для цены и запроса.
   // Бэк валидирует duration в диапазоне 1..600, поэтому клампим здесь же —
   // это ровно те 10 минут, о которых предупреждает тост при загрузке.
@@ -652,6 +659,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       p.videoRef = refVideos.length > 0
       // 🆕 суммарные секунды видео-референсов (для посекундной цены)
       if (refVideos.length > 0) p.refVideoSeconds = refVideoSeconds
+      if (autoDurationActive) p.duration = autoDurationSec
     }
 
     // 🆕 Omni: с видео-референсом цена фиксированная за генерацию
@@ -674,7 +682,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
     isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, isOmni, // 🆕
     isKling, multiShots, klingMultiDuration, // 🆕
-    isTopaz, topazVideoDuration, topazDurationSec
+    isTopaz, topazVideoDuration, topazDurationSec,
+    autoDurationActive, autoDurationSec,
   ])
 
   const { price, isCalculating } = usePriceCalculator(slug, priceParams, {
@@ -854,6 +863,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setSeedanceLastFrame('')
     setSeedanceReturnLastFrame(saved.seedanceReturnLastFrame ?? false)
     setSeedanceOutputFormat(saved.seedanceOutputFormat ?? 'mp4')
+    setSeedanceAutoDuration(false)
 
     // 🆕 Sora reset
     setSoraImages([])
@@ -1123,8 +1133,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         toast.error('Только MP4 или MOV')
         return
       }
-      if (file.size > 300 * 1024 * 1024) {
-        toast.error('Макс 300MB')
+      // Лимит провайдера (KIE Topaz): входной файл до 50 МБ
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('Для апскейла — видео до 50 МБ')
         return
       }
 
@@ -1694,6 +1705,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           if (seedanceLastFrame) s.lastFrameUrl = seedanceLastFrame
           if (seedanceReturnLastFrame) s.returnLastFrame = true
           s.outputFormat = seedanceOutputFormat
+          if (autoDurationActive) {
+            // KIE получит duration = -1; сюда кладём длину исходника — по ней цена
+            s.autoDuration = true
+            s.duration = autoDurationSec
+          }
         }
       }
     } else if (isSora) {
@@ -1736,7 +1752,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     seedanceImages, seedanceMaxImages, // 🆕
     isSora, soraImages, soraMaxImages, // 🆕
     isTopaz, topazVideoUrl, topazVideoDuration, topazDurationSec,
-    isSeedance25, seedanceFirstFrame, seedanceLastFrame, seedanceReturnLastFrame, seedanceOutputFormat
+    isSeedance25, seedanceFirstFrame, seedanceLastFrame, seedanceReturnLastFrame, seedanceOutputFormat,
+    autoDurationActive, autoDurationSec,
   ])
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -1786,7 +1803,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       badges.push({ key: 'mode', label: MODE_META[mode]?.label || mode, accent: true })
     }
     if (caps.durations.length > 0 && duration !== undefined && !(isKling && multiShots)) {
-      badges.push({ key: 'dur', label: `${veoForcesDuration8 ? 8 : duration} сек` })
+      badges.push({
+        key: 'dur',
+        label: autoDurationActive ? `Авто · ${autoDurationSec} сек` : `${veoForcesDuration8 ? 8 : duration} сек`,
+      })
     }
     if (caps.aspectRatios.length > 0 && aspectRatio && !isMotion) {
       badges.push({ key: 'ar', label: AR_META[aspectRatio]?.label || aspectRatio })
@@ -1887,6 +1907,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     seedanceFirstFrame, seedanceLastFrame,
     refVideos, refAudios, // 🆕 счётчики референсов в бейджах
     isTopaz, topazVideoUrl,
+    autoDurationActive, autoDurationSec,
   ])
 
   const getGenCost = (gen: any): number | undefined => {
@@ -2326,6 +2347,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     <div className="text-[12px] text-white/40 bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5">
                       В режиме «Референс» длительность фиксирована — <b className="text-white/60">8 сек</b>
                     </div>
+                  ) : autoDurationActive ? (
+                    <div className="text-[12px] text-white/40 bg-white/[0.03] border border-white/[0.06] rounded-[var(--radius-xs)] px-3 py-2.5">
+                      Длина как у видео-исходника — <b className="text-white/60">{autoDurationSec} сек</b>
+                    </div>
                   ) : (
                     <DurationSlider
                       values={caps.durations}
@@ -2333,6 +2358,22 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                       onChange={(v) => { setDuration(v); haptic('light') }}
                       isDisabled={isDurationDisabled}
                     />
+                  )}
+                  {isSeedance25 && (
+                    <div className="mt-2">
+                      <ToggleRow
+                        active={seedanceAutoDuration}
+                        onLabel={<>Авто — как у исходника</>}
+                        offLabel={<>Задать вручную</>}
+                        onChange={(v) => { setSeedanceAutoDuration(v); haptic('light') }}
+                      />
+                      {seedanceAutoDuration && refVideos.length === 0 && (
+                        <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                          Авто-длительность работает с видео-референсом: добавьте исходное видео,
+                          и ролик получится той же длины. Пока видео нет — действует значение выше.
+                        </div>
+                      )}
+                    </div>
                   )}
                 </Field>
               )}
@@ -2579,7 +2620,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </button>
                   )}
                   <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                    MP4 или MOV, до 300MB. Цена = ставка × длительность видео.
+                    MP4 или MOV, до 50 МБ. Цена = ставка × длительность видео.
                   </div>
                 </Field>
               )}

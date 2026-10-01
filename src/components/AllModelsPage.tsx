@@ -16,7 +16,7 @@ import {
 import { useTelegram } from '@/context/TelegramContext'
 import { useFavorites } from '@/hooks'
 import { useModels } from '@/hooks'
-import { formatCost, type ModelItem } from '@/lib/data'
+import { formatCost, modelHint, type ModelItem } from '@/lib/data'
 import { useState } from 'react'
 import { PriceTag } from './ui/PriceTag'
 import { formatFreeBadge, getFreeAccessInfo } from '@/lib/api/freeAccess'
@@ -254,6 +254,11 @@ function ModelCard({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-bold text-white lg:text-[15px]">
             {model.name}
+            {modelHint(model.slug) && (
+              <span className="ml-1.5 text-[11px] font-normal text-white/45">
+                {modelHint(model.slug)}
+              </span>
+            )}
           </span>
 
           {/* Бэйджи возможностей */}

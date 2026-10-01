@@ -2942,3 +2942,43 @@ body.lp-cursor button { cursor: auto; }
 }
 
 .lp-plan li::before { margin-top: 0.55em; }
+
+/* ── Переходы в приложение из каждого блока ── */
+
+/* карточка категории кликабельна целиком: ссылка растянута на всю карточку */
+.lp-card__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lp-yellow, #facc15);
+  text-decoration: none;
+}
+.lp-card__go::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.lp-card__go svg { transition: transform 0.25s; }
+.lp-card:hover .lp-card__go svg { transform: translateX(3px); }
+.lp-card--stat .lp-card__go { margin-top: 18px; }
+
+/* кнопка тарифа прижата к низу карточки — у всех четырёх на одной линии */
+.lp-plan__cta {
+  margin-top: auto;
+  justify-content: center;
+  width: 100%;
+}
+.lp-plan ul { margin-bottom: 14px; }
+
+.lp-gift__cta { grid-column: 1 / -1; justify-self: start; margin-top: 8px; }
+
+.lp-sec__cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+}

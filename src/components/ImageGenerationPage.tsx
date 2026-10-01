@@ -23,6 +23,7 @@ import {
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser, useSavedSettings } from '@/hooks'
 import { isSubmitEnter } from '@/lib/keyboard'
+import { modelHint } from '@/lib/data'
 import { defaultSlugOf } from '@/stores/models.store'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
@@ -815,6 +816,11 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
           <span className="text-white text-[13px] font-semibold truncate shrink-0 max-w-[42%]">
             {currentModel?.name ?? selectedModelSlug}
           </span>
+          {modelHint(selectedModelSlug) && (
+            <span className="text-[11px] text-[var(--gray-500)] shrink-0">
+              {modelHint(selectedModelSlug)}
+            </span>
+          )}
 
           <div className="flex-1 min-w-0" />
 
@@ -926,7 +932,14 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                 }}
               >
                 <div className="flex flex-col gap-[1px]">
-                  <span className="font-semibold">{m.name}</span>
+                  <span className="font-semibold">
+                    {m.name}
+                    {modelHint(m.slug) && (
+                      <span className="ml-1.5 text-[11px] font-normal text-[var(--gray-500)]">
+                        {modelHint(m.slug)}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-[11px] text-[var(--gray-600)]">
                     {m.provider}
                     {m.capabilities?.includes('image_to_image') ? ' · img2img' : ''}

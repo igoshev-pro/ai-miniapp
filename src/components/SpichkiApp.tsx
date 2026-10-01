@@ -77,6 +77,16 @@ const AUTH_REQUIRED_PAGES: Set<Page> = new Set([
   'favorites',
 ])
 
+// Разделы, в которые можно попасть прямой ссылкой с лендинга (/?auth=1&go=…)
+const LANDING_TARGETS: Set<Page> = new Set([
+  'chat',
+  'image-generation',
+  'video-generation',
+  'audio-generation',
+  'subscription',
+  'topup',
+])
+
 export function SpichkiApp() {
   const { isReady, isTelegram, webApp } = useTelegram()
   const { isReady: authReady } = useAuth()
@@ -132,19 +142,39 @@ export function SpichkiApp() {
   // Вход с лендинга: /?auth=1 открывает окно авторизации сразу, без клика
   // по защищённой странице. Параметр убираем из адреса, остальные
   // (например ?ref=) оставляем — их читает useAuth при регистрации.
+  // Необязательный &go=<раздел> ведёт в конкретный раздел (кнопка тарифа →
+  // подписки, карточка «Видео» → генерация видео): сразу, если человек уже
+  // вошёл, иначе — после авторизации через pendingNav.
   useEffect(() => {
     if (!hydrated) return
     try {
       const params = new URLSearchParams(window.location.search)
       if (params.get('auth') !== '1') return
+      const go = params.get('go')
       params.delete('auth')
+      params.delete('go')
       const qs = params.toString()
       window.history.replaceState(
         null,
         '',
         window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash,
       )
-      if (!useAuthStore.getState().token) setShowAuthModal(true)
+
+      const target = go && LANDING_TARGETS.has(go as Page) ? (go as Page) : null
+      const open = target
+        ? () => {
+            setPageHistory([])
+            setPage(target)
+            if (target.endsWith('-generation') || target === 'chat') setActiveNav('create')
+          }
+        : null
+
+      if (useAuthStore.getState().token) {
+        open?.()
+      } else {
+        if (open) setPendingNav(() => open)
+        setShowAuthModal(true)
+      }
     } catch {
       // ignore
     }

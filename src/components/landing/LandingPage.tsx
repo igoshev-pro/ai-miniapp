@@ -195,6 +195,8 @@ function Ticker({ items, reverse }: { items: string[][]; reverse?: boolean }) {
 
 export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: boolean; assets?: string[] }) {
   const appHref = useAppHref()
+  // Ссылка сразу в нужный раздел приложения (см. LANDING_TARGETS в SpichkiApp)
+  const goHref = (page: string) => `${appHref}&go=${page}`
   useReveal()
   // Обложки категорий: сгенерированные из public/landing, пока их нет — из приложения
   // Набор файлов приходит пропом с сервера. Этот компонент сам раздаёт его
@@ -333,7 +335,7 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               <img src={cover('case-text.webp', '/covers/text3.webp')} alt="" loading="lazy" />
             </div>
             <span className="lp-card__tag">Текст</span>
-            <span className="lp-card__count">11 моделей</span>
+            <span className="lp-card__count">15 моделей</span>
             <h3 className="lp-card__title">GPT‑6 и Claude Opus 4.8</h3>
             <div className="lp-chips">
               {FLAGSHIPS.text.map((m) => (
@@ -341,8 +343,11 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               ))}
               <span className="lp-chip">Claude Sonnet 5</span>
               <span className="lp-chip">GPT‑5.6</span>
-              <span className="lp-chip lp-chip--more">+5</span>
+              <span className="lp-chip lp-chip--more">+9</span>
             </div>
+            <a className="lp-card__go" href={goHref('chat')}>
+              Открыть чат <ArrowRight size={14} />
+            </a>
           </article>
 
           <article className="lp-card lp-card--image rv rv-d1">
@@ -359,6 +364,9 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               ))}
               <span className="lp-chip lp-chip--more">+11</span>
             </div>
+            <a className="lp-card__go" href={goHref('image-generation')}>
+              Создать картинку <ArrowRight size={14} />
+            </a>
           </article>
 
           <article className="lp-card lp-card--video rv">
@@ -375,6 +383,9 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               ))}
               <span className="lp-chip lp-chip--more">+12</span>
             </div>
+            <a className="lp-card__go" href={goHref('video-generation')}>
+              Снять видео <ArrowRight size={14} />
+            </a>
           </article>
 
           <article className="lp-card lp-card--audio rv rv-d1">
@@ -392,17 +403,23 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               <span className="lp-chip">Диалоги</span>
               <span className="lp-chip lp-chip--more">+3</span>
             </div>
+            <a className="lp-card__go" href={goHref('audio-generation')}>
+              Записать трек <ArrowRight size={14} />
+            </a>
           </article>
 
           <article className="lp-card lp-card--stat rv rv-d2">
             <div className="lp-stat__n">
-              48
+              52
             </div>
             <ul className="lp-stat__list">
               <li>4 категории, один баланс</li>
               <li>История, избранное, референсы</li>
               <li>Браузер, телефон, Telegram</li>
             </ul>
+            <a className="lp-card__go" href={appHref}>
+              Все модели <ArrowRight size={14} />
+            </a>
           </article>
         </div>
       </section>
@@ -448,6 +465,10 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
                 сразу после входа
               </div>
               <p className="lp-gift__d">Хватит на 5 картинок или пару коротких видео.</p>
+              <a className="lp-btn lp-btn--primary lp-btn--sm lp-gift__cta" href={appHref}>
+                Забрать спички
+                <ArrowRight className="lp-btn__arrow" size={16} />
+              </a>
             </div>
           </div>
 
@@ -472,10 +493,22 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
                   <li key={x}>{x}</li>
                 ))}
               </ul>
+              <a
+                className={`lp-btn ${p.hot ? 'lp-btn--primary' : 'lp-btn--ghost'} lp-btn--sm lp-plan__cta`}
+                href={goHref('subscription')}
+              >
+                Оформить {p.name}
+              </a>
             </div>
           ))}
         </div>
         <p className="lp-plans__note rv">Часть моделей по подписке без списания. Спички остаются после её окончания.</p>
+        <div className="lp-sec__cta rv">
+          <a className="lp-btn lp-btn--ghost" href={goHref('topup')}>
+            Пополнить без подписки
+            <ArrowRight className="lp-btn__arrow" size={16} />
+          </a>
+        </div>
       </section>
 
       {/* ── 03 факты ── */}
@@ -505,6 +538,12 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
             <p>С каждой покупки друга — спички тебе.</p>
           </div>
         </div>
+        <div className="lp-sec__cta rv">
+          <a className="lp-btn lp-btn--primary" href={appHref}>
+            Перейти в приложение
+            <ArrowRight className="lp-btn__arrow" size={16} />
+          </a>
+        </div>
       </section>
 
       {/* ── 04 приложение ── */}
@@ -529,6 +568,15 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               <p>{f.a}</p>
             </details>
           ))}
+        </div>
+        <div className="lp-sec__cta rv">
+          <a className="lp-btn lp-btn--ghost" href={SUPPORT_LINK} target="_blank" rel="noopener noreferrer">
+            Спросить в поддержке
+          </a>
+          <a className="lp-btn lp-btn--primary" href={appHref}>
+            Попробовать самому
+            <ArrowRight className="lp-btn__arrow" size={16} />
+          </a>
         </div>
       </section>
 

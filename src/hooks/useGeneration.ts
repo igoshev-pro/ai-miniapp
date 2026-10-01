@@ -383,6 +383,7 @@ export function useGeneration() {
         if (s.firstFrameUrl) body.firstFrameUrl = s.firstFrameUrl
         if (s.lastFrameUrl) body.lastFrameUrl = s.lastFrameUrl
         if (s.returnLastFrame !== undefined) body.returnLastFrame = s.returnLastFrame
+        if (s.autoDuration) body.autoDuration = true
         if (s.outputFormat) body.outputFormat = s.outputFormat
         if (s.characterOrientation) body.characterOrientation = s.characterOrientation
         if (s.fixedLens !== undefined) body.fixedLens = s.fixedLens
