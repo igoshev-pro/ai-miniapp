@@ -20,7 +20,9 @@ import {
   Images,
   ChevronRight,
   Flame,
+  Info,
 } from 'lucide-react'
+import Link from 'next/link'
 import { useTelegram } from '@/context/TelegramContext'
 import { useUser, useBilling } from '@/hooks'
 import { useAuthStore } from '@/stores/auth.store'
@@ -52,7 +54,7 @@ const planColors: Record<string, string> = {
 }
 
 export function ProfilePage({ onNavigate }: Props) {
-  const { user: tgUser, haptic, hapticNotification, webApp } = useTelegram()
+  const { user: tgUser, haptic, hapticNotification, webApp, isTelegram } = useTelegram()
   const {
     user,
     balance,
@@ -351,6 +353,14 @@ export function ProfilePage({ onNavigate }: Props) {
           <span>Поддержка</span>
           <ExternalLink size={14} />
         </button>
+
+        {!isTelegram && (
+          <Link href="/start" className="profile-menu-item no-underline">
+            <Info size={16} />
+            <span>О сервисе</span>
+            <ChevronRight size={14} />
+          </Link>
+        )}
 
         <button
           className="profile-menu-item profile-menu-item--danger"

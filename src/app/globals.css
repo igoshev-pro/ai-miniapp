@@ -5721,9 +5721,15 @@ body.tg-app .sticky-header {
     text-align: center;
   }
 
-  .desktop-sidebar__version {
-    font-size: 8px;
-    color: #3a3a3a;
+  .desktop-sidebar__about {
+    font-size: 9px;
+    color: #6b6b6b;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .desktop-sidebar__about:hover {
+    color: var(--accent-yellow);
   }
 
   /* Скрываем мобильные элементы */
@@ -6215,9 +6221,15 @@ body.tg-app .sticky-header {
     text-align: left;
   }
 
-  .desktop-sidebar__version {
-    font-size: 10px;
-    color: #3a3a3a;
+  .desktop-sidebar__about {
+    font-size: 11px;
+    color: #6b6b6b;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .desktop-sidebar__about:hover {
+    color: var(--accent-yellow);
   }
 
   /* Скрываем мобильные элементы */

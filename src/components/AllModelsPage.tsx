@@ -19,6 +19,7 @@ import { useModels } from '@/hooks'
 import { formatCost, modelHint, type ModelItem } from '@/lib/data'
 import { useState } from 'react'
 import { PriceTag } from './ui/PriceTag'
+import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { formatFreeBadge, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
 
@@ -178,21 +179,25 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
             <div className="text-xs font-semibold text-neutral-600 py-2 uppercase tracking-wide">
               {categoryLabels[group.category]}
             </div>
-            {group.models.map((model) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                onTap={() => {
-                  haptic('light')
-                  // ✅ передаём SLUG, а не name — это надёжный идентификатор
-                  onModelTap?.(model.slug, model.category)
-                }}
-                onFavorite={() => {
-                  haptic('light')
-                  toggleFavorite('model', model.slug, model.name)
-                }}
-              />
-            ))}
+            <ModelFamilyGroups
+              variant="cards"
+              models={group.models}
+              expandAll={!!search}
+              renderModel={(model) => (
+                <ModelCard
+                  model={model}
+                  onTap={() => {
+                    haptic('light')
+                    // ✅ передаём SLUG, а не name — это надёжный идентификатор
+                    onModelTap?.(model.slug, model.category)
+                  }}
+                  onFavorite={() => {
+                    haptic('light')
+                    toggleFavorite('model', model.slug, model.name)
+                  }}
+                />
+              )}
+            />
           </div>
         ))}
 

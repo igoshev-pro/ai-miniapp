@@ -34,6 +34,7 @@ import {
   Paperclip,
   Flame,
 } from 'lucide-react'
+import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
 import { isSubmitEnter } from '@/lib/keyboard'
@@ -237,6 +238,23 @@ const FALLBACK: Record<string, FallbackCaps> = {
     durations: Array.from({ length: 27 }, (_, i) => i + 4), // KIE принимает 4–30 сек
     resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'wan-3.0': {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', 'adaptive'],
+    durations: Array.from({ length: 29 }, (_, i) => i + 2), // 2–30 сек
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'wan-3.0-prime': {
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', 'adaptive'],
+    durations: Array.from({ length: 29 }, (_, i) => i + 2), // 2–30 сек
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'gemini-omni-1.1-flash': {
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8, 10],
+    resolutions: ['360p', '720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'topaz-video-upscale': {
     aspectRatios: [], durations: [], resolutions: ['1', '2', '4'],
@@ -1532,6 +1550,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     const prompt = input.trim()
     if (!prompt && !isTopaz) return
 
+    // Seedance 2.5 принимает промпт до 30 000 символов, остальные — до 10 000
+    const maxPromptLength = isSeedance25 ? 30000 : 10000
+    if (prompt.length > maxPromptLength) {
+      toast.warning(`Промпт слишком длинный: ${prompt.length} из ${maxPromptLength} символов`)
+      return
+    }
+
     if (isSeedance25 && seedanceLastFrame && !seedanceFirstFrame) {
       toast.warning('Для конечного кадра нужен начальный')
       return
@@ -2073,7 +2098,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               overflow-hidden max-h-[400px] overflow-y-auto
             "
           >
-            {videoModels.map((m: any) => (
+            <ModelFamilyGroups
+              models={videoModels}
+              isSelected={(m: any) => slug === m.slug}
+              renderModel={(m: any) => (
               <button
                 key={m.slug}
                 className={`
@@ -2129,7 +2157,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   {slug === m.slug && <Check size={14} className="text-[var(--accent-yellow)]" />}
                 </div>
               </button>
-            ))}
+              )}
+            />
           </div>
         )}
       </div>

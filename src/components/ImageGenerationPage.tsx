@@ -24,6 +24,7 @@ import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser, useSavedSettings } from '@/hooks'
 import { isSubmitEnter } from '@/lib/keyboard'
 import { modelHint } from '@/lib/data'
+import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { defaultSlugOf } from '@/stores/models.store'
 import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
@@ -910,7 +911,10 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
               overflow-hidden max-h-[400px] overflow-y-auto
             "
           >
-            {imageModels.map((m: any) => (
+            <ModelFamilyGroups
+              models={imageModels}
+              isSelected={(m: any) => selectedModelSlug === m.slug}
+              renderModel={(m: any) => (
               <button
                 key={m.slug}
                 className={`
@@ -981,7 +985,8 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
                   )}
                 </div>
               </button>
-            ))}
+              )}
+            />
           </div>
         )}
       </div>

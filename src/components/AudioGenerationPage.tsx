@@ -19,6 +19,7 @@ import {
   Gift,
   Flame,
 } from 'lucide-react'
+import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
 import { isSubmitEnter } from '@/lib/keyboard'
@@ -1174,7 +1175,10 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
               overflow-hidden max-h-[400px] overflow-y-auto
             "
           >
-            {audioModels.map((m: any) => (
+            <ModelFamilyGroups
+              models={audioModels}
+              isSelected={(m: any) => slug === m.slug}
+              renderModel={(m: any) => (
               <button
                 key={m.slug}
                 className={`
@@ -1225,7 +1229,8 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
                   {slug === m.slug && <Check size={14} className="text-[var(--accent-yellow)]" />}
                 </div>
               </button>
-            ))}
+              )}
+            />
           </div>
         )}
       </div>

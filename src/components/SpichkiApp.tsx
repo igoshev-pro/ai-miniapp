@@ -28,6 +28,8 @@ import ReferralPage from './ReferralPage'
 import { FavoritesPage } from './FavoritesPage'
 import { OfflineBanner } from './ui/OfflineBanner'
 import { PullToRefresh } from './ui/PullToRefresh'
+import { GuestLandingBanner } from './GuestLandingBanner'
+import Link from 'next/link'
 import { BotLoginButton } from './auth/BotLoginButton'
 import { EmailAuthForm } from './auth/EmailAuthForm'
 import { useAuth } from '@/hooks'
@@ -391,6 +393,8 @@ export function SpichkiApp() {
         {page === 'home' && (
           <PullToRefresh onRefresh={handleHomeRefresh}>
             <div className="content">
+              {/* Гостю вне Telegram — переход на лендинг /start */}
+              {authReady && !token && !isTelegram && <GuestLandingBanner />}
               <ActionCards onNavigate={handleActionNavigate} />
               <Categories
                 onViewAll={() => openAllModels()}
@@ -544,6 +548,16 @@ export function SpichkiApp() {
               >
                 Отмена
               </button>
+
+              {/* В Telegram лендинг не нужен: он зовёт войти и установить приложение */}
+              {!isTelegram && (
+                <Link
+                  href="/start"
+                  className="mt-4 block text-xs text-white/40 underline underline-offset-4 decoration-white/15 hover:text-white/60 transition-colors"
+                >
+                  Что такое СПИЧКИ?
+                </Link>
+              )}
             </div>
           </div>
         </>

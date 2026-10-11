@@ -43,6 +43,7 @@ import {
 import { useUserStore } from '@/stores/user.store'
 import { MessageContent } from '@/components/ui/MessageContent'
 import { allModels as fallbackModels, formatCost } from '@/lib/data'
+import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { toast } from '@/stores/toast.store'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PriceTag } from './ui/PriceTag'
@@ -1157,7 +1158,10 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
               overflow-hidden max-h-[400px] overflow-y-auto
             "
           >
-            {textModels.map((m: any) => {
+            <ModelFamilyGroups
+              models={textModels}
+              isSelected={(m: any) => selectedModelName === m.name}
+              renderModel={(m: any) => {
               const mVision = m.supportsVision
               const mWebSearch = m.webSearch
               return (
@@ -1263,7 +1267,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
                   </div>
                 </button>
               )
-            })}
+              }}
+            />
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import { Plus, Newspaper, Layers, User, Zap, Images, Flame} from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useChatStore } from '@/stores/chat.store'
 import { useUser } from '@/hooks'
+import Link from 'next/link'
 
 interface Props {
   active: string
@@ -114,7 +115,9 @@ export function DesktopSidebar({ active, onChange }: Props) {
 
       {/* ─── Footer ─── */}
       <div className="desktop-sidebar__footer">
-        <span className="desktop-sidebar__version">v1.0 · AI Platform</span>
+        <Link href="/start" className="desktop-sidebar__about">
+          О сервисе
+        </Link>
       </div>
     </aside>
   )
