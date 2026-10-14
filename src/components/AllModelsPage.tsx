@@ -16,9 +16,10 @@ import {
 import { useTelegram } from '@/context/TelegramContext'
 import { useFavorites } from '@/hooks'
 import { useModels } from '@/hooks'
-import { formatCost, modelHint, type ModelItem } from '@/lib/data'
+import { comingSoonModels, formatCost, modelHint, type ModelItem } from '@/lib/data'
 import { useState } from 'react'
 import { PriceTag } from './ui/PriceTag'
+import { ComingSoonBadge } from './ui/ComingSoonBadge'
 import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { formatFreeBadge, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
@@ -61,7 +62,7 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
   const [activeFilter, setActiveFilter] = useState<string | null>(initialCategory ?? null)
   const [search, setSearch] = useState('')
 
-  const filteredModels = allModels.filter((m) => {
+  const filteredModels = [...allModels, ...comingSoonModels].filter((m) => {
     const matchCategory = activeFilter ? m.category === activeFilter : true
     const matchSearch = search
       ? m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -183,7 +184,9 @@ export function AllModelsPage({ onBack, initialCategory, onModelTap }: Props) {
               variant="cards"
               models={group.models}
               expandAll={!!search}
-              renderModel={(model) => (
+              renderModel={(model) => model.comingSoon ? (
+                <ComingSoonCard model={model} />
+              ) : (
                 <ModelCard
                   model={model}
                   onTap={() => {
@@ -405,6 +408,46 @@ function ModelCard({
         </button>
         <div className="text-white/15 flex items-center">
           <ChevronRight size={16} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+// Анонсированная модель: та же карточка, но приглушённая и без перехода
+function ComingSoonCard({ model }: { model: ModelItem }) {
+  return (
+    <div
+      className="
+        flex items-center gap-2.5
+        py-[11px] px-3 rounded-xl
+        bg-[var(--bg-glass)] backdrop-blur-[20px]
+        border border-white/[0.06]
+        mb-1.5 opacity-60 cursor-default
+        lg:py-3.5 lg:px-4 lg:rounded-[14px] lg:mb-2
+      "
+      aria-disabled="true"
+    >
+      <div
+        className="
+          w-9 h-9 rounded-[9px] shrink-0
+          flex items-center justify-center
+          bg-white/[0.04] text-neutral-500
+          lg:w-10 lg:h-10
+        "
+      >
+        {modelIcons[model.category]}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-bold text-white lg:text-[15px]">{model.name}</span>
+          <ComingSoonBadge />
+        </div>
+        <div className="flex items-center gap-1 mt-0.5 text-[11px] text-neutral-500 whitespace-nowrap overflow-hidden lg:text-xs">
+          <span className="text-neutral-400 font-medium shrink-0">{model.provider}</span>
+          <span className="text-neutral-600 shrink-0">·</span>
+          <span className="overflow-hidden text-ellipsis">{model.description}</span>
         </div>
       </div>
     </div>

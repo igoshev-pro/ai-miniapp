@@ -11,6 +11,7 @@ export interface ModelItem {
   hasVariants?: boolean // true = показывать "от X 🔥"
   supportsVision?: boolean
   webSearch?: boolean    // умеет искать в интернете (🌐)
+  comingSoon?: boolean   // анонсирована, но API ещё нет — показываем с плашкой «Скоро»
   capabilities?: string[]   // 🆕
 
   // 🆕 Бесплатный доступ по подписке
@@ -134,6 +135,15 @@ export const modelsByPriority: ModelItem[] = [
 ]
 
 export const allModels: ModelItem[] = sortModelsByName(modelsByPriority)
+
+// Анонсированы у провайдеров (KIE/Evolink — «Coming Soon»), но API и цен ещё нет.
+// Показываются в списках с плашкой «Скоро», выбрать их нельзя. Когда модель выйдет —
+// убрать отсюда и подключить как обычную.
+export const comingSoonModels: ModelItem[] = [
+  { id: 'cs-kling-4', name: 'Kling 4.0', slug: 'kling-4.0', provider: 'Kuaishou', category: 'video', description: 'Видео до 30 секунд в 4K', cost: -1, comingSoon: true },
+  { id: 'cs-kling-4-flash', name: 'Kling 4.0 Flash', slug: 'kling-4.0-flash', provider: 'Kuaishou', category: 'video', description: 'Быстрая и недорогая версия Kling 4.0', cost: -1, comingSoon: true },
+  { id: 'cs-wan-animate-2', name: 'Wan Animate 2', slug: 'wan-animate-2', provider: 'Alibaba', category: 'video', description: 'Анимация персонажа по фото и видео', cost: -1, comingSoon: true },
+]
 
 // Короткая приписка к названию модели — там, где само имя не объясняет,
 // чем версии отличаются друг от друга (Flare и Sunburst у GPT Image 2.5).

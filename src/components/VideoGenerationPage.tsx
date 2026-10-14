@@ -34,6 +34,8 @@ import {
   Paperclip,
   Flame,
 } from 'lucide-react'
+import { ComingSoonBadge } from './ui/ComingSoonBadge'
+import { comingSoonModels } from '@/lib/data'
 import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { useTelegram } from '@/context/TelegramContext'
 import { useGeneration, useModels, useUser } from '@/hooks'
@@ -2128,9 +2130,26 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             "
           >
             <ModelFamilyGroups
-              models={videoModels}
+              models={[...videoModels, ...comingSoonModels]}
               isSelected={(m: any) => slug === m.slug}
-              renderModel={(m: any) => (
+              renderModel={(m: any) => m.comingSoon ? (
+                <div
+                  key={m.slug}
+                  className="
+                    flex items-center justify-between w-full
+                    py-[11px] px-3.5 text-[13px] text-left
+                    border-b border-[var(--border)] last:border-b-0
+                    opacity-55 cursor-default
+                  "
+                  aria-disabled="true"
+                >
+                  <div className="flex flex-col gap-[1px] min-w-0">
+                    <span className="font-semibold truncate text-[var(--gray-400)]">{m.name}</span>
+                    <span className="text-[11px] text-[var(--gray-600)] truncate">{m.description}</span>
+                  </div>
+                  <ComingSoonBadge />
+                </div>
+              ) : (
               <button
                 key={m.slug}
                 className={`
