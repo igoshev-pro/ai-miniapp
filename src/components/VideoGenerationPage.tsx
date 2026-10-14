@@ -224,31 +224,31 @@ const FALLBACK: Record<string, FallbackCaps> = {
   'seedance-2': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
     durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    resolutions: ['480p', '720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    resolutions: ['480p', '720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 9,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'seedance-2-fast': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
     durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-    resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    resolutions: ['480p', '720p'], modes: [], supportsImageInput: true, maxInputImages: 9,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'seedance-2-5': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive'],
     durations: Array.from({ length: 27 }, (_, i) => i + 4), // KIE принимает 4–30 сек
-    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 30,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'wan-3.0': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', 'adaptive'],
     durations: Array.from({ length: 29 }, (_, i) => i + 2), // 2–30 сек
-    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'wan-3.0-prime': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', 'adaptive'],
     durations: Array.from({ length: 29 }, (_, i) => i + 2), // 2–30 сек
-    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'gemini-omni-1.1-flash': {
@@ -473,9 +473,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isMotion = slug === 'motion-control'
   const isTopaz = slug === 'topaz-video-upscale'
   // 🆕 Gemini Omni: принимает видео-референс (1 шт) — цена тогда фиксированная
-  const isOmni = slug === 'gemini-omni-video'
-  // Seedance 2/2-fast/2.5 принимают до 3 видео, Omni — ровно одно
-  const maxRefVideos = isOmni ? 1 : 3
+  const isOmni = slug === 'gemini-omni-video' || slug === 'gemini-omni-1.1-flash'
+  // 🆕 Wan 3.0 / Prime: видео-референсы как у Seedance 2 (суммарно ≤ 15с, платятся вместе с результатом)
+  const isWan3 = slug === 'wan-3.0' || slug === 'wan-3.0-prime'
+  // Лимиты провайдеров: Seedance 2.5 — 10 видео и 10 аудио, Seedance 2 / 2 Fast — по 3,
+  // Wan 3.0 — 5 видео, Omni — ровно одно видео
+  const maxRefVideos = isOmni ? 1 : slug === 'seedance-2-5' ? 10 : isWan3 ? 5 : 3
+  const maxRefAudios = slug === 'seedance-2-5' ? 10 : 3
   const isSeedance15 = slug === 'seedance-1.5-pro'
   const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast' || slug === 'seedance-2-5'
   const isSeedance25 = slug === 'seedance-2-5'   // 🆕 только для first/last frame UI
@@ -602,13 +606,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   // (Seedance 2.5 принимает видео до 30с — там потолок 30).
   const refVideoMaxSeconds = isSeedance25 ? 30 : 15
   const refVideoSeconds = useMemo(() => {
-    if (!isSeedance2 || refVideoDurations.length === 0) return 0
+    if (!(isSeedance2 || isWan3 || isOmni) || refVideoDurations.length === 0) return 0
     const sum = refVideoDurations.reduce(
       (acc, d) => acc + Math.ceil(Math.max(0, d || 0)),
       0,
     )
     return Math.min(refVideoMaxSeconds, sum)
-  }, [isSeedance2, refVideoDurations, refVideoMaxSeconds])
+  }, [isSeedance2, isWan3, isOmni, refVideoDurations, refVideoMaxSeconds])
 
   // 🆕 «Авто»-длительность Seedance 2.5 действует только с видео-исходником:
   // модель повторяет его длину, поэтому цену считаем по ней же (4–30 сек).
@@ -663,7 +667,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         (veoMode === 'frames' && !!startFrame) ||
         (veoMode === 'reference' && refImages.length > 0)
       if (hasImg) p.hasInputImage = true
-    } else if (isSeedance && (seedanceImages.length > 0 || imgUrl)) {
+    } else if ((isSeedance || isWan3) && (seedanceImages.length > 0 || imgUrl || seedanceFirstFrame)) {
       // 🆕 для Seedance учитываем и галерею, и legacy imgUrl
       p.hasInputImage = true
     } else if (isSora && (soraImages.length > 0 || imgUrl)) {
@@ -686,6 +690,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       p.videoRef = refVideos.length > 0
     }
 
+    // 🆕 Wan 3.0: с видео цена = ставка × (длина видео + длина результата)
+    if (isWan3) {
+      p.videoRef = refVideos.length > 0
+      if (refVideos.length > 0) p.refVideoSeconds = refVideoSeconds
+    }
+
     if (isTopaz) {
       // 🔧 бэк принимает duration только 1..600 — длинное видео режем,
       //    иначе POST падает с 400 (валидация DTO)
@@ -698,7 +708,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
-    isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, isOmni, // 🆕
+    isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, isOmni, isWan3, // 🆕
     isKling, multiShots, klingMultiDuration, // 🆕
     isTopaz, topazVideoDuration, topazDurationSec,
     autoDurationActive, autoDurationSec,
@@ -1260,14 +1270,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (!r.ok) throw new Error('Upload failed')
       const d = await r.json(); const url = d.data?.url || d.url
       if (!url) throw new Error('No URL')
-      setRefAudios((prev) => (prev.length >= 3 ? prev : [...prev, url]))
+      setRefAudios((prev) => (prev.length >= maxRefAudios ? prev : [...prev, url]))
       haptic('light'); toast.success('Аудио добавлено')
     } catch (e: any) {
       toast.error(e.message || 'Ошибка загрузки аудио')
     } finally {
       setUploadingRefAudio(false)
     }
-  }, [haptic])
+  }, [haptic, maxRefAudios])
 
   const [allowMultiUpload, setAllowMultiUpload] = useState(false)
 
@@ -1377,10 +1387,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (isVeo && veoMode === 'frames') return 'start'
     if (isVeo && veoMode === 'reference') return 'ref'
     if (isKling25) return 'single'
-    if (isSeedance) return 'seedance'
+    if (isSeedance || isWan3) return 'seedance'
     if (isSora) return 'sora'
     return 'single'
-  }, [isVeo, veoMode, isKling25, isSeedance, isSora])
+  }, [isVeo, veoMode, isKling25, isSeedance, isWan3, isSora])
 
   // Topaz принимает видео, а не картинки — там перетаскивание фото ни к чему.
   const dropEnabled = !isTopaz
@@ -1557,8 +1567,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
-    if (isSeedance25 && seedanceLastFrame && !seedanceFirstFrame) {
+    if ((isSeedance25 || isWan3) && seedanceLastFrame && !seedanceFirstFrame) {
       toast.warning('Для конечного кадра нужен начальный')
+      return
+    }
+
+    // Wan 3.0: кадры (image-to-video) и референсы (reference-video) — разные режимы
+    if (isWan3 && seedanceFirstFrame && (seedanceImages.length > 0 || refVideos.length > 0)) {
+      toast.warning('Начальный/конечный кадр нельзя совмещать с референсами — уберите одно из двух')
       return
     }
 
@@ -1701,7 +1717,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } else if (isOmni) {
       // 🆕 Omni: видео-референс (1 шт) + опциональное фото.
       // Цена с видео фиксированная, refVideoSeconds не нужны.
-      if (refVideos.length) s.videoUrls = [refVideos[0]]
+      if (refVideos.length) {
+        s.videoUrls = [refVideos[0]]
+        // длина нужна провайдеру: Omni берёт из видео фрагмент до 10с
+        s.refVideoSeconds = refVideoSeconds
+      }
       if (imgUrl) s.imageUrl = imgUrl
     } else if (isKling25) {
       s.cfgScale = cfgScale
@@ -1747,6 +1767,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (caps.supportsResizeMode && (soraImages.length > 0 || imgUrl)) {
         s.resizeMode = resizeMode
       }
+    } else if (isWan3) {
+      // 🆕 Wan 3.0: референсы (фото + видео) или начальный/конечный кадр — как у Seedance 2.5
+      if (seedanceImages.length > 0) s.imageUrls = seedanceImages.slice(0, seedanceMaxImages)
+      if (refVideos.length) {
+        s.videoUrls = refVideos
+        s.refVideoSeconds = refVideoSeconds
+      }
+      if (seedanceFirstFrame) s.firstFrameUrl = seedanceFirstFrame
+      if (seedanceLastFrame) s.lastFrameUrl = seedanceLastFrame
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
       if (caps.supportsResizeMode && imgUrl) s.resizeMode = resizeMode
@@ -1764,7 +1793,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }, 100)
     }
   }, [
-    input, balance, displayedCost, slug, imgUrl, isOmni,
+    input, balance, displayedCost, slug, imgUrl, isOmni, isWan3,
     duration, aspectRatio, resolution, mode, sound, removeWatermark, resizeMode,
     caps, requiresInputImage, isFreeForUser,
     haptic, hapticNotification, generate,
@@ -1864,12 +1893,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
     if (isI2V) {
       // 🆕 для Seedance и Sora показываем количество фото
-      const cnt = isSeedance
+      const cnt = (isSeedance || isWan3)
         ? seedanceImages.length
         : isSora
           ? soraImages.length
           : (imgUrl ? 1 : 0)
-      const isMulti = (isSeedance || isSora) && cnt > 1
+      const isMulti = (isSeedance || isWan3 || isSora) && cnt > 1
       badges.push({
         key: 'img2vid',
         label: cnt > 0
@@ -1878,7 +1907,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         accent: cnt > 0,
       })
     }
-    if (isSeedance25 && (seedanceFirstFrame || seedanceLastFrame)) {
+    if ((isSeedance25 || isWan3) && (seedanceFirstFrame || seedanceLastFrame)) {
       badges.push({
         key: 'sd25-frames',
         label: seedanceFirstFrame && seedanceLastFrame ? '🖼 Старт→Конец' : '🖼 Кадр',
@@ -3037,8 +3066,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* ═══ SEEDANCE ═══ */}
-              {isSeedance && (
+              {/* ═══ SEEDANCE / WAN 3.0 ═══ */}
+              {(isSeedance || isWan3) && (
                 <>
                   {/* 🆕 Множественные референс-фото */}
                   <Field
@@ -3060,10 +3089,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             alt=""
                             className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
                           />
-                          {/* Бейдж @ImageN для Seedance 2 (референсы) */}
-                          {isSeedance2 && (
+                          {/* Бейдж @ImageN для Seedance 2 (референсы), «Image N» для Wan 3.0 */}
+                          {(isSeedance2 || isWan3) && (
                             <span className="absolute bottom-1 left-1 text-[9px] font-semibold bg-black/70 text-white px-1.5 py-0.5 rounded">
-                              @Image{idx + 1}
+                              {isWan3 ? `Image ${idx + 1}` : `@Image${idx + 1}`}
                             </span>
                           )}
                           <button
@@ -3101,12 +3130,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
                       {isSeedance15
                         ? 'Без фото — видео по тексту. С 1-2 фото — оживление кадра / переход.'
-                        : `До ${seedanceMaxImages} фото. Ссылайтесь в промпте через @Image1, @Image2…`}
+                        : isWan3
+                          ? `До ${seedanceMaxImages} фото. Ссылайтесь в промпте как «Image 1», видео — «Video 1».`
+                          : `До ${seedanceMaxImages} фото. Ссылайтесь в промпте через @Image1, @Image2…`}
                     </div>
                   </Field>
 
-                  {isSeedance25 && (
-                    <>
+                  {(isSeedance25 || isWan3) && (
                       <Field label={<><Film size={12} /> Начальный / конечный кадр (опц.)</>}>
                         <div className="grid grid-cols-2 gap-2.5">
                           <FrameSlot
@@ -3131,11 +3161,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           />
                         </div>
                         <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                          Отдельно от референс-фото выше. Задаёт конкретный начальный и/или
-                          конечный кадр видео (переход между ними). Необязательно.
+                          {isWan3
+                            ? 'Видео начнётся с этого кадра (и придёт к конечному). Нельзя вместе с референс-фото и видео.'
+                            : 'Отдельно от референс-фото выше. Задаёт конкретный начальный и/или конечный кадр видео (переход между ними). Необязательно.'}
                         </div>
                       </Field>
+                  )}
 
+                  {isSeedance25 && (
+                    <>
                       <Field label={<><ImageIcon size={12} /> Вернуть последний кадр</>}>
                         <ToggleRow
                           active={seedanceReturnLastFrame}
@@ -3198,9 +3232,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </Field>
                   )}
 
-                  {/* 2 / 2-fast: видео-референсы */}
-                  {isSeedance2 && (
-                    <Field label={<><Film size={12} /> Видео-референсы ({refVideos.length}/3)</>}>
+                  {/* 2 / 2-fast / Wan 3.0: видео-референсы */}
+                  {(isSeedance2 || isWan3) && (
+                    <Field label={<><Film size={12} /> Видео-референсы ({refVideos.length}/{maxRefVideos})</>}>
                       <div className="grid grid-cols-3 gap-2">
                         {refVideos.map((url, idx) => (
                           <div
@@ -3225,7 +3259,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             </button>
                           </div>
                         ))}
-                        {refVideos.length < 3 && (
+                        {refVideos.length < maxRefVideos && (
                           <button
                             className="
                               aspect-video rounded-[10px]
@@ -3260,7 +3294,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
                   {/* 2 / 2-fast: аудио-референсы */}
                   {isSeedance2 && (
-                    <Field label={<><Volume2 size={12} /> Аудио-референсы ({refAudios.length}/3)</>}>
+                    <Field label={<><Volume2 size={12} /> Аудио-референсы ({refAudios.length}/{maxRefAudios})</>}>
                       <div className="flex flex-col gap-1.5">
                         {refAudios.map((url, idx) => (
                           <div
@@ -3278,7 +3312,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             </button>
                           </div>
                         ))}
-                        {refAudios.length < 3 && (
+                        {refAudios.length < maxRefAudios && (
                           <button
                             className="flex items-center justify-center gap-1.5 py-2.5 rounded-[8px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.02] text-white/40 text-[12px] cursor-pointer transition-all active:bg-white/[0.06] disabled:opacity-50"
                             onClick={() => refAudioFileRef.current?.click()}
@@ -3417,7 +3451,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && !isKling && !isKling25 && !isMotion && !isSeedance && !isSora && caps.supportsImageInput && (
+              {!isVeo && !isKling && !isKling25 && !isMotion && !isSeedance && !isWan3 && !isSora && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -3631,19 +3665,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             if (endFrame) chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
           } else if (isMotion) {
             if (imgUrl) chips.push({ url: imgUrl, label: 'Фото', onRemove: () => setImgUrl('') })
-          } else if (isSeedance) {
+          } else if (isSeedance || isWan3) {
             seedanceImages.forEach((url, idx) =>
               chips.push({
                 url,
-                label: isSeedance2 ? `@Image${idx + 1}` : `Фото ${idx + 1}`,
+                label: isSeedance2 ? `@Image${idx + 1}` : isWan3 ? `Image ${idx + 1}` : `Фото ${idx + 1}`,
                 onRemove: () => setSeedanceImages((p) => p.filter((_, i) => i !== idx)),
               }),
             )
             // 🆕 first/last кадр Seedance 2.5
-            if (isSeedance25 && seedanceFirstFrame) {
+            if ((isSeedance25 || isWan3) && seedanceFirstFrame) {
               chips.push({ url: seedanceFirstFrame, label: 'Старт', onRemove: () => setSeedanceFirstFrame('') })
             }
-            if (isSeedance25 && seedanceLastFrame) {
+            if ((isSeedance25 || isWan3) && seedanceLastFrame) {
               chips.push({ url: seedanceLastFrame, label: 'Конец', onRemove: () => setSeedanceLastFrame('') })
             }
           } else if (isSora) {
@@ -3699,9 +3733,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         <div className="flex items-center gap-2">
           {/* Кнопка загрузки */}
           {((isVeo && veoMode !== 'text') ||
-            (!isVeo && !isKling && !isMotion && !isSeedance && !isSora && caps.supportsImageInput) ||
+            (!isVeo && !isKling && !isMotion && !isSeedance && !isWan3 && !isSora && caps.supportsImageInput) ||
             (isKling25) ||
-            (isSeedance) ||
+            (isSeedance || isWan3) ||
             (isSora)) && (
               <button
                 className="

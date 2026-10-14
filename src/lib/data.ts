@@ -87,8 +87,8 @@ export const modelsByPriority: ModelItem[] = [
   { id: 'i3', name: 'Nano Banana 2', slug: 'nano-banana-2', provider: 'Community', category: 'image', description: 'Стандартная версия, 1K–4K', cost: 3.30, hasVariants: true },
     { id: 'i3b', name: 'Nano Banana 2 Lite', slug: 'nano-banana-2-lite', provider: 'Google', category: 'image', description: 'Быстрый генератор, 1K', cost: 1.8, hasVariants: false },
     { id: 'i4', name: 'Nano Banana Pro', slug: 'nano-banana-pro', provider: 'Community', category: 'image', description: 'Продвинутая версия, до 4K', cost: 6.00, hasVariants: true },
-  { id: 'i4b', name: 'Nano Banana 2.1', slug: 'nano-banana-2.1', provider: 'Google', category: 'image', description: 'Новая версия, 1K–4K, до 10 референсов', cost: 1.8, hasVariants: true },
-  { id: 'i5a', name: 'Seedream 5.0 Flash', slug: 'seedream-5-flash', provider: 'ByteDance', category: 'image', description: 'Быстрый Seedream, одна цена до 2K', cost: 1.5 },
+  { id: 'i4b', name: 'Nano Banana 2.1', slug: 'nano-banana-2.1', provider: 'Google', category: 'image', description: 'Новая версия, 1K–4K, до 10 референсов', cost: 1.2, hasVariants: true },
+  { id: 'i5a', name: 'Seedream 5.0 Flash', slug: 'seedream-5-flash', provider: 'ByteDance', category: 'image', description: 'Быстрый Seedream, одна цена до 2K', cost: 1 },
   { id: 'i5', name: 'Seedream 5.0 Lite', slug: 'seedream-5-lite', provider: 'ByteDance', category: 'image', description: 'Быстрый генератор Seedream', cost: 1.60 },
     { id: 'i5b', name: 'Seedream 5.0 Pro', slug: 'seedream-5-pro', provider: 'ByteDance', category: 'image', description: 'Фотореалистичный генератор, 1K/2K', cost: 3.2, hasVariants: true, supportsVision: true },
     { id: 'i6', name: 'Flux 2', slug: 'flux-2', provider: 'Black Forest', category: 'image', description: 'Новая версия Flux, 1K–2K', cost: 1.80, hasVariants: true },
@@ -117,8 +117,8 @@ export const modelsByPriority: ModelItem[] = [
   { id: 'v14', name: 'Gemini Omni Video', slug: 'gemini-omni-video', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 720p–4K', cost: 18.9, hasVariants: true },
   { id: 'v15', name: 'Seedance 2.5', slug: 'seedance-2-5', provider: 'ByteDance', category: 'video', description: 'First/last кадр, мультиреференс, видео до 30с', cost: 8.4, hasVariants: true },
   { id: 'v17', name: 'Gemini Omni 1.1 Flash', slug: 'gemini-omni-1.1-flash', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 360p–4K', cost: 18.9, hasVariants: true },
-  { id: 'v18', name: 'Wan 3.0', slug: 'wan-3.0', provider: 'Alibaba', category: 'video', description: 'Текст/фото → видео, до 30с, звук', cost: 6.8, hasVariants: true },
-  { id: 'v19', name: 'Wan 3.0 Prime', slug: 'wan-3.0-prime', provider: 'Alibaba', category: 'video', description: 'Ускоренная Wan 3.0, до 30с, звук', cost: 10.4, hasVariants: true },
+  { id: 'v18', name: 'Wan 3.0', slug: 'wan-3.0', provider: 'Alibaba', category: 'video', description: 'Текст/фото/видео → видео, до 30с, звук', cost: 4.8, hasVariants: true },
+  { id: 'v19', name: 'Wan 3.0 Prime', slug: 'wan-3.0-prime', provider: 'Alibaba', category: 'video', description: 'Ускоренная Wan 3.0, до 30с, звук', cost: 7.4, hasVariants: true },
   { id: 'v16', name: 'Topaz Video Upscale', slug: 'topaz-video-upscale', provider: 'Topaz', category: 'video', description: 'AI-апскейл видео: 1x/2x/4x', cost: 3.3, hasVariants: true },
 
 
@@ -199,11 +199,16 @@ export function groupModelsByFamily<T extends { slug: string; name: string }>(
     const family = modelFamily(m)
     byFamily.set(family, [...(byFamily.get(family) ?? []), m])
   }
+  // Сначала папки (семейства из нескольких моделей), затем одиночные модели;
+  // внутри каждой части — по алфавиту.
   return [...byFamily.entries()]
     .map(([family, items]) => ({ family, models: sortModelsByName(items) }))
-    .sort((a, b) =>
-      a.family.localeCompare(b.family, 'en', { numeric: true, sensitivity: 'base' }),
-    )
+    .sort((a, b) => {
+      const aFolder = a.models.length > 1 ? 0 : 1
+      const bFolder = b.models.length > 1 ? 0 : 1
+      if (aFolder !== bFolder) return aFolder - bFolder
+      return a.family.localeCompare(b.family, 'en', { numeric: true, sensitivity: 'base' })
+    })
 }
 
 // 🆕 ХЕЛПЕР ФОРМАТИРОВАНИЯ ЦЕНЫ: "от 0,8 🔥" / "от 15 🔥" / "от ? 🔥"
