@@ -164,7 +164,7 @@ function modelSupportsWebSearch(model: any): boolean {
 
 export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
-  const { balance } = useUser()
+  const { balance, refreshBalance } = useUser()
   const { toggle: toggleFavorite, isFavorite } = useFavorites()
 
   const messages = useChatStore((s) => s.messages)
@@ -225,6 +225,8 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
   const fileInputRef = useRef<HTMLInputElement>(null)
   const docInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // Отмена ожидания ответа после обрыва SSE (см. recoverAnswer)
+  const recoveryCancelRef = useRef<(() => void) | null>(null)
   const didLoadRef = useRef(false)
   const stickToBottomRef = useRef(true)
 
@@ -710,6 +712,127 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     fileInputRef.current?.click()
   }, [haptic])
 
+  useEffect(() => () => recoveryCancelRef.current?.(), [])
+
+  // ─── Восстановление ответа после обрыва соединения ───
+  // Когда приложение сворачивают, мобильная ОС рвёт SSE-сокет, но бэкенд
+  // доводит генерацию до конца и сохраняет ответ. Вместо ошибки ждём,
+  // пока сообщение ассистента в БД перестанет быть isStreaming.
+  const recoverAnswer = useCallback(
+    (info: { conversationId?: string; messageId?: string }, sentAt: number) => {
+      const store = useChatStore.getState()
+      const { conversationId, messageId } = info
+      if (!conversationId) {
+        store.resetStreaming()
+        toast.error('Ошибка соединения')
+        return
+      }
+
+      recoveryCancelRef.current?.()
+      let cancelled = false
+      let timer: ReturnType<typeof setTimeout> | null = null
+      let inFlight = false
+      let attempts = 0
+      let missesWithoutPlaceholder = 0
+      const deadline = Date.now() + 10 * 60 * 1000
+
+      const finish = () => {
+        cancelled = true
+        if (timer) clearTimeout(timer)
+        document.removeEventListener('visibilitychange', onVisible)
+        if (recoveryCancelRef.current === cancel) recoveryCancelRef.current = null
+      }
+      const cancel = () => finish()
+      const fail = (msg: string) => {
+        finish()
+        useChatStore.getState().resetStreaming()
+        toast.error(msg)
+      }
+      const schedule = () => {
+        if (cancelled) return
+        if (Date.now() > deadline) {
+          fail('Ответ не пришёл. Обновите чат чуть позже')
+          return
+        }
+        timer = setTimeout(poll, Math.min(1500 + attempts * 500, 5000))
+      }
+
+      const poll = async () => {
+        if (cancelled || inFlight) return
+        if (document.visibilityState === 'hidden') return // продолжим по onVisible
+        inFlight = true
+        attempts++
+        try {
+          const { data }: any = await apiClient.get(
+            ENDPOINTS.CHAT_MESSAGES(conversationId),
+            { params: { page: 1, limit: 50 } },
+          )
+          if (cancelled) return
+          const list: any[] = data.data?.messages || []
+          const assistant = messageId
+            ? list.find((m) => m._id === messageId)
+            : [...list]
+                .reverse()
+                .find(
+                  (m) =>
+                    m.role === 'assistant' &&
+                    new Date(m.createdAt).getTime() >= sentAt - 5000,
+                )
+
+          if (assistant?.isError) {
+            fail(assistant.content || 'Ошибка генерации')
+            return
+          }
+          if (assistant && !assistant.isStreaming) {
+            finish()
+            const st = useChatStore.getState()
+            if (st.activeChatId === conversationId) {
+              st.addMessage({
+                id: assistant._id,
+                chatId: conversationId,
+                role: 'assistant',
+                content: assistant.content,
+                model: assistant.modelSlug ? getModelName(assistant.modelSlug) : undefined,
+                tokensUsed: assistant.tokensCost || assistant.usage?.totalTokens,
+                createdAt: assistant.createdAt,
+              })
+            }
+            st.resetStreaming()
+            refreshBalance()
+            hapticNotification('success')
+            return
+          }
+
+          if (!assistant) {
+            // Плейсхолдер удаляется бэкендом при ошибке генерации.
+            // Если messageId не знаем — даём серверу время его создать.
+            missesWithoutPlaceholder++
+            if (messageId || missesWithoutPlaceholder >= 8) {
+              fail('Не удалось получить ответ. Спички не списаны')
+              return
+            }
+          }
+        } catch {
+          // Сеть ещё не поднялась после разворачивания — пробуем снова
+        } finally {
+          inFlight = false
+        }
+        schedule()
+      }
+
+      const onVisible = () => {
+        if (cancelled || document.visibilityState !== 'visible') return
+        if (timer) clearTimeout(timer)
+        poll()
+      }
+
+      document.addEventListener('visibilitychange', onVisible)
+      recoveryCancelRef.current = cancel
+      schedule()
+    },
+    [refreshBalance, hapticNotification],
+  )
+
   // ─── Отправка сообщения ───
   const handleSend = useCallback(async () => {
     const text = input.trim()
@@ -803,6 +926,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     store.addMessage(userMessage)
     store.setStreaming(true)
     store.setStreamingContent('')
+    const sentAt = Date.now()
 
     abortRef.current = streamChat(
       {
@@ -874,6 +998,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
           }
           hapticNotification('success')
         },
+        onDisconnect: (info) => recoverAnswer(info, sentAt),
         onError: (error) => {
           store.resetStreaming()
           if (error.includes('спичек') || error.includes('баланс')) {
@@ -901,9 +1026,11 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     webSearch,
     showReasoning,
     showWebSearch,
+    recoverAnswer,
   ])
 
   const stopStreaming = useCallback(() => {
+    recoveryCancelRef.current?.()
     abortRef.current?.abort()
     abortRef.current = null
     const store = useChatStore.getState()

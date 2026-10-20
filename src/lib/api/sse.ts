@@ -49,6 +49,13 @@ export interface SSECallbacks {
     newCashbackBalance?: number
   }) => void
   onError: (error: string) => void
+  /**
+   * Соединение оборвалось до финального события (типичный случай — телефон
+   * свернул приложение и ОС убила сокет). Сервер при этом продолжает
+   * генерацию и сохраняет ответ в БД, так что фронт может его дождаться.
+   * Если колбэк не передан — вызывается onError('Ошибка соединения').
+   */
+  onDisconnect?: (info: { conversationId?: string; messageId?: string }) => void
 }
 
 export interface ChatAttachment {
@@ -79,6 +86,17 @@ export function streamChat(
 
   // Токен из Zustand-стора (persist) — безопасно вызывать вне React
   const token = useAuthStore.getState().token
+
+  let conversationId = request.conversationId
+  let messageId = ''
+
+  const handleDisconnect = () => {
+    if (callbacks.onDisconnect) {
+      callbacks.onDisconnect({ conversationId, messageId: messageId || undefined })
+    } else {
+      callbacks.onError('Ошибка соединения')
+    }
+  }
 
   fetch(`${baseUrl}/chat/stream`, {
     method: 'POST',
@@ -123,7 +141,6 @@ export function streamChat(
       const decoder = new TextDecoder()
       let buffer = ''
       let currentEvent = ''
-      let messageId = ''
 
       while (true) {
         const { done, value } = await reader.read()
@@ -156,6 +173,7 @@ export function streamChat(
 
               switch (currentEvent) {
                 case 'conversation':
+                  if (data.id) conversationId = data.id
                   callbacks.onConversation?.(data)
                   break
 
@@ -210,10 +228,13 @@ export function streamChat(
           }
         }
       }
+
+      // Поток закрылся без message_end/error/done — соединение оборвано
+      handleDisconnect()
     })
     .catch((err) => {
       if (err.name === 'AbortError') return
-      callbacks.onError('Ошибка соединения')
+      handleDisconnect()
     })
 
   return controller
