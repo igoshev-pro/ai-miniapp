@@ -88,6 +88,10 @@ function veoSupportsReference(slug: string): boolean {
 
 type AROrient = 'landscape' | 'portrait' | 'square' | 'wide'
 
+// Kling 4.0: имена элементов и голосов (правила KIE)
+const KLING4_NAME_RE = /^[\u4e00-\u9fa5A-Za-z0-9_]{1,20}$/
+const KLING4_RESERVED_RE = /^((image|video|keyframe|object|audio)_\d+|first_frame|last_frame)$/i
+
 const AR_META: Record<string, { label: string; orient: AROrient }> = {
   landscape: { label: 'Пейзаж', orient: 'landscape' },
   portrait: { label: 'Портрет', orient: 'portrait' },
@@ -100,6 +104,7 @@ const AR_META: Record<string, { label: string; orient: AROrient }> = {
   '3:2': { label: '3:2', orient: 'landscape' },
   '2:3': { label: '2:3', orient: 'portrait' },
   Auto: { label: 'Авто', orient: 'square' },
+  auto: { label: 'Авто', orient: 'square' },
 }
 
 const RES_META: Record<string, { label: string; sub?: string; tier: number }> = {
@@ -240,6 +245,12 @@ const FALLBACK: Record<string, FallbackCaps> = {
     durations: Array.from({ length: 27 }, (_, i) => i + 4), // KIE принимает 4–30 сек
     resolutions: ['480p', '720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 30,
     supportsSound: true, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'kling-4.0': {
+    aspectRatios: ['auto', '16:9', '9:16', '1:1', '21:9'],
+    durations: Array.from({ length: 28 }, (_, i) => i + 3), // 3–30 сек
+    resolutions: ['720p', '1080p'], modes: [], supportsImageInput: true, maxInputImages: 10,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
   'wan-3.0': {
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', 'adaptive'],
@@ -413,10 +424,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const [shots, setShots] = useState<{ prompt: string; duration: number }[]>([
     { prompt: '', duration: 5 },
   ])
+  // videoUrl/videoDuration/voiceUrl — только Kling 4.0 (видео-персонаж и привязанный голос)
   const [elements, setElements] = useState<
-    { name: string; description: string; urls: string[] }[]
+    { name: string; description: string; urls: string[]; videoUrl?: string; videoDuration?: number; voiceUrl?: string }[]
   >([])
   const elementUploadIdxRef = useRef<number>(0)
+  // 🆕 Kling 4.0: голоса-референсы (@name в промпте)
+  const [voices, setVoices] = useState<{ name: string; url: string }[]>([])
+  // куда положить загруженное аудио: аудио-референсы Seedance или голос Kling 4.0
+  const audioTargetRef = useRef<'ref' | 'voice' | 'element-voice'>('ref')
+  // куда положить загруженное видео: видео-референсы или видео-элемент Kling 4.0
+  const videoTargetRef = useRef<'ref' | 'element'>('ref')
 
   // Motion Control
   const [motionVideoUrl, setMotionVideoUrl] = useState('')
@@ -433,6 +451,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   // Индексы соответствуют друг другу. Нужны для посекундной цены Seedance 2.
   const [refVideoDurations, setRefVideoDurations] = useState<number[]>([])
   const [refAudios, setRefAudios] = useState<string[]>([])
+  // Kling 4.0: оставить звук видео-референсов
+  const [keepOriginalSound, setKeepOriginalSound] = useState(false)
   const [uploadingRefVideo, setUploadingRefVideo] = useState(false)
   const [uploadingRefAudio, setUploadingRefAudio] = useState(false)
   const refVideoFileRef = useRef<HTMLInputElement>(null)
@@ -478,9 +498,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const isOmni = slug === 'gemini-omni-video' || slug === 'gemini-omni-1.1-flash'
   // 🆕 Wan 3.0 / Prime: видео-референсы как у Seedance 2 (суммарно ≤ 15с, платятся вместе с результатом)
   const isWan3 = slug === 'wan-3.0' || slug === 'wan-3.0-prime'
+  // 🆕 Kling 4.0: фото до 10 и видео до 5 (как у Wan 3.0) или начальный/конечный кадр
+  const isKling4 = slug === 'kling-4.0'
+  const isRefGallery = isWan3 || isKling4
+  // Лимиты элементов: Kling 3.0 — 3, Kling 4.0 — 7 (и до 3 голосов)
+  const maxElements = isKling4 ? 7 : 3
+  const maxVoices = 3
   // Лимиты провайдеров: Seedance 2.5 — 10 видео и 10 аудио, Seedance 2 / 2 Fast — по 3,
-  // Wan 3.0 — 5 видео, Omni — ровно одно видео
-  const maxRefVideos = isOmni ? 1 : slug === 'seedance-2-5' ? 10 : isWan3 ? 5 : 3
+  // Wan 3.0 и Kling 4.0 — 5 видео, Omni — ровно одно видео
+  const maxRefVideos = isOmni ? 1 : slug === 'seedance-2-5' ? 10 : isRefGallery ? 5 : 3
   const maxRefAudios = slug === 'seedance-2-5' ? 10 : 3
   const isSeedance15 = slug === 'seedance-1.5-pro'
   const isSeedance2 = slug === 'seedance-2' || slug === 'seedance-2-fast' || slug === 'seedance-2-5'
@@ -606,15 +632,23 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   // 🆕 Суммарная длительность видео-референсов для цены Seedance 2.
   // Каждое видео округляем вверх (ceil), сумму клампим в [0, 15]
   // (Seedance 2.5 принимает видео до 30с — там потолок 30).
-  const refVideoMaxSeconds = isSeedance25 ? 30 : 15
+  // Kling 4.0: до 5 видео по 30с — суммарно до 150с
+  const refVideoMaxSeconds = isKling4 ? 150 : isSeedance25 ? 30 : 15
+  // Kling 4.0: видео-элементы KIE тарифицирует как видео-вход — их секунды идут в общую сумму
+  const kling4VideoElements = isKling4 ? elements.filter((el) => !!el.videoUrl) : []
+  const hasVideoInput = refVideos.length > 0 || kling4VideoElements.length > 0
   const refVideoSeconds = useMemo(() => {
-    if (!(isSeedance2 || isWan3 || isOmni) || refVideoDurations.length === 0) return 0
-    const sum = refVideoDurations.reduce(
+    if (!(isSeedance2 || isRefGallery || isOmni)) return 0
+    const durations = isKling4
+      ? [...refVideoDurations, ...elements.filter((el) => el.videoUrl).map((el) => el.videoDuration || 0)]
+      : refVideoDurations
+    if (durations.length === 0) return 0
+    const sum = durations.reduce(
       (acc, d) => acc + Math.ceil(Math.max(0, d || 0)),
       0,
     )
     return Math.min(refVideoMaxSeconds, sum)
-  }, [isSeedance2, isWan3, isOmni, refVideoDurations, refVideoMaxSeconds])
+  }, [isSeedance2, isRefGallery, isOmni, isKling4, elements, refVideoDurations, refVideoMaxSeconds])
 
   // 🆕 «Авто»-длительность Seedance 2.5 действует только с видео-исходником:
   // модель повторяет его длину, поэтому цену считаем по ней же (4–30 сек).
@@ -669,7 +703,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         (veoMode === 'frames' && !!startFrame) ||
         (veoMode === 'reference' && refImages.length > 0)
       if (hasImg) p.hasInputImage = true
-    } else if ((isSeedance || isWan3) && (seedanceImages.length > 0 || imgUrl || seedanceFirstFrame)) {
+    } else if ((isSeedance || isRefGallery) && (seedanceImages.length > 0 || imgUrl || seedanceFirstFrame)) {
       // 🆕 для Seedance учитываем и галерею, и legacy imgUrl
       p.hasInputImage = true
     } else if (isSora && (soraImages.length > 0 || imgUrl)) {
@@ -692,10 +726,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       p.videoRef = refVideos.length > 0
     }
 
-    // 🆕 Wan 3.0: с видео цена = ставка × (длина видео + длина результата)
-    if (isWan3) {
-      p.videoRef = refVideos.length > 0
-      if (refVideos.length > 0) p.refVideoSeconds = refVideoSeconds
+    // 🆕 Wan 3.0: с видео цена = ставка × (длина видео + длина результата);
+    // Kling 4.0 — то же, но видео считается не короче результата (это делает бэк)
+    if (isRefGallery) {
+      p.videoRef = hasVideoInput
+      if (hasVideoInput) p.refVideoSeconds = refVideoSeconds
     }
 
     if (isTopaz) {
@@ -710,7 +745,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
-    isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, isOmni, isWan3, // 🆕
+    isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, isOmni, isRefGallery, hasVideoInput, // 🆕
     isKling, multiShots, klingMultiDuration, // 🆕
     isTopaz, topazVideoDuration, topazDurationSec,
     autoDurationActive, autoDurationSec,
@@ -870,6 +905,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     setMultiShots(false)
     setShots([{ prompt: '', duration: 5 }])
     setElements([])
+    setVoices([])
 
     setMotionVideoUrl('')
     setMotionVideoDuration(null)
@@ -1221,16 +1257,33 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     // 🆕 Измеряем длительность локально (для посекундной цены Seedance 2)
     const localUrl = URL.createObjectURL(file)
+    let probeShortSide = 0
     const probeDuration = await new Promise<number | null>((resolve) => {
       const v = document.createElement('video')
       v.preload = 'metadata'
       v.onloadedmetadata = () => {
+        probeShortSide = Math.min(v.videoWidth || 0, v.videoHeight || 0)
         resolve(isFinite(v.duration) ? v.duration : null)
         URL.revokeObjectURL(localUrl)
       }
       v.onerror = () => { resolve(null); URL.revokeObjectURL(localUrl) }
       v.src = localUrl
     })
+
+    const forElement = videoTargetRef.current === 'element'
+    const elementIdx = elementUploadIdxRef.current
+    if (forElement) {
+      // KIE: видео персонажа — 3–8 сек одним планом, короткая сторона от 700px
+      if (probeDuration !== null && (probeDuration < 3 || probeDuration > 8.5)) {
+        toast.error('Видео персонажа — от 3 до 8 секунд'); return
+      }
+      if (probeShortSide > 0 && probeShortSide < 700) {
+        toast.error('Видео персонажа — короткая сторона не меньше 700px'); return
+      }
+    } else if (isKling4 && probeDuration !== null && (probeDuration < 2 || probeDuration > 30.5)) {
+      // KIE принимает видео-референсы Kling 4.0 длиной 2–30 сек
+      toast.error('Видео для Kling 4.0 — от 2 до 30 секунд'); return
+    }
 
     setUploadingRefVideo(true)
     try {
@@ -1242,19 +1295,28 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (!r.ok) throw new Error('Upload failed')
       const d = await r.json(); const url = d.data?.url || d.url
       if (!url) throw new Error('No URL')
-      // 🆕 добавляем url + длительность синхронно (одинаковые индексы)
-      setRefVideos((prev) => {
-        if (prev.length >= maxRefVideos) return prev
-        setRefVideoDurations((durs) => [...durs, probeDuration ?? 0])
-        return [...prev, url]
-      })
+      if (forElement) {
+        // видео заменяет фото элемента
+        setElements((prev) =>
+          prev.map((el, i) =>
+            i === elementIdx ? { ...el, urls: [], videoUrl: url, videoDuration: probeDuration ?? 0 } : el,
+          ),
+        )
+      } else {
+        // 🆕 добавляем url + длительность синхронно (одинаковые индексы)
+        setRefVideos((prev) => {
+          if (prev.length >= maxRefVideos) return prev
+          setRefVideoDurations((durs) => [...durs, probeDuration ?? 0])
+          return [...prev, url]
+        })
+      }
       haptic('light'); toast.success('Видео добавлено')
     } catch (e: any) {
       toast.error(e.message || 'Ошибка загрузки видео')
     } finally {
       setUploadingRefVideo(false)
     }
-  }, [haptic, maxRefVideos])
+  }, [haptic, maxRefVideos, isKling4])
 
   const uploadRefAudio = useCallback(async (file: File) => {
     if (!/\.(mp3|wav|aac|ogg|m4a)$/i.test(file.name) &&
@@ -1272,14 +1334,21 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (!r.ok) throw new Error('Upload failed')
       const d = await r.json(); const url = d.data?.url || d.url
       if (!url) throw new Error('No URL')
-      setRefAudios((prev) => (prev.length >= maxRefAudios ? prev : [...prev, url]))
+      if (audioTargetRef.current === 'voice') {
+        setVoices((prev) => (prev.length >= maxVoices ? prev : [...prev, { name: '', url }]))
+      } else if (audioTargetRef.current === 'element-voice') {
+        const idx = elementUploadIdxRef.current
+        setElements((prev) => prev.map((el, i) => (i === idx ? { ...el, voiceUrl: url } : el)))
+      } else {
+        setRefAudios((prev) => (prev.length >= maxRefAudios ? prev : [...prev, url]))
+      }
       haptic('light'); toast.success('Аудио добавлено')
     } catch (e: any) {
       toast.error(e.message || 'Ошибка загрузки аудио')
     } finally {
       setUploadingRefAudio(false)
     }
-  }, [haptic, maxRefAudios])
+  }, [haptic, maxRefAudios, maxVoices])
 
   const [allowMultiUpload, setAllowMultiUpload] = useState(false)
 
@@ -1389,10 +1458,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (isVeo && veoMode === 'frames') return 'start'
     if (isVeo && veoMode === 'reference') return 'ref'
     if (isKling25) return 'single'
-    if (isSeedance || isWan3) return 'seedance'
+    if (isSeedance || isRefGallery) return 'seedance'
     if (isSora) return 'sora'
     return 'single'
-  }, [isVeo, veoMode, isKling25, isSeedance, isWan3, isSora])
+  }, [isVeo, veoMode, isKling25, isSeedance, isRefGallery, isSora])
 
   // Topaz принимает видео, а не картинки — там перетаскивание фото ни к чему.
   const dropEnabled = !isTopaz
@@ -1563,19 +1632,19 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (!prompt && !isTopaz) return
 
     // Seedance 2.5 принимает промпт до 30 000 символов, остальные — до 10 000
-    const maxPromptLength = isSeedance25 ? 30000 : 10000
+    const maxPromptLength = isSeedance25 ? 30000 : isKling4 ? 8000 : 10000
     if (prompt.length > maxPromptLength) {
       toast.warning(`Промпт слишком длинный: ${prompt.length} из ${maxPromptLength} символов`)
       return
     }
 
-    if ((isSeedance25 || isWan3) && seedanceLastFrame && !seedanceFirstFrame) {
+    if ((isSeedance25 || isRefGallery) && seedanceLastFrame && !seedanceFirstFrame) {
       toast.warning('Для конечного кадра нужен начальный')
       return
     }
 
-    // Wan 3.0: кадры (image-to-video) и референсы (reference-video) — разные режимы
-    if (isWan3 && seedanceFirstFrame && (seedanceImages.length > 0 || refVideos.length > 0)) {
+    // Wan 3.0 / Kling 4.0: кадры и референсы — разные режимы (у KIE — разные эндпоинты)
+    if (isRefGallery && seedanceFirstFrame && (seedanceImages.length > 0 || refVideos.length > 0)) {
       toast.warning('Начальный/конечный кадр нельзя совмещать с референсами — уберите одно из двух')
       return
     }
@@ -1606,12 +1675,62 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         return
       }
     }
-    if (isKling) {
+    if (isKling || isKling4) {
       const badEl = elements.find(
         (el) => el.name.trim() && el.urls.length > 0 && el.urls.length < 2,
       )
       if (badEl) {
         toast.warning(`Элемент "${badEl.name}" требует 2-4 изображения`)
+        return
+      }
+    }
+
+    if (isKling4) {
+      if (elements.some((el) => !el.name.trim() && (el.urls.length > 0 || el.videoUrl || el.voiceUrl))) {
+        toast.warning('Укажите имя у каждого элемента')
+        return
+      }
+      if (voices.some((v) => !v.name.trim())) {
+        toast.warning('Укажите имя у каждого голоса')
+        return
+      }
+      const emptyEl = elements.find((el) => el.name.trim() && !el.videoUrl && el.urls.length < 2)
+      if (emptyEl) {
+        toast.warning(`Элементу «${emptyEl.name.trim()}» нужно 2–4 фото или видео`)
+        return
+      }
+      if (kling4VideoElements.length > 3) {
+        toast.warning('Видео-персонажей — не больше 3')
+        return
+      }
+      if (refVideos.length + kling4VideoElements.length > 5) {
+        toast.warning('Видео-референсов и видео-персонажей вместе — не больше 5')
+        return
+      }
+      const names = [
+        ...elements.map((el) => el.name.trim()).filter(Boolean),
+        ...voices.map((v) => v.name.trim()),
+      ]
+      // Правила KIE: 1–20 символов, латиница/цифры/_ (кириллицу не принимает),
+      // имена уникальны без учёта регистра и не совпадают со служебными
+      const badName = names.find((n) => !KLING4_NAME_RE.test(n) || KLING4_RESERVED_RE.test(n))
+      if (badName) {
+        toast.warning(`Имя «${badName}» не подходит: 1–20 символов, латиница, цифры и _ (не image_1, video_1, first_frame…)`)
+        return
+      }
+      const lower = names.map((n) => n.toLowerCase())
+      const dup = lower.find((n, i) => lower.indexOf(n) !== i)
+      if (dup) {
+        toast.warning(`Имя «${dup}» повторяется — у элементов и голосов имена должны быть разными`)
+        return
+      }
+      if (seedanceFirstFrame && names.length > 0) {
+        toast.warning('Начальный/конечный кадр нельзя совмещать с элементами и голосами — уберите одно из двух')
+        return
+      }
+      const totalRefs = seedanceImages.length + refVideos.length + names.length
+      if (totalRefs > 15) {
+        toast.warning(`Фото, видео, элементов и голосов вместе — не больше 15 (сейчас ${totalRefs})`)
         return
       }
     }
@@ -1778,6 +1897,36 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }
       if (seedanceFirstFrame) s.firstFrameUrl = seedanceFirstFrame
       if (seedanceLastFrame) s.lastFrameUrl = seedanceLastFrame
+    } else if (isKling4) {
+      // 🆕 Kling 4.0: кадры → keyframe-to-video, иначе референсы (фото/видео)
+      if (seedanceFirstFrame) {
+        s.firstFrameUrl = seedanceFirstFrame
+        if (seedanceLastFrame) s.lastFrameUrl = seedanceLastFrame
+      } else {
+        if (seedanceImages.length > 0) s.imageUrls = seedanceImages.slice(0, seedanceMaxImages)
+        if (refVideos.length) {
+          s.videoUrls = refVideos
+          s.keepOriginalSound = keepOriginalSound
+        }
+        // секунды видео-референсов и видео-персонажей — для цены
+        if (hasVideoInput) s.refVideoSeconds = refVideoSeconds
+        const k4Elements = elements
+          .filter((el) => el.name.trim() && (el.videoUrl || (el.urls.length >= 2 && el.urls.length <= 4)))
+          .slice(0, maxElements)
+          .map((el) => ({
+            name: el.name.trim(),
+            description: el.description.trim(),
+            elementInputUrls: el.videoUrl ? [] : el.urls,
+            ...(el.videoUrl ? { videoUrl: el.videoUrl } : {}),
+            ...(el.voiceUrl ? { voiceUrl: el.voiceUrl } : {}),
+          }))
+        if (k4Elements.length) s.klingElements = k4Elements
+        const k4Voices = voices
+          .filter((v) => v.name.trim() && v.url)
+          .slice(0, maxVoices)
+          .map((v) => ({ name: v.name.trim(), audioUrl: v.url }))
+        if (k4Voices.length) s.klingVoices = k4Voices
+      }
     } else {
       if (caps.supportsImageInput && imgUrl) s.imageUrl = imgUrl
       if (caps.supportsResizeMode && imgUrl) s.resizeMode = resizeMode
@@ -1795,7 +1944,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }, 100)
     }
   }, [
-    input, balance, displayedCost, slug, imgUrl, isOmni, isWan3,
+    input, balance, displayedCost, slug, imgUrl, isOmni, isWan3, isKling4, isRefGallery, keepOriginalSound, voices, maxElements, maxVoices, hasVideoInput, kling4VideoElements.length,
     duration, aspectRatio, resolution, mode, sound, removeWatermark, resizeMode,
     caps, requiresInputImage, isFreeForUser,
     haptic, hapticNotification, generate,
@@ -1895,12 +2044,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
     if (isI2V) {
       // 🆕 для Seedance и Sora показываем количество фото
-      const cnt = (isSeedance || isWan3)
+      const cnt = (isSeedance || isRefGallery)
         ? seedanceImages.length
         : isSora
           ? soraImages.length
           : (imgUrl ? 1 : 0)
-      const isMulti = (isSeedance || isWan3 || isSora) && cnt > 1
+      const isMulti = (isSeedance || isRefGallery || isSora) && cnt > 1
       badges.push({
         key: 'img2vid',
         label: cnt > 0
@@ -1909,7 +2058,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         accent: cnt > 0,
       })
     }
-    if ((isSeedance25 || isWan3) && (seedanceFirstFrame || seedanceLastFrame)) {
+    if ((isSeedance25 || isRefGallery) && (seedanceFirstFrame || seedanceLastFrame)) {
       badges.push({
         key: 'sd25-frames',
         label: seedanceFirstFrame && seedanceLastFrame ? '🖼 Старт→Конец' : '🖼 Кадр',
@@ -1927,12 +2076,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       const cnt = shots.filter((sh) => sh.prompt.trim()).length
       badges.push({ key: 'multishot', label: `🎬 ${cnt} шот${cnt === 1 ? '' : 'ов'}`, accent: true })
     }
-    if (isKling && elements.filter((e) => e.name.trim()).length > 0) {
+    if ((isKling || isKling4) && elements.filter((e) => e.name.trim()).length > 0) {
       badges.push({
         key: 'elements',
         label: `🧩 ${elements.filter((e) => e.name.trim()).length}`,
         accent: true,
       })
+    }
+    if (isKling4 && voices.length > 0) {
+      badges.push({ key: 'voices', label: `🎙 ${voices.length}`, accent: true })
     }
     if (isKling && (startFrame || endFrame)) {
       badges.push({ key: 'kframes', label: '🖼 Кадры', accent: true })
@@ -1955,7 +2107,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   }, [
     caps, mode, duration, aspectRatio, resolution, sound, isI2V, imgUrl,
     isVeo, veoMode, veoForcesDuration8, resizeMode,
-    isKling, multiShots, shots, elements, startFrame, endFrame,
+    isKling, multiShots, shots, elements, startFrame, endFrame, isKling4, isRefGallery, voices,
     isKling25, cfgScale,
     isMotion, motionVideoUrl, characterOrientation,
     isSeedance, seedanceImages, // 🆕
@@ -1969,6 +2121,108 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const getGenCost = (gen: any): number | undefined => {
     return gen.tokensUsed ?? gen.cost ?? gen.costInTokens ?? gen.tokensCost
   }
+
+  // Редактор элементов — общий для Kling 3.0 и Kling 4.0
+  const renderElementsField = () => (
+    <Field label={<><Tag size={12} /> Элементы ({elements.length}/{maxElements})</>}>
+      <div className="flex flex-col gap-2.5">
+        {elements.map((el, idx) => (
+          <ElementEditor
+            key={idx}
+            index={idx}
+            name={el.name}
+            description={el.description}
+            urls={el.urls}
+            uploading={
+              uploading &&
+              uploadTarget.current === 'element' &&
+              elementUploadIdxRef.current === idx
+            }
+            onName={(v) =>
+              setElements((prev) =>
+                prev.map((e, i) => (i === idx ? { ...e, name: v } : e)),
+              )
+            }
+            onDescription={(v) =>
+              setElements((prev) =>
+                prev.map((e, i) => (i === idx ? { ...e, description: v } : e)),
+              )
+            }
+            onAddImage={() => openPicker('element', idx)}
+            onRemoveImage={(imgIdx) =>
+              setElements((prev) =>
+                prev.map((e, i) =>
+                  i === idx
+                    ? { ...e, urls: e.urls.filter((_, j) => j !== imgIdx) }
+                    : e,
+                ),
+              )
+            }
+            nameMaxLength={isKling4 ? 20 : 50}
+            {...(isKling4
+              ? {
+                  videoUrl: el.videoUrl,
+                  uploadingVideo:
+                    uploadingRefVideo &&
+                    videoTargetRef.current === 'element' &&
+                    elementUploadIdxRef.current === idx,
+                  onAddVideo: () => {
+                    elementUploadIdxRef.current = idx
+                    videoTargetRef.current = 'element'
+                    refVideoFileRef.current?.click()
+                  },
+                  onRemoveVideo: () =>
+                    setElements((prev) =>
+                      prev.map((e, i) => (i === idx ? { ...e, videoUrl: undefined, videoDuration: undefined } : e)),
+                    ),
+                  voiceUrl: el.voiceUrl,
+                  uploadingVoice:
+                    uploadingRefAudio &&
+                    audioTargetRef.current === 'element-voice' &&
+                    elementUploadIdxRef.current === idx,
+                  onAddVoice: () => {
+                    elementUploadIdxRef.current = idx
+                    audioTargetRef.current = 'element-voice'
+                    refAudioFileRef.current?.click()
+                  },
+                  onRemoveVoice: () =>
+                    setElements((prev) =>
+                      prev.map((e, i) => (i === idx ? { ...e, voiceUrl: undefined } : e)),
+                    ),
+                }
+              : {})}
+            onRemove={() => {
+              setElements((prev) => prev.filter((_, i) => i !== idx))
+              haptic('light')
+            }}
+          />
+        ))}
+        {elements.length < maxElements && (
+          <button
+            className="
+              flex items-center justify-center gap-1.5
+              py-2.5 rounded-[var(--radius-xs)]
+              border-[1.5px] border-dashed border-white/[0.12]
+              bg-white/[0.02] text-white/40 text-[12px] font-medium
+              cursor-pointer transition-all active:scale-[0.98]
+              active:bg-white/[0.06]
+            "
+            onClick={() => {
+              setElements((prev) => [...prev, { name: '', description: '', urls: [] }])
+              haptic('light')
+            }}
+          >
+            <Plus size={14} /> Добавить элемент
+          </button>
+        )}
+      </div>
+      <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+        Элемент = персонаж/объект с 2-4 фото. Ссылайтесь в промпте через{' '}
+        <b className="text-white/50">@имя</b>. Нужно 2-4 изображения.
+        {isKling4 && ' Имя — латиницей, цифрами и _, до 20 символов. Первое фото — главный ракурс. Вместо фото можно дать видео персонажа (3–8с, одним планом) — тогда генерация считается по тарифу «с видео». К персонажу можно привязать голос.'}
+      </div>
+    </Field>
+  )
 
   /* ─── Render ─── */
 
@@ -2824,70 +3078,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     </Field>
                   )}
 
-                  <Field label={<><Tag size={12} /> Элементы ({elements.length}/3)</>}>
-                    <div className="flex flex-col gap-2.5">
-                      {elements.map((el, idx) => (
-                        <ElementEditor
-                          key={idx}
-                          index={idx}
-                          name={el.name}
-                          description={el.description}
-                          urls={el.urls}
-                          uploading={
-                            uploading &&
-                            uploadTarget.current === 'element' &&
-                            elementUploadIdxRef.current === idx
-                          }
-                          onName={(v) =>
-                            setElements((prev) =>
-                              prev.map((e, i) => (i === idx ? { ...e, name: v } : e)),
-                            )
-                          }
-                          onDescription={(v) =>
-                            setElements((prev) =>
-                              prev.map((e, i) => (i === idx ? { ...e, description: v } : e)),
-                            )
-                          }
-                          onAddImage={() => openPicker('element', idx)}
-                          onRemoveImage={(imgIdx) =>
-                            setElements((prev) =>
-                              prev.map((e, i) =>
-                                i === idx
-                                  ? { ...e, urls: e.urls.filter((_, j) => j !== imgIdx) }
-                                  : e,
-                              ),
-                            )
-                          }
-                          onRemove={() => {
-                            setElements((prev) => prev.filter((_, i) => i !== idx))
-                            haptic('light')
-                          }}
-                        />
-                      ))}
-                      {elements.length < 3 && (
-                        <button
-                          className="
-                            flex items-center justify-center gap-1.5
-                            py-2.5 rounded-[var(--radius-xs)]
-                            border-[1.5px] border-dashed border-white/[0.12]
-                            bg-white/[0.02] text-white/40 text-[12px] font-medium
-                            cursor-pointer transition-all active:scale-[0.98]
-                            active:bg-white/[0.06]
-                          "
-                          onClick={() => {
-                            setElements((prev) => [...prev, { name: '', description: '', urls: [] }])
-                            haptic('light')
-                          }}
-                        >
-                          <Plus size={14} /> Добавить элемент
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                      Элемент = персонаж/объект с 2-4 фото. Ссылайтесь в промпте через{' '}
-                      <b className="text-white/50">@имя</b>. Нужно 2-4 изображения.
-                    </div>
-                  </Field>
+                  {renderElementsField()}
 
                   <Field
                     label={
@@ -3086,7 +3277,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ═══ SEEDANCE / WAN 3.0 ═══ */}
-              {(isSeedance || isWan3) && (
+              {(isSeedance || isRefGallery) && (
                 <>
                   {/* 🆕 Множественные референс-фото */}
                   <Field
@@ -3108,10 +3299,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                             alt=""
                             className="w-full h-full object-cover rounded-[10px] border border-white/[0.08] block"
                           />
-                          {/* Бейдж @ImageN для Seedance 2 (референсы), «Image N» для Wan 3.0 */}
-                          {(isSeedance2 || isWan3) && (
+                          {/* Бейдж @ImageN для Seedance 2 (референсы), «Image N» для Wan 3.0, @image_N для Kling 4.0 */}
+                          {(isSeedance2 || isRefGallery) && (
                             <span className="absolute bottom-1 left-1 text-[9px] font-semibold bg-black/70 text-white px-1.5 py-0.5 rounded">
-                              {isWan3 ? `Image ${idx + 1}` : `@Image${idx + 1}`}
+                              {isKling4 ? `@image_${idx + 1}` : isWan3 ? `Image ${idx + 1}` : `@Image${idx + 1}`}
                             </span>
                           )}
                           <button
@@ -3149,13 +3340,15 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
                       {isSeedance15
                         ? 'Без фото — видео по тексту. С 1-2 фото — оживление кадра / переход.'
+                        : isKling4
+                          ? `До ${seedanceMaxImages} фото. Ссылайтесь в промпте как @image_1, видео — @video_1.`
                         : isWan3
                           ? `До ${seedanceMaxImages} фото. Ссылайтесь в промпте как «Image 1», видео — «Video 1».`
                           : `До ${seedanceMaxImages} фото. Ссылайтесь в промпте через @Image1, @Image2…`}
                     </div>
                   </Field>
 
-                  {(isSeedance25 || isWan3) && (
+                  {(isSeedance25 || isRefGallery) && (
                       <Field label={<><Film size={12} /> Начальный / конечный кадр (опц.)</>}>
                         <div className="grid grid-cols-2 gap-2.5">
                           <FrameSlot
@@ -3180,7 +3373,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           />
                         </div>
                         <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                          {isWan3
+                          {isKling4
+                            ? 'Видео начнётся с этого кадра (и придёт к конечному). В промпте — @first_frame и @last_frame. Нельзя вместе с референс-фото и видео.'
+                            : isWan3
                             ? 'Видео начнётся с этого кадра (и придёт к конечному). Нельзя вместе с референс-фото и видео.'
                             : 'Отдельно от референс-фото выше. Задаёт конкретный начальный и/или конечный кадр видео (переход между ними). Необязательно.'}
                         </div>
@@ -3252,7 +3447,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                   )}
 
                   {/* 2 / 2-fast / Wan 3.0: видео-референсы */}
-                  {(isSeedance2 || isWan3) && (
+                  {(isSeedance2 || isRefGallery) && (
                     <Field label={<><Film size={12} /> Видео-референсы ({refVideos.length}/{maxRefVideos})</>}>
                       <div className="grid grid-cols-3 gap-2">
                         {refVideos.map((url, idx) => (
@@ -3288,7 +3483,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                               cursor-pointer transition-all active:bg-white/[0.07]
                               disabled:opacity-50
                             "
-                            onClick={() => refVideoFileRef.current?.click()}
+                            onClick={() => {
+                              videoTargetRef.current = 'ref'
+                              refVideoFileRef.current?.click()
+                            }}
                             disabled={uploadingRefVideo}
                           >
                             {uploadingRefVideo ? (
@@ -3301,12 +3499,91 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         )}
                       </div>
                       <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                        MP4/MOV, до 50MB. Суммарно ≤ {refVideoMaxSeconds} секунд.
+                        {isKling4
+                          ? 'MP4/MOV, до 50MB, каждое 2–30 секунд. Вход тарифицируется не меньше длины результата.'
+                          : `MP4/MOV, до 50MB. Суммарно ≤ ${refVideoMaxSeconds} секунд.`}
                         {refVideos.length > 0 && refVideoSeconds > 0 && (
                           <span className="text-[var(--accent-yellow)]/70">
                             {' '}Учтено: {refVideoSeconds}с → тарифицируются вместе с видео.
                           </span>
                         )}
+                      </div>
+                    </Field>
+                  )}
+
+                  {isKling4 && refVideos.length > 0 && (
+                    <Field label={<><Volume2 size={12} /> Звук из видео</>}>
+                      <ToggleRow
+                        active={keepOriginalSound}
+                        onLabel={<>🔊 Оставить</>}
+                        offLabel={<>🎵 Сгенерировать новый</>}
+                        onChange={(v) => { setKeepOriginalSound(v); haptic('light') }}
+                      />
+                      <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                        Без видео-референса звук генерируется всегда.
+                      </div>
+                    </Field>
+                  )}
+
+                  {isKling4 && renderElementsField()}
+
+                  {isKling4 && (
+                    <Field label={<><Volume2 size={12} /> Голоса ({voices.length}/{maxVoices})</>}>
+                      <div className="flex flex-col gap-1.5">
+                        {voices.map((v, idx) => (
+                          <div
+                            key={v.url + idx}
+                            className="flex flex-col gap-1.5 p-2 rounded-[8px] border border-white/[0.08] bg-white/[0.03]"
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                value={v.name}
+                                onChange={(e) =>
+                                  setVoices((prev) =>
+                                    prev.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)),
+                                  )
+                                }
+                                placeholder="Имя (напр. Narrator)"
+                                maxLength={20}
+                                className="
+                                  flex-1 min-w-0 px-2.5 py-1.5 rounded-[8px]
+                                  border border-white/[0.08] bg-white/[0.03]
+                                  text-[12px] text-white placeholder:text-white/30
+                                  outline-none focus:border-[var(--accent-yellow)]
+                                "
+                              />
+                              <button
+                                className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0"
+                                onClick={() => setVoices((p) => p.filter((_, i) => i !== idx))}
+                              >
+                                <X size={11} />
+                              </button>
+                            </div>
+                            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                            <audio src={v.url} className="w-full h-7" controls />
+                          </div>
+                        ))}
+                        {voices.length < maxVoices && (
+                          <button
+                            className="flex items-center justify-center gap-1.5 py-2.5 rounded-[8px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.02] text-white/40 text-[12px] cursor-pointer transition-all active:bg-white/[0.06] disabled:opacity-50"
+                            onClick={() => {
+                              audioTargetRef.current = 'voice'
+                              refAudioFileRef.current?.click()
+                            }}
+                            disabled={uploadingRefAudio}
+                          >
+                            {uploadingRefAudio ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Plus size={16} />
+                            )}
+                            Добавить голос
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                        Образец голоса (MP3/WAV/AAC/OGG, до 10MB). Ссылайтесь в промпте через{' '}
+                        <b className="text-white/50">@имя</b>: «@Narrator говорит…». В записи должна быть речь.
                       </div>
                     </Field>
                   )}
@@ -3334,7 +3611,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                         {refAudios.length < maxRefAudios && (
                           <button
                             className="flex items-center justify-center gap-1.5 py-2.5 rounded-[8px] border-[1.5px] border-dashed border-white/[0.12] bg-white/[0.02] text-white/40 text-[12px] cursor-pointer transition-all active:bg-white/[0.06] disabled:opacity-50"
-                            onClick={() => refAudioFileRef.current?.click()}
+                            onClick={() => {
+                              audioTargetRef.current = 'ref'
+                              refAudioFileRef.current?.click()
+                            }}
                             disabled={uploadingRefAudio}
                           >
                             {uploadingRefAudio ? (
@@ -3391,7 +3671,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                           cursor-pointer transition-all active:bg-white/[0.07]
                           disabled:opacity-50
                         "
-                        onClick={() => refVideoFileRef.current?.click()}
+                        onClick={() => {
+                          videoTargetRef.current = 'ref'
+                          refVideoFileRef.current?.click()
+                        }}
                         disabled={uploadingRefVideo}
                       >
                         {uploadingRefVideo ? (
@@ -3470,7 +3753,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
               )}
 
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && !isKling && !isKling25 && !isMotion && !isSeedance && !isWan3 && !isSora && caps.supportsImageInput && (
+              {!isVeo && !isKling && !isKling25 && !isMotion && !isSeedance && !isRefGallery && !isSora && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -3684,20 +3967,31 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             if (endFrame) chips.push({ url: endFrame, label: 'Конец', onRemove: () => setEndFrame('') })
           } else if (isMotion) {
             if (imgUrl) chips.push({ url: imgUrl, label: 'Фото', onRemove: () => setImgUrl('') })
-          } else if (isSeedance || isWan3) {
+          } else if (isSeedance || isRefGallery) {
             seedanceImages.forEach((url, idx) =>
               chips.push({
                 url,
-                label: isSeedance2 ? `@Image${idx + 1}` : isWan3 ? `Image ${idx + 1}` : `Фото ${idx + 1}`,
+                label: isSeedance2 ? `@Image${idx + 1}` : isKling4 ? `@image_${idx + 1}` : isWan3 ? `Image ${idx + 1}` : `Фото ${idx + 1}`,
                 onRemove: () => setSeedanceImages((p) => p.filter((_, i) => i !== idx)),
               }),
             )
             // 🆕 first/last кадр Seedance 2.5
-            if ((isSeedance25 || isWan3) && seedanceFirstFrame) {
+            if ((isSeedance25 || isRefGallery) && seedanceFirstFrame) {
               chips.push({ url: seedanceFirstFrame, label: 'Старт', onRemove: () => setSeedanceFirstFrame('') })
             }
-            if ((isSeedance25 || isWan3) && seedanceLastFrame) {
+            if ((isSeedance25 || isRefGallery) && seedanceLastFrame) {
               chips.push({ url: seedanceLastFrame, label: 'Конец', onRemove: () => setSeedanceLastFrame('') })
+            }
+            if (isKling4) {
+              elements.forEach((el, idx) => {
+                if (el.urls[0]) {
+                  chips.push({
+                    url: el.urls[0],
+                    label: el.name ? `@${el.name}` : `Элемент ${idx + 1}`,
+                    onRemove: () => setElements((p) => p.filter((_, i) => i !== idx)),
+                  })
+                }
+              })
             }
           } else if (isSora) {
             // 🆕 чипы из множественной галереи Sora
@@ -3752,9 +4046,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         <div className="flex items-center gap-2">
           {/* Кнопка загрузки */}
           {((isVeo && veoMode !== 'text') ||
-            (!isVeo && !isKling && !isMotion && !isSeedance && !isWan3 && !isSora && caps.supportsImageInput) ||
+            (!isVeo && !isKling && !isMotion && !isSeedance && !isRefGallery && !isSora && caps.supportsImageInput) ||
             (isKling25) ||
-            (isSeedance || isWan3) ||
+            (isSeedance || isRefGallery) ||
             (isSora)) && (
               <button
                 className="
@@ -4333,6 +4627,15 @@ function ElementEditor({
   onAddImage,
   onRemoveImage,
   onRemove,
+  nameMaxLength = 50,
+  videoUrl,
+  uploadingVideo = false,
+  onAddVideo,
+  onRemoveVideo,
+  voiceUrl,
+  uploadingVoice = false,
+  onAddVoice,
+  onRemoveVoice,
 }: {
   index: number
   name: string
@@ -4344,6 +4647,16 @@ function ElementEditor({
   onAddImage: () => void
   onRemoveImage: (idx: number) => void
   onRemove: () => void
+  nameMaxLength?: number
+  // Kling 4.0: видео-персонаж вместо фото и привязанный голос
+  videoUrl?: string
+  uploadingVideo?: boolean
+  onAddVideo?: () => void
+  onRemoveVideo?: () => void
+  voiceUrl?: string
+  uploadingVoice?: boolean
+  onAddVoice?: () => void
+  onRemoveVoice?: () => void
 }) {
   return (
     <div className="flex flex-col gap-2 p-2.5 rounded-[10px] border border-white/[0.06] bg-white/[0.02]">
@@ -4360,7 +4673,7 @@ function ElementEditor({
         value={name}
         onChange={(e) => onName(e.target.value)}
         placeholder="Имя (напр. CatHero)"
-        maxLength={50}
+        maxLength={nameMaxLength}
         className="
           w-full px-2.5 py-2 rounded-[8px]
           border border-white/[0.08] bg-white/[0.03]
@@ -4380,37 +4693,98 @@ function ElementEditor({
           outline-none focus:border-[var(--accent-yellow)]
         "
       />
-      <div className="grid grid-cols-4 gap-1.5">
-        {urls.map((u, i) => (
-          <div key={u + i} className="relative aspect-square">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={u} alt="" className="w-full h-full object-cover rounded-[6px] border border-white/[0.08] block" />
+      {videoUrl ? (
+        <div className="relative aspect-video rounded-[6px] overflow-hidden border border-white/[0.08]">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video src={videoUrl} className="w-full h-full object-cover bg-black block" muted playsInline />
+          <button
+            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+            onClick={onRemoveVideo}
+          >
+            <X size={9} />
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-1.5">
+          {urls.map((u, i) => (
+            <div key={u + i} className="relative aspect-square">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={u} alt="" className="w-full h-full object-cover rounded-[6px] border border-white/[0.08] block" />
+              <button
+                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                onClick={() => onRemoveImage(i)}
+              >
+                <X size={9} />
+              </button>
+            </div>
+          ))}
+          {urls.length < 4 && (
             <button
-              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
-              onClick={() => onRemoveImage(i)}
+              onClick={onAddImage}
+              disabled={uploading}
+              className="
+                aspect-square rounded-[6px]
+                border-[1.5px] border-dashed border-white/[0.12]
+                bg-white/[0.03] text-white/30
+                flex items-center justify-center cursor-pointer
+                active:bg-white/[0.07] disabled:opacity-50
+              "
+            >
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            </button>
+          )}
+        </div>
+      )}
+      {onAddVideo && !videoUrl && urls.length === 0 && (
+        <button
+          onClick={onAddVideo}
+          disabled={uploadingVideo}
+          className="
+            flex items-center justify-center gap-1.5 py-1.5 rounded-[6px]
+            border-[1.5px] border-dashed border-white/[0.12]
+            bg-white/[0.02] text-white/40 text-[11px]
+            active:bg-white/[0.06] disabled:opacity-50
+          "
+        >
+          {uploadingVideo ? <Loader2 size={12} className="animate-spin" /> : <Film size={12} />}
+          или видео персонажа (3–8с)
+        </button>
+      )}
+      {onAddVoice && (
+        voiceUrl ? (
+          <div className="flex items-center gap-2 py-1 px-2 rounded-[6px] border border-white/[0.08] bg-white/[0.03]">
+            <Volume2 size={12} className="text-white/40 shrink-0" />
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <audio src={voiceUrl} className="flex-1 min-w-0 h-7" controls />
+            <button
+              className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0"
+              onClick={onRemoveVoice}
             >
               <X size={9} />
             </button>
           </div>
-        ))}
-        {urls.length < 4 && (
+        ) : (
           <button
-            onClick={onAddImage}
-            disabled={uploading}
+            onClick={onAddVoice}
+            disabled={uploadingVoice}
             className="
-              aspect-square rounded-[6px]
+              flex items-center justify-center gap-1.5 py-1.5 rounded-[6px]
               border-[1.5px] border-dashed border-white/[0.12]
-              bg-white/[0.03] text-white/30
-              flex items-center justify-center cursor-pointer
-              active:bg-white/[0.07] disabled:opacity-50
+              bg-white/[0.02] text-white/40 text-[11px]
+              active:bg-white/[0.06] disabled:opacity-50
             "
           >
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            {uploadingVoice ? <Loader2 size={12} className="animate-spin" /> : <Volume2 size={12} />}
+            Голос персонажа (опц.)
           </button>
-        )}
-      </div>
+        )
+      )}
       <div className="text-[9px] text-white/30">
-        Нужно 2-4 фото. {urls.length}/4
+        {videoUrl
+          ? 'Персонаж по видео.'
+          : onAddVideo
+            ? `2-4 фото или одно видео. ${urls.length}/4`
+            : `Нужно 2-4 фото. ${urls.length}/4`}
       </div>
     </div>
   )

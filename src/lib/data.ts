@@ -106,6 +106,7 @@ export const modelsByPriority: ModelItem[] = [
   { id: 'v2', name: 'Veo 3.1 Pro', slug: 'veo-3.1-pro', provider: 'Google', category: 'video', description: 'Премиум версия Veo, до 4K', cost: 75.00, hasVariants: true },
   { id: 'v3', name: 'Sora 2', slug: 'sora-2', provider: 'OpenAI', category: 'video', description: 'Текст → видео, 10–15 сек', cost: 13.00, hasVariants: true },
   { id: 'v4', name: 'Sora 2 Pro', slug: 'sora-2-pro', provider: 'OpenAI', category: 'video', description: 'Премиум HD/Standard, 15–25 сек', cost: 86.00, hasVariants: true },
+  { id: 'v20', name: 'Kling 4.0', slug: 'kling-4.0', provider: 'Kuaishou', category: 'video', description: 'Референсы фото/видео, ключевые кадры, звук, до 30с', cost: 8.55, hasVariants: true },
   { id: 'v5', name: 'Kling 3.0', slug: 'kling-3.0', provider: 'Kuaishou', category: 'video', description: 'Видео со звуком, 720–1080p', cost: 4.30, hasVariants: true },
   { id: 'v6', name: 'Kling 3.0 Motion', slug: 'kling-3.0-motion', provider: 'Kuaishou', category: 'video', description: 'Motion control, 720–1080p', cost: 9.00, hasVariants: true },
   { id: 'v7', name: 'Runway Gen-3', slug: 'runway', provider: 'Runway', category: 'video', description: 'Кинематографичное видео, 5–10с', cost: 6.00, hasVariants: true },

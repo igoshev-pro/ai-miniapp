@@ -375,6 +375,10 @@ export function useGeneration() {
         if (s.klingElements && (s.klingElements as any[]).length > 0) {
           body.klingElements = s.klingElements
         }
+        if (s.klingVoices && (s.klingVoices as any[]).length > 0) {
+          body.klingVoices = s.klingVoices
+        }
+        if (s.keepOriginalSound !== undefined) body.keepOriginalSound = s.keepOriginalSound
         if (s.cfgScale !== undefined) body.cfgScale = s.cfgScale
         if (s.nsfwChecker !== undefined) body.nsfwChecker = s.nsfwChecker
         if (s.negativePrompt) body.negativePrompt = s.negativePrompt
