@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/auth.store'
 import { useUserStore } from '@/stores/user.store'
 import { useModelsStore } from '@/stores/models.store'
 import { toast } from '@/stores/toast.store'
+import { trackFirstGeneration } from '@/lib/metrika'
 import { allModels as fallbackModels } from '@/lib/data'
 
 
@@ -84,6 +85,7 @@ export function useGeneration() {
     if (shownToasts.has(generationId)) return
     shownToasts.add(generationId)
     toast.success('Генерация завершена! 🎉')
+    trackFirstGeneration(useUserStore.getState().user)
   }, [])
 
 

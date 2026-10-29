@@ -5,6 +5,7 @@ import { apiClient, ENDPOINTS, streamChat, isApiError } from '@/lib/api'
 import { useChatStore, type Chat, type ChatMessage } from '@/stores/chat.store'
 import { useUserStore } from '@/stores/user.store'
 import { toast } from '@/stores/toast.store'
+import { trackFirstGeneration } from '@/lib/metrika'
 import { useModelsStore } from '@/stores/models.store'
 import { allModels as fallbackModels } from '@/lib/data'
 import { useAuthStore } from '@/stores'
@@ -251,6 +252,7 @@ const loadChats = useCallback(async () => {
           }
           store.addMessage(assistantMessage)
           store.resetStreaming()
+          trackFirstGeneration(useUserStore.getState().user)
 
           // Обновляем баланс
           if (data.tokensUsed && user) {

@@ -6,6 +6,7 @@ import { TelegramProvider } from '@/context/TelegramContext'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 import { ModelsInitializer } from '@/components/providers/ModelsInitializer'
 import { PwaRegister } from '@/components/providers/PwaRegister'
+import { YandexMetrika } from '@/components/providers/YandexMetrika'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -49,6 +50,7 @@ export default function RootLayout({
         <TelegramProvider>
           <ModelsInitializer />
           <PwaRegister />
+          <YandexMetrika />
           {children}
           <ToastContainer />
         </TelegramProvider>
