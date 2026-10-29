@@ -127,6 +127,9 @@ const MODE_META: Record<string, { label: string; icon: typeof Rocket }> = {
   fast: { label: 'Быстрый', icon: Rocket },
   turbo: { label: 'Турбо', icon: Rocket },
   relax: { label: 'Relax', icon: Gauge },
+  // Genjutsu (Higgsfield)
+  'motion-transfer': { label: 'Перенос движения', icon: Film },
+  'object-swap': { label: 'Замена объекта', icon: Images },
 }
 
 const VEO_MODE_META: Record<VeoMode, { label: string; icon: typeof Type }> = {
@@ -277,6 +280,11 @@ const FALLBACK: Record<string, FallbackCaps> = {
   'gemini-omni-video': {
     aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8, 10],
     resolutions: ['720p', '1080p', '4k'], modes: [], supportsImageInput: true, maxInputImages: 1,
+    supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
+  },
+  'genjutsu': {
+    aspectRatios: [], durations: [], resolutions: ['480p', '720p', '1080p'],
+    modes: ['motion-transfer', 'object-swap'], supportsImageInput: true, maxInputImages: 8,
     supportsSound: false, supportsRemoveWatermark: false, supportsResizeMode: false,
   },
 }
@@ -439,6 +447,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   // Motion Control
   const [motionVideoUrl, setMotionVideoUrl] = useState('')
   const [motionVideoDuration, setMotionVideoDuration] = useState<number | null>(null)
+  // Genjutsu берёт видео из того же загрузчика; площадь кадра нужна для «Замены объекта»
+  const [motionVideoPixels, setMotionVideoPixels] = useState<number | null>(null)
   const [characterOrientation, setCharacterOrientation] = useState<'video' | 'image'>('video')
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const videoFileRef = useRef<HTMLInputElement>(null)
@@ -515,6 +525,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   // 🆕 Sora 2 / Sora 2 Pro — поддерживают до 10 референс-изображений
   const isSora = slug === 'sora-2' || slug === 'sora-2-pro'
+
+  // 🆕 Genjutsu (Higgsfield): исходное видео (загрузчик Motion Control) +
+  // 1–8 фото (галерея Sora — тот же стейт soraImages и цель 'sora')
+  const isGenjutsu = slug === 'genjutsu'
+  const isImageGallery = isSora || isGenjutsu
 
   // Topaz Video Upscale — исходное видео на апскейл
   const [topazVideoUrl, setTopazVideoUrl] = useState('')
@@ -663,6 +678,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     return Math.min(600, Math.max(1, Math.ceil(topazVideoDuration)))
   }, [isTopaz, topazVideoDuration])
 
+  // 🆕 Genjutsu: ролик той же длины, что исходник (4–30с, длиннее Higgsfield режет)
+  const genjutsuDurationSec = useMemo(() => {
+    if (!isGenjutsu || !motionVideoDuration) return 0
+    return Math.min(30, Math.max(4, Math.ceil(motionVideoDuration)))
+  }, [isGenjutsu, motionVideoDuration])
+
   // 🆕 Сырая сумма шотов (до clamp) — для подсказки если превышен максимум
   const rawShotsSum = useMemo(() => {
     if (!isKling || !multiShots) return 0
@@ -706,8 +727,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     } else if ((isSeedance || isRefGallery) && (seedanceImages.length > 0 || imgUrl || seedanceFirstFrame)) {
       // 🆕 для Seedance учитываем и галерею, и legacy imgUrl
       p.hasInputImage = true
-    } else if (isSora && (soraImages.length > 0 || imgUrl)) {
-      // 🆕 для Sora учитываем галерею
+    } else if (isImageGallery && (soraImages.length > 0 || imgUrl)) {
+      // 🆕 для Sora (и Genjutsu) учитываем галерею
       p.hasInputImage = true
     } else if (imgUrl) {
       p.hasInputImage = true
@@ -733,6 +754,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       if (hasVideoInput) p.refVideoSeconds = refVideoSeconds
     }
 
+    if (isGenjutsu) {
+      // цена = ставка[resolution] × длина исходника (videoRefPricing на бэке)
+      p.videoRef = true
+      if (genjutsuDurationSec) p.duration = genjutsuDurationSec
+    }
+
     if (isTopaz) {
       // 🔧 бэк принимает duration только 1..600 — длинное видео режем,
       //    иначе POST падает с 400 (валидация DTO)
@@ -746,6 +773,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     mode, duration, aspectRatio, resolution, sound, removeWatermark,
     imgUrl, caps, isVeo, veoMode, startFrame, refImages, veoForcesDuration8,
     isSeedance2, refVideos, refVideoSeconds, seedanceImages, isSeedance, isMotion, motionEffectiveDuration, isSora, soraImages, isOmni, isRefGallery, hasVideoInput, // 🆕
+    isImageGallery, isGenjutsu, genjutsuDurationSec,
     isKling, multiShots, klingMultiDuration, // 🆕
     isTopaz, topazVideoDuration, topazDurationSec,
     autoDurationActive, autoDurationSec,
@@ -909,6 +937,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
     setMotionVideoUrl('')
     setMotionVideoDuration(null)
+    setMotionVideoPixels(null)
     setCharacterOrientation(saved.characterOrientation ?? 'video')
 
     setTopazVideoUrl('')
@@ -1144,10 +1173,12 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       }
 
       const localUrl = URL.createObjectURL(file)
+      let probePixels: number | null = null
       const probeDuration = await new Promise<number | null>((resolve) => {
         const v = document.createElement('video')
         v.preload = 'metadata'
         v.onloadedmetadata = () => {
+          if (v.videoWidth && v.videoHeight) probePixels = v.videoWidth * v.videoHeight
           resolve(isFinite(v.duration) ? v.duration : null)
           URL.revokeObjectURL(localUrl)
         }
@@ -1155,9 +1186,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         v.src = localUrl
       })
 
+      // Higgsfield Genjutsu не принимает исходник короче 4 секунд
+      const minSec = isGenjutsu ? 4 : 3
       if (probeDuration !== null) {
-        if (probeDuration < 3) {
-          toast.error('Видео должно быть не короче 3 секунд')
+        if (probeDuration < minSec) {
+          toast.error(`Видео должно быть не короче ${minSec} секунд`)
           return
         }
         if (probeDuration > 30) {
@@ -1182,6 +1215,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
         setMotionVideoUrl(url)
         setMotionVideoDuration(probeDuration)
+        setMotionVideoPixels(probePixels)
         haptic('light')
         toast.success('Видео загружено')
       } catch (e: any) {
@@ -1190,7 +1224,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         setUploadingVideo(false)
       }
     },
-    [haptic],
+    [haptic, isGenjutsu],
   )
 
   const uploadTopazVideo = useCallback(
@@ -1459,9 +1493,9 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (isVeo && veoMode === 'reference') return 'ref'
     if (isKling25) return 'single'
     if (isSeedance || isRefGallery) return 'seedance'
-    if (isSora) return 'sora'
+    if (isImageGallery) return 'sora'
     return 'single'
-  }, [isVeo, veoMode, isKling25, isSeedance, isRefGallery, isSora])
+  }, [isVeo, veoMode, isKling25, isSeedance, isRefGallery, isImageGallery])
 
   // Topaz принимает видео, а не картинки — там перетаскивание фото ни к чему.
   const dropEnabled = !isTopaz
@@ -1629,7 +1663,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
 
   const doGen = useCallback(async () => {
     const prompt = input.trim()
-    if (!prompt && !isTopaz) return
+    // Topaz и Genjutsu работают без промпта
+    if (!prompt && !isTopaz && !isGenjutsu) return
 
     // Seedance 2.5 принимает промпт до 30 000 символов, остальные — до 10 000
     const maxPromptLength = isSeedance25 ? 30000 : isKling4 ? 8000 : 10000
@@ -1751,6 +1786,22 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       return
     }
 
+    if (isGenjutsu) {
+      if (!motionVideoUrl) {
+        toast.warning('Загрузите исходное видео')
+        return
+      }
+      if (soraImages.length === 0) {
+        toast.warning(mode === 'object-swap' ? 'Добавьте фото нового объекта' : 'Добавьте фото персонажа')
+        return
+      }
+      // Higgsfield: для замены объекта кадр не меньше 409 600 пикселей (≈ 854×480)
+      if (mode === 'object-swap' && motionVideoPixels !== null && motionVideoPixels < 409600) {
+        toast.warning('Для замены объекта видео слишком маленькое — нужно хотя бы 480p (854×480)')
+        return
+      }
+    }
+
     if (!isFreeForUser && balance < displayedCost) {
       toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
       hapticNotification('error')
@@ -1831,6 +1882,11 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
           elementInputUrls: el.urls,
         }))
       if (validElements.length) s.klingElements = validElements
+    } else if (isGenjutsu) {
+      s.videoUrls = [motionVideoUrl]
+      s.imageUrls = soraImages.slice(0, soraMaxImages)
+      s.duration = genjutsuDurationSec || 5
+      // s.mode (motion-transfer / object-swap) и s.resolution — generic-блоком выше
     } else if (isTopaz) {
       s.videoUrls = [topazVideoUrl]
       s.duration = topazDurationSec
@@ -1957,6 +2013,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     seedanceImages, seedanceMaxImages, // 🆕
     isSora, soraImages, soraMaxImages, // 🆕
     isTopaz, topazVideoUrl, topazVideoDuration, topazDurationSec,
+    isGenjutsu, motionVideoPixels, genjutsuDurationSec,
     isSeedance25, seedanceFirstFrame, seedanceLastFrame, seedanceReturnLastFrame, seedanceOutputFormat,
     autoDurationActive, autoDurationSec,
   ])
@@ -1987,13 +2044,14 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const genDisabled =
     // Topaz только апскейлит загруженное видео — промпт там не нужен,
     // достаточно самого файла (проверяется ниже, topazVideoUrl).
-    (!isTopaz && !input.trim() && !klingMultiInvalid && !(isKling && multiShots)) ||
+    (!isTopaz && !isGenjutsu && !input.trim() && !klingMultiInvalid && !(isKling && multiShots)) ||
     (isKling && multiShots && klingMultiInvalid) ||
     generating ||
     (isVeo && veoMode === 'frames' && !startFrame) ||
     (isVeo && veoMode === 'reference' && refImages.length === 0) ||
     (!isVeo && !isKling && requiresInputImage && !imgUrl) ||
-    (isTopaz && !topazVideoUrl)   // 🆕
+    (isTopaz && !topazVideoUrl) ||  // 🆕
+    (isGenjutsu && (!motionVideoUrl || soraImages.length === 0))
 
   /* ── Badges ── */
 
@@ -2026,6 +2084,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     if (isTopaz && topazVideoUrl) {
       badges.push({ key: 'topaz-vid', label: '🎬 Видео', accent: true })
     }
+    if (isGenjutsu && motionVideoUrl) {
+      badges.push({
+        key: 'gj-vid',
+        label: genjutsuDurationSec ? `🎬 Видео · ${genjutsuDurationSec} сек` : '🎬 Видео',
+        accent: true,
+      })
+    }
     // 🆕 Видео-референсы (Seedance 2/2-fast/2.5, Omni) — сами превью лежат
     // в панели настроек, поэтому снаружи показываем хотя бы счётчик.
     if (refVideos.length > 0) {
@@ -2046,10 +2111,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
       // 🆕 для Seedance и Sora показываем количество фото
       const cnt = (isSeedance || isRefGallery)
         ? seedanceImages.length
-        : isSora
+        : isImageGallery
           ? soraImages.length
           : (imgUrl ? 1 : 0)
-      const isMulti = (isSeedance || isRefGallery || isSora) && cnt > 1
+      const isMulti = (isSeedance || isRefGallery || isImageGallery) && cnt > 1
       badges.push({
         key: 'img2vid',
         label: cnt > 0
@@ -2115,6 +2180,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     seedanceFirstFrame, seedanceLastFrame,
     refVideos, refAudios, // 🆕 счётчики референсов в бейджах
     isTopaz, topazVideoUrl,
+    isImageGallery, isGenjutsu, motionVideoUrl, genjutsuDurationSec,
     autoDurationActive, autoDurationSec,
   ])
 
@@ -2956,6 +3022,58 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
+              {/* ═══ GENJUTSU (Higgsfield) ═══ */}
+              {isGenjutsu && (
+                <Field label={<><Film size={12} /> Исходное видео</>}>
+                  {motionVideoUrl ? (
+                    <div className="relative rounded-[10px] overflow-hidden border border-white/[0.08]">
+                      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                      <video
+                        src={motionVideoUrl}
+                        className="w-full max-h-[180px] object-contain bg-black block"
+                        controls
+                        playsInline
+                      />
+                      <button
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center z-[2]"
+                        onClick={() => { setMotionVideoUrl(''); setMotionVideoDuration(null); setMotionVideoPixels(null) }}
+                      >
+                        <X size={13} />
+                      </button>
+                      {motionVideoDuration !== null && (
+                        <span className="absolute bottom-1.5 left-1.5 text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded">
+                          {Math.ceil(motionVideoDuration)}с
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      className="
+                        w-full py-6 rounded-[10px]
+                        border-[1.5px] border-dashed border-white/[0.12]
+                        bg-white/[0.03] text-white/30
+                        flex flex-col items-center justify-center gap-1.5 text-[12px]
+                        cursor-pointer transition-all
+                        active:bg-white/[0.07] active:border-white/[0.22]
+                        disabled:opacity-50
+                      "
+                      onClick={() => videoFileRef.current?.click()}
+                      disabled={uploadingVideo}
+                    >
+                      {uploadingVideo
+                        ? <Loader2 size={22} className="animate-spin" />
+                        : <Upload size={22} />}
+                      <span>{uploadingVideo ? 'Загрузка...' : 'Загрузить видео'}</span>
+                    </button>
+                  )}
+                  <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
+                    MP4 или MOV, 4–30 сек, до 100MB. Ролик получится той же длины
+                    (длиннее 30с — обрежется). Цена = ставка × длительность видео.
+                    {mode === 'object-swap' && ' Для замены объекта — не меньше 480p.'}
+                  </div>
+                </Field>
+              )}
+
               {/* ═══ KLING 3.0 ═══ */}
               {isKling && (
                 <>
@@ -3693,12 +3811,16 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 </Field>
               )}
 
-              {/* ═══ SORA 2 / SORA 2 PRO ═══ */}
-              {isSora && (
+              {/* ═══ SORA 2 / SORA 2 PRO, GENJUTSU ═══ */}
+              {isImageGallery && (
                 <Field
                   label={
                     <>
-                      <ImageIcon size={12} /> Референс-изображения ({soraImages.length}/{soraMaxImages})
+                      <ImageIcon size={12} />{' '}
+                      {isGenjutsu
+                        ? (mode === 'object-swap' ? 'Фото нового объекта' : 'Фото персонажа')
+                        : 'Референс-изображения'}{' '}
+                      ({soraImages.length}/{soraMaxImages})
                     </>
                   }
                 >
@@ -3747,13 +3869,17 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                     )}
                   </div>
                   <div className="text-[10px] text-white/30 mt-1 leading-relaxed">
-                    До {soraMaxImages} референсов. Без фото — генерация по тексту.
+                    {isGenjutsu
+                      ? (mode === 'object-swap'
+                        ? `1–${soraMaxImages} фото объекта, которым заменить предмет в видео.`
+                        : `1–${soraMaxImages} фото — движения из видео перенесутся на этого персонажа.`)
+                      : `До ${soraMaxImages} референсов. Без фото — генерация по тексту.`}
                   </div>
                 </Field>
               )}
 
               {/* ─── Обычные модели: одиночное изображение ─── */}
-              {!isVeo && !isKling && !isKling25 && !isMotion && !isSeedance && !isRefGallery && !isSora && caps.supportsImageInput && (
+              {!isVeo && !isKling && !isKling25 && !isMotion && !isSeedance && !isRefGallery && !isImageGallery && caps.supportsImageInput && (
                 <Field label={<><ImageIcon size={12} /> Входное изображение</>}>
                   <div className="grid grid-cols-4 gap-2">
                     {imgUrl ? (
@@ -3993,8 +4119,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 }
               })
             }
-          } else if (isSora) {
-            // 🆕 чипы из множественной галереи Sora
+          } else if (isImageGallery) {
+            // 🆕 чипы из множественной галереи Sora / Genjutsu
             soraImages.forEach((url, idx) =>
               chips.push({
                 url,
@@ -4046,10 +4172,10 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
         <div className="flex items-center gap-2">
           {/* Кнопка загрузки */}
           {((isVeo && veoMode !== 'text') ||
-            (!isVeo && !isKling && !isMotion && !isSeedance && !isRefGallery && !isSora && caps.supportsImageInput) ||
+            (!isVeo && !isKling && !isMotion && !isSeedance && !isRefGallery && !isImageGallery && caps.supportsImageInput) ||
             (isKling25) ||
             (isSeedance || isRefGallery) ||
-            (isSora)) && (
+            (isImageGallery)) && (
               <button
                 className="
                 w-9 h-9 rounded-full
@@ -4085,6 +4211,8 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
                 ? 'Общий стиль / контекст (опционально)…'
                 : isMotion
                   ? 'Опишите сцену (опц., улучшает результат)…'
+                  : isGenjutsu
+                  ? 'Уточнения к результату (необязательно)…'
                   : isSeedance2 && seedanceImages.length > 0
                     ? 'Описание со ссылками на @Image1, @Image2…'
                     : 'Опишите видео...'

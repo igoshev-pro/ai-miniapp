@@ -121,6 +121,7 @@ export const modelsByPriority: ModelItem[] = [
   { id: 'v17', name: 'Gemini Omni 1.1 Flash', slug: 'gemini-omni-1.1-flash', provider: 'Google', category: 'video', description: 'Текст/фото → видео, 360p–4K', cost: 18.9, hasVariants: true },
   { id: 'v18', name: 'Wan 3.0', slug: 'wan-3.0', provider: 'Alibaba', category: 'video', description: 'Текст/фото/видео → видео, до 30с, звук', cost: 4.8, hasVariants: true },
   { id: 'v19', name: 'Wan 3.0 Prime', slug: 'wan-3.0-prime', provider: 'Alibaba', category: 'video', description: 'Ускоренная Wan 3.0, до 30с, звук', cost: 7.4, hasVariants: true },
+  { id: 'v21', name: 'Higgsfield Genjutsu', slug: 'genjutsu', provider: 'Higgsfield', category: 'video', description: 'Перенос движения на персонажа с фото, замена объекта в видео', cost: 76.32, hasVariants: true },
   { id: 'v16', name: 'Topaz Video Upscale', slug: 'topaz-video-upscale', provider: 'Topaz', category: 'video', description: 'AI-апскейл видео: 1x/2x/4x', cost: 3.3, hasVariants: true },
 
 
@@ -190,6 +191,7 @@ const MODEL_FAMILIES: [RegExp, string][] = [
   [/^hailuo/, 'Hailuo'],
   [/^seedance/, 'Seedance'],
   [/^topaz/, 'Topaz'],
+  [/^genjutsu/, 'Genjutsu'],
   [/^wan/, 'Wan'],
   [/^suno/, 'Suno'],
   [/^elevenlabs/, 'ElevenLabs'],

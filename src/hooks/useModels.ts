@@ -126,6 +126,7 @@ function guessProvider(slug: string): string {
   if (slug.includes('hailuo')) return 'MiniMax'
   if (slug.includes('suno')) return 'Suno'
   if (slug.includes('eleven')) return 'ElevenLabs'
+  if (slug.includes('genjutsu')) return 'Higgsfield'
   return 'AI'
 }
 

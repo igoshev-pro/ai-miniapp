@@ -70,6 +70,7 @@ const TICKER_B = [
   ['Hailuo 2.3 Pro', 'MiniMax'],
   ['Midjourney', 'v7'],
   ['Topaz', 'апскейл видео'],
+  ['Genjutsu', 'Higgsfield'],
   ['Perplexity Sonar', 'поиск'],
 ]
 
