@@ -26,51 +26,53 @@ const SUPPORT_LINK = 'https://t.me/spichki_ai_help'
  * (provider-registry.service.ts). Появится модель новее — меняем только здесь.
  */
 const FLAGSHIPS = {
-  text: ['GPT‑6 Astra', 'Claude Opus 4.8', 'Gemini 3.1 Pro', 'Grok 4.5'],
-  image: ['Nano Banana Pro', 'GPT Image 2.5', 'Seedream 5.0 Pro', 'Flux 2'],
-  video: ['Veo 3.1 Pro', 'Sora 2 Pro', 'Kling 3.0', 'Seedance 2.5'],
+  text: ['GPT‑6.1 Sol', 'Claude Opus 5.5', 'Gemini 3.1 Pro', 'Grok 4.5'],
+  image: ['Nano Banana 2.1', 'GPT Image 2.5', 'Seedream 5.0 Pro', 'Midjourney V7'],
+  video: ['Kling 4.0', 'Seedance 2.5', 'Wan 3.0 Prime', 'Gemini Omni Video', 'Veo 3.1', 'Sora 2 Pro', 'Genjutsu'],
   audio: ['Suno V5', 'ElevenLabs v3'],
 }
 const HERO_LIST = [
-  'GPT‑6',
-  'Claude Opus 4.8',
-  'Nano Banana Pro',
-  'Veo 3.1 Pro',
-  'Sora 2 Pro',
-  'Kling 3.0',
+  'GPT‑6.1',
+  'Claude Opus 5.5',
+  'Nano Banana 2.1',
+  'Kling 4.0',
   'Seedance 2.5',
+  'Veo 3.1',
+  'Sora 2 Pro',
   'Suno V5',
 ].join(', ')
 
 
 const TICKER_A = [
-  ['GPT‑6 Astra', 'OpenAI'],
-  ['Claude Opus 4.8', 'Anthropic'],
-  ['Nano Banana Pro', 'Google'],
-  ['Veo 3.1 Pro', 'Google'],
-  ['Sora 2 Pro', 'OpenAI'],
-  ['Kling 3.0', 'Kuaishou'],
+  ['GPT‑6.1 Sol', 'OpenAI'],
+  ['Claude Opus 5.5', 'Anthropic'],
+  ['Kling 4.0', 'Kuaishou'],
   ['Seedance 2.5', 'ByteDance'],
-  ['Wan 2.7', 'Alibaba'],
-  ['Claude Sonnet 5', 'Anthropic'],
+  ['Nano Banana 2.1', 'Google'],
+  ['Genjutsu', 'Higgsfield'],
+  ['Wan 3.0 Prime', 'Alibaba'],
+  ['Gemini Omni Video', 'Google'],
+  ['Veo 3.1', 'Google'],
+  ['Sora 2 Pro', 'OpenAI'],
   ['GPT Image 2.5', 'OpenAI'],
-  ['Gemini 3.1 Pro', 'Google'],
   ['Grok 4.5', 'xAI'],
 ]
 
 const TICKER_B = [
-  ['GPT‑5.6 Sol', 'OpenAI'],
+  ['GPT‑6 Astra', 'OpenAI'],
+  ['Claude Sonnet 5.5', 'Anthropic'],
   ['Seedream 5.0 Pro', 'ByteDance'],
   ['Suno V5', 'музыка'],
   ['ElevenLabs v3', 'озвучка'],
   ['Gemini Omni Character', 'персонажи'],
   ['Flux 2', 'Black Forest'],
   ['Imagen 4 Ultra', 'Google'],
+  ['Gemini 3.1 Pro', 'Google'],
   ['DeepSeek V4 Pro', 'DeepSeek'],
   ['Hailuo 2.3 Pro', 'MiniMax'],
-  ['Midjourney', 'v7'],
+  ['Midjourney', 'V7'],
+  ['Runway', 'Gen‑4'],
   ['Topaz', 'апскейл видео'],
-  ['Genjutsu', 'Higgsfield'],
   ['Perplexity Sonar', 'поиск'],
 ]
 
@@ -263,7 +265,7 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
         <div>
           <div className="lp-eyebrow rv">
             <span className="lp-eyebrow__dot" />
-            48 нейросетей · без VPN · карта РФ
+            72 нейросети · без VPN · карта РФ
           </div>
           <h1 className="lp-h1 rv rv-d1">
             Все нейросети.
@@ -336,15 +338,15 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               <img src={cover('case-text.webp', '/covers/text3.webp')} alt="" loading="lazy" />
             </div>
             <span className="lp-card__tag">Текст</span>
-            <span className="lp-card__count">15 моделей</span>
-            <h3 className="lp-card__title">GPT‑6 и Claude Opus 4.8</h3>
+            <span className="lp-card__count">29 моделей</span>
+            <h3 className="lp-card__title">GPT‑6.1 и Claude Opus 5.5</h3>
             <div className="lp-chips">
               {FLAGSHIPS.text.map((m) => (
                 <span className="lp-chip" key={m}>{m}</span>
               ))}
-              <span className="lp-chip">Claude Sonnet 5</span>
-              <span className="lp-chip">GPT‑5.6</span>
-              <span className="lp-chip lp-chip--more">+9</span>
+              <span className="lp-chip">Claude Sonnet 5.5</span>
+              <span className="lp-chip">GPT‑6 Astra</span>
+              <span className="lp-chip lp-chip--more">+23</span>
             </div>
             <a className="lp-card__go" href={goHref('chat')}>
               Открыть чат <ArrowRight size={14} />
@@ -358,7 +360,7 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
             </div>
             <span className="lp-card__tag">Картинки</span>
             <span className="lp-card__count">15 моделей</span>
-            <h3 className="lp-card__title">Nano Banana Pro и GPT Image 2.5</h3>
+            <h3 className="lp-card__title">Nano Banana 2.1 и GPT Image 2.5</h3>
             <div className="lp-chips">
               {FLAGSHIPS.image.map((m) => (
                 <span className="lp-chip" key={m}>{m}</span>
@@ -376,13 +378,15 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               <img src={cover('case-video.webp', '/covers/video.webp')} alt="" loading="lazy" />
             </div>
             <span className="lp-card__tag">Видео</span>
-            <span className="lp-card__count">16 моделей</span>
-            <h3 className="lp-card__title">Видео со звуком</h3>
+            <span className="lp-card__count">24 модели</span>
+            <h3 className="lp-card__title">Kling 4.0 и Seedance 2.5</h3>
             <div className="lp-chips">
               {FLAGSHIPS.video.map((m) => (
                 <span className="lp-chip" key={m}>{m}</span>
               ))}
-              <span className="lp-chip lp-chip--more">+12</span>
+              <span className="lp-chip">Перенос движения</span>
+              <span className="lp-chip">Замена объектов</span>
+              <span className="lp-chip lp-chip--more">+17</span>
             </div>
             <a className="lp-card__go" href={goHref('video-generation')}>
               Снять видео <ArrowRight size={14} />
@@ -395,14 +399,14 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
               <img src={cover('r-cover.webp', '/covers/audio2.webp')} alt="" loading="lazy" />
             </div>
             <span className="lp-card__tag">Аудио</span>
-            <span className="lp-card__count">6 моделей</span>
+            <span className="lp-card__count">4 модели</span>
             <h3 className="lp-card__title">Музыка и голос</h3>
             <div className="lp-chips">
               {FLAGSHIPS.audio.map((m) => (
                 <span className="lp-chip" key={m}>{m}</span>
               ))}
               <span className="lp-chip">Диалоги</span>
-              <span className="lp-chip lp-chip--more">+3</span>
+              <span className="lp-chip lp-chip--more">+2</span>
             </div>
             <a className="lp-card__go" href={goHref('audio-generation')}>
               Записать трек <ArrowRight size={14} />
@@ -411,7 +415,7 @@ export function LandingPage({ brandMark = false, assets = [] }: { brandMark?: bo
 
           <article className="lp-card lp-card--stat rv rv-d2">
             <div className="lp-stat__n">
-              52
+              72
             </div>
             <ul className="lp-stat__list">
               <li>4 категории, один баланс</li>
