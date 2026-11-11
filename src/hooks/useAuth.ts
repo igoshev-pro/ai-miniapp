@@ -209,8 +209,6 @@ export function useAuth() {
    * («аккаунт уже существует», «неверная почта или пароль»), и подменять
    * их общей фразой — значит прятать от человека суть проблемы.
    */
-  const errorText = (err: any, fallback: string): string =>
-    err?.response?.data?.message || err?.message || fallback
 
   const registerWithEmail = useCallback(
     async (params: { email: string; password: string; firstName?: string }) => {
@@ -222,8 +220,9 @@ export function useAuth() {
         )
         applyAuth(res.data.data, 'Аккаунт создан. Добро пожаловать!')
       } catch (err: any) {
-        toast.error(errorText(err, 'Не удалось создать аккаунт'))
-        throw err
+        // Без тоста: EmailAuthForm показывает текст прямо под полями —
+        // так его видно и в модалке, и в Telegram, где тосты теряются.
+        throw new Error(authErrorText(err, 'Не удалось создать аккаунт'))
       }
     },
     [webApp, applyAuth],
@@ -238,8 +237,7 @@ export function useAuth() {
         )
         applyAuth(res.data.data, `С возвращением, ${res.data.data.user.firstName || ''}!`.trim())
       } catch (err: any) {
-        toast.error(errorText(err, 'Не удалось войти'))
-        throw err
+        throw new Error(authErrorText(err, 'Не удалось войти'))
       }
     },
     [applyAuth],
@@ -251,7 +249,7 @@ export function useAuth() {
       // Ответ намеренно одинаковый и для известной, и для неизвестной почты.
       toast.success('Если такая почта зарегистрирована, письмо уже отправлено')
     } catch (err: any) {
-      toast.error(errorText(err, 'Не удалось отправить письмо'))
+      toast.error(authErrorText(err, 'Не удалось отправить письмо'))
       throw err
     }
   }, [])
@@ -265,7 +263,7 @@ export function useAuth() {
         )
         applyAuth(res.data.data, 'Пароль изменён')
       } catch (err: any) {
-        toast.error(errorText(err, 'Не удалось изменить пароль'))
+        toast.error(authErrorText(err, 'Не удалось изменить пароль'))
         throw err
       }
     },
@@ -281,4 +279,27 @@ export function useAuth() {
     requestPasswordReset,
     resetPassword,
   }
+}
+
+/**
+ * Текст ошибки для человека.
+ *
+ * Берём то, что прислал сервер: там осмысленные тексты («временные ящики
+ * не поддерживаются», «неверная почта или пароль»). Но сервер бывает
+ * неудобен: ValidationPipe отдаёт массив строк, ThrottlerGuard — английское
+ * «Too Many Requests», а при обрыве сети axios пишет «Network Error».
+ */
+export function authErrorText(err: any, fallback: string): string {
+  const status: number | undefined = err?.status ?? err?.response?.status
+  const raw = err?.response?.data?.message ?? err?.message
+
+  if (status === 429 && (!raw || /too many requests/i.test(String(raw)))) {
+    return 'Слишком много попыток. Подождите минуту и попробуйте снова'
+  }
+  if (status === 0 || /network error/i.test(String(raw))) {
+    return 'Нет связи с сервером. Проверьте интернет и попробуйте снова'
+  }
+  if (Array.isArray(raw)) return raw[0] || fallback
+  if (typeof raw === 'string' && raw.trim()) return raw
+  return fallback
 }

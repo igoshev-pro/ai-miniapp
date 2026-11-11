@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Loader2, Mail, Lock, User, ArrowLeft } from 'lucide-react'
+import { Loader2, Mail, Lock, User, ArrowLeft, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/hooks'
 
 /**
@@ -30,6 +30,10 @@ export function EmailAuthForm({ onSuccess }: Props) {
   const [firstName, setFirstName] = useState('')
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
+  /** Ошибка сервера показывается под полями, а не тостом: в модалке и
+   *  в Telegram тост легко пропустить, и человек не понимает, почему
+   *  аккаунт не создался (например, временная почта). */
+  const [error, setError] = useState<string | null>(null)
 
   // Локальная проверка — чтобы не гонять заведомо неверные данные на сервер.
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
@@ -46,6 +50,7 @@ export function EmailAuthForm({ onSuccess }: Props) {
       if (!canSubmit) return
 
       setBusy(true)
+      setError(null)
       try {
         if (mode === 'login') {
           await loginWithEmail({ email: email.trim(), password })
@@ -61,8 +66,12 @@ export function EmailAuthForm({ onSuccess }: Props) {
           await requestPasswordReset(email.trim())
           setSent(true)
         }
-      } catch {
-        // Текст ошибки уже показал useAuth — здесь только снимаем блокировку.
+      } catch (err: any) {
+        // Для входа и регистрации useAuth присылает готовый текст;
+        // для «забыли пароль» он уже показан тостом.
+        if (mode !== 'forgot') {
+          setError(err?.message || 'Что-то пошло не так, попробуйте ещё раз')
+        }
       } finally {
         setBusy(false)
       }
@@ -76,6 +85,7 @@ export function EmailAuthForm({ onSuccess }: Props) {
   const switchMode = (next: Mode) => {
     setMode(next)
     setSent(false)
+    setError(null)
     // Пароль не переносим между режимами: в «Забыли пароль» он не нужен,
     // а из восстановления во вход человек приходит уже с новым.
     setPassword('')
@@ -153,7 +163,7 @@ export function EmailAuthForm({ onSuccess }: Props) {
             className={inputClass}
             placeholder="Имя (необязательно)"
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            onChange={(e) => { setFirstName(e.target.value); setError(null) }}
             disabled={busy}
             autoComplete="given-name"
             maxLength={64}
@@ -171,7 +181,7 @@ export function EmailAuthForm({ onSuccess }: Props) {
           className={inputClass}
           placeholder="Почта"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); setError(null) }}
           disabled={busy}
           autoComplete="email"
           inputMode="email"
@@ -192,7 +202,7 @@ export function EmailAuthForm({ onSuccess }: Props) {
               mode === 'register' ? `Пароль (от ${MIN_PASSWORD} символов)` : 'Пароль'
             }
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setError(null) }}
             disabled={busy}
             autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
             required
@@ -205,6 +215,20 @@ export function EmailAuthForm({ onSuccess }: Props) {
       {mode === 'register' && password.length > 0 && !passwordValid && (
         <div className="text-[11px] text-white/40 -mt-0.5 pl-1">
           Ещё {MIN_PASSWORD - password.length} символов
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="
+            flex items-start gap-2 px-3 py-2.5 rounded-[10px]
+            bg-red-500/10 border border-red-500/25
+            text-[13px] leading-[1.45] text-red-300 text-left
+          "
+        >
+          <AlertCircle size={15} className="shrink-0 mt-[1px]" />
+          <span>{error}</span>
         </div>
       )}
 
