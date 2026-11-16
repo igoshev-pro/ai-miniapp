@@ -1,6 +1,10 @@
 // src/lib/api/sse.ts
 
 import { useAuthStore } from '@/stores/auth.store'
+import {
+  handleInsufficientBalance,
+  isInsufficientBalanceMessage,
+} from '@/stores/paywall.store'
 
 /**
  * SSE стриминг через fetch + ReadableStream
@@ -116,8 +120,21 @@ export function streamChat(
           callbacks.onError('Сессия истекла, войдите снова')
           return
         }
-        if (response.status === 402) {
-          callbacks.onError('Недостаточно спичек для генерации')
+        // Нехватка спичек: бэкенд шлёт 402 или 400 с текстом «Insufficient
+        // tokens…» / «Недостаточно спичек…». Открываем пейволл; onError
+        // получает текст, по которому обработчик поймёт, что тост не нужен.
+        const serverMessage = (errorData as { message?: string }).message
+        if (
+          handleInsufficientBalance(
+            { status: response.status, message: serverMessage },
+            'chat',
+          )
+        ) {
+          callbacks.onError(
+            isInsufficientBalanceMessage(serverMessage)
+              ? serverMessage!
+              : 'Недостаточно спичек для генерации',
+          )
           return
         }
         if (response.status === 429) {

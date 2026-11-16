@@ -45,6 +45,7 @@ import { MessageContent } from '@/components/ui/MessageContent'
 import { allModels as fallbackModels, formatCost } from '@/lib/data'
 import { ModelFamilyGroups } from './ui/ModelFamilyGroups'
 import { toast } from '@/stores/toast.store'
+import { openPaywall, handleInsufficientBalance } from '@/stores/paywall.store'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PriceTag } from './ui/PriceTag'
 import { formatFreeBadge, getFreeAccessInfo } from '@/lib/api/freeAccess'
@@ -869,8 +870,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
     }
 
     if (!isFreeForUser && balance < modelCost) {
-      toast.warning(`Недостаточно спичек. Нужно ${modelCost}, у вас ${balance}`)
-      hapticNotification('error')
+      openPaywall({ need: modelCost, have: balance, reason: 'chat' })
       return
     }
 
@@ -1001,6 +1001,7 @@ export function ChatPage({ initialModel, chatId: existingChatId, onBack }: Props
         onDisconnect: (info) => recoverAnswer(info, sentAt),
         onError: (error) => {
           store.resetStreaming()
+          if (handleInsufficientBalance(error, 'chat')) return
           if (error.includes('спичек') || error.includes('баланс')) {
             toast.warning(error)
           } else {

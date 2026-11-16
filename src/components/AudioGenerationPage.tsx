@@ -29,6 +29,8 @@ import { useModelUIConfig, type ModelUIConfig } from '@/hooks/useModelUIConfig'
 import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { toast } from '@/stores/toast.store'
+import { openPaywall } from '@/stores/paywall.store'
+import { GenerationCostHint } from './ui/GenerationCostHint'
 import { apiClient } from '@/lib/api'
 import { formatFreeBadge, formatFreeLabel, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
@@ -221,7 +223,7 @@ function getDefault(config: ModelUIConfig | null, key: string): string | undefin
 
 export function AudioGenerationPage({ initialModel, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
-  const { balance } = useUser()
+  const { balance, isLoaded: userLoaded } = useUser()
   const { generate, generations } = useGeneration()
   const { models: allModels } = useModels()
 
@@ -781,8 +783,7 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
     }
         // 🆕 Бесплатные модели по подписке — пропускаем проверку баланса
     if (!isFreeForUser && balance < displayedCost) {
-      toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
-      hapticNotification('error')
+      openPaywall({ need: displayedCost, have: balance, reason: 'audio' })
       return
     }
 
@@ -1541,6 +1542,13 @@ export function AudioGenerationPage({ initialModel, onBack }: Props) {
             )}
           </button>
         </div>
+        <GenerationCostHint
+          cost={displayedCost}
+          balance={balance}
+          isFree={isFreeForUser}
+          isLoaded={userLoaded}
+          reason="audio"
+        />
       </div>
 
       {/* ── Settings sheet ── */}

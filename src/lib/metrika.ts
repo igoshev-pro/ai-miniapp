@@ -11,7 +11,14 @@
 
 export const YM_ID = Number(process.env.NEXT_PUBLIC_YM_ID || 113888841)
 
-export type MetrikaGoal = 'lp_cta' | 'sign_up' | 'first_gen' | 'purchase'
+export type MetrikaGoal =
+  | 'lp_cta'
+  | 'sign_up'
+  | 'first_gen'
+  | 'purchase'
+  // Открытие пейволла «Спички закончились». Новая цель: в Директе не
+  // используется, в Метрике её нужно завести вручную (JS-событие paywall_open).
+  | 'paywall_open'
 
 const PROD_HOST = 'spichki-ai.net'
 

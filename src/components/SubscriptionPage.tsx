@@ -6,17 +6,23 @@ import {
   Crown, Check, Zap, Loader2, Star, Sparkles, Rocket, Diamond,
   MessageSquare, Image as ImageIcon, Video, Music,
   Lock, Unlock, Gift, Clock, ChevronDown, ChevronUp,
-  CreditCard, Bitcoin, Info,
+  CreditCard, Bitcoin, Info, Flame, ChevronRight,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
 import { useBilling, useUser } from '@/hooks'
+import { preparePaymentWindow } from '@/lib/openPayment'
+import { FirstTopupOfferBanner } from './ui/FirstTopupOfferBanner'
 import type {
   SubscriptionPlan as ApiSubscriptionPlan,
   PaymentProvider,
   PaymentCurrency,
 } from '@/hooks/useBilling'
 
-interface Props { onBack?: () => void }
+interface Props {
+  onBack?: () => void
+  /** «Пополнить спички без подписки» → экран пополнения */
+  onTopUp?: () => void
+}
 type Currency = 'rub' | 'usd'
 type Provider = Extract<PaymentProvider, 'stars' | 'tochka' | 'freedompay' | 'heleket'>
 
@@ -79,9 +85,9 @@ function formatRequiredParams(params?: Record<string, any> | null): string | nul
     .join(', ')
 }
 
-export function SubscriptionPage({ onBack }: Props) {
+export function SubscriptionPage({ onBack, onTopUp }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
-  const { subscription } = useUser()
+  const { subscription, refetch: refetchUser } = useUser()
   const { subscribe, loadPlans, plans, isLoading } = useBilling()
 
   const [busy, setBusy] = useState<string | null>(null)
@@ -121,18 +127,18 @@ export function SubscriptionPage({ onBack }: Props) {
     if (planId === currentPlan) return
     haptic('medium')
     setBusy(planId)
+    // Окно открываем до await — иначе Safari заблокирует его как всплывающее
+    const payWin = preparePaymentWindow(webApp)
     const currency: PaymentCurrency = cur === 'rub' ? 'RUB' : 'USD'
     const url = await subscribe(planId, provider, currency)
     setBusy(null)
     if (url) {
-      if (webApp?.openLink) {
-        webApp.openLink(url)
-      } else {
-        window.open(url, '_blank')
-      }
+      payWin.go(url, () => { refetchUser(); hapticNotification('success') })
       hapticNotification('success')
+    } else {
+      payWin.cancel()
     }
-  }, [currentPlan, cur, provider, haptic, hapticNotification, subscribe, webApp])
+  }, [currentPlan, cur, provider, haptic, hapticNotification, subscribe, webApp, refetchUser])
 
   // ─── Текущий план для шапки ────────────────────────────────
   const currentPlanData = plans.find(p => p.id === currentPlan || p.plan === currentPlan)
@@ -147,7 +153,18 @@ export function SubscriptionPage({ onBack }: Props) {
         <p className="text-[13px] text-white/40 mt-1">
           Выберите план для себя
         </p>
+        {onTopUp && (
+          <button
+            type="button"
+            onClick={() => { haptic('light'); onTopUp() }}
+            className="mt-1.5 inline-flex items-center gap-0.5 bg-transparent border-none p-0 text-[12px] text-amber-400/80 underline decoration-amber-400/30 underline-offset-4 cursor-pointer"
+          >
+            или пополнить спички без подписки <ChevronRight size={12} />
+          </button>
+        )}
       </div>
+
+      <FirstTopupOfferBanner className="mb-3.5 animate-fade-in" />
 
       {/* ── Currency ── */}
       <div className="flex gap-1 p-[3px] mb-3.5 bg-white/[.04] border border-white/[.06] rounded-xl animate-fade-in">
@@ -426,6 +443,27 @@ export function SubscriptionPage({ onBack }: Props) {
             )
           })}
         </div>
+      )}
+
+      {/* ── Разовая покупка спичек без подписки ── */}
+      {onTopUp && (
+        <button
+          type="button"
+          onClick={() => { haptic('light'); onTopUp() }}
+          className="
+            w-full flex items-center gap-2.5 p-3.5 mb-3
+            bg-white/[.03] border border-white/[.06] rounded-xl
+            text-left cursor-pointer transition-all active:scale-[.99] active:bg-white/[.05]
+            animate-fade-in [animation-delay:.2s]
+          "
+        >
+          <Flame size={16} className="text-red-400 shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-[14px] font-semibold text-white">Пополнить спички без подписки</span>
+            <span className="block text-[11.5px] text-white/35 mt-0.5">Разовая покупка любого количества</span>
+          </span>
+          <ChevronRight size={16} className="text-white/30 shrink-0" />
+        </button>
       )}
 
       {/* ── Free plan info ── */}

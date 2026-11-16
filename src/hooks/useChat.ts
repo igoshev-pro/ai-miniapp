@@ -6,6 +6,7 @@ import { useChatStore, type Chat, type ChatMessage } from '@/stores/chat.store'
 import { useUserStore } from '@/stores/user.store'
 import { toast } from '@/stores/toast.store'
 import { trackFirstGeneration } from '@/lib/metrika'
+import { openPaywall, handleInsufficientBalance } from '@/stores/paywall.store'
 import { useModelsStore } from '@/stores/models.store'
 import { allModels as fallbackModels } from '@/lib/data'
 import { useAuthStore } from '@/stores'
@@ -186,7 +187,7 @@ const loadChats = useCallback(async () => {
   ) => {
     // Проверка баланса на клиенте (грубая)
     if (user && user.totalBalance <= 0) {
-      toast.warning('Недостаточно спичек. Пополните баланс!')
+      openPaywall({ have: user.totalBalance, reason: 'chat' })
       return
     }
 
@@ -267,6 +268,7 @@ const loadChats = useCallback(async () => {
         onError: (error) => {
           store.resetStreaming()
 
+          if (handleInsufficientBalance(error, 'chat')) return
           if (error.includes('спичек') || error.includes('баланс')) {
             toast.warning(error)
           } else {

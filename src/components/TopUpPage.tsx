@@ -24,8 +24,10 @@ import {
   Flame,
 } from 'lucide-react'
 import { useTelegram } from '@/context/TelegramContext'
-import { useBilling, useUser } from '@/hooks'
+import { useBilling, useUser, useFirstTopupOffer, calcOfferBonus } from '@/hooks'
 import { toast } from '@/stores/toast.store'
+import { preparePaymentWindow } from '@/lib/openPayment'
+import { FirstTopupOfferBanner } from './ui/FirstTopupOfferBanner'
 import { calcCustomByTokens } from '@/lib/api/pricing'
 
 
@@ -115,8 +117,9 @@ function perTok(r: number, t: number, c: Currency) {
 
 export function TopUpPage({ onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
-  const { balance } = useUser()
+  const { balance, refetch: refetchUser } = useUser()
   const { isLoading, purchaseCustomTokens, applyPromo } = useBilling()
+  const { offer, isActive: offerActive } = useFirstTopupOffer()
 
 
 
@@ -177,6 +180,13 @@ export function TopUpPage({ onBack }: Props) {
 
   const pkg = PKGS.find(p => p.id === sel)
 
+  // Бонус по акции «x2 на первое пополнение» для выбранной суммы
+  const pkgBonus = pkg && offerActive ? calcOfferBonus(offer, pkg.tokens, pkg.priceRub) : 0
+  const customBonus =
+    customMode && offerActive && customCalc.valid
+      ? calcOfferBonus(offer, customCalc.tokens, customCalc.rub)
+      : 0
+
 
 
 
@@ -190,20 +200,17 @@ export function TopUpPage({ onBack }: Props) {
     if (!pkg) { toast.warning('Выберите пакет'); return }
     haptic('medium')
 
-
-
-
+    // Окно открываем до await — иначе Safari заблокирует его как всплывающее
+    const payWin = preparePaymentWindow(webApp)
     const url = await purchaseCustomTokens(pkg.tokens, provider, currencyForBackend())
 
-
-
-
     if (url) {
-      if (webApp?.openLink) webApp.openLink(url)
-      else window.open(url, '_blank')
+      payWin.go(url, () => { refetchUser(); hapticNotification('success') })
       hapticNotification('success')
+    } else {
+      payWin.cancel()
     }
-  }, [pkg, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp])
+  }, [pkg, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp, refetchUser])
 
 
 
@@ -215,20 +222,16 @@ export function TopUpPage({ onBack }: Props) {
     }
     haptic('medium')
 
-
-
-
+    const payWin = preparePaymentWindow(webApp)
     const url = await purchaseCustomTokens(customCalc.tokens, provider, currencyForBackend())
 
-
-
-
     if (url) {
-      if (webApp?.openLink) webApp.openLink(url)
-      else window.open(url, '_blank')
+      payWin.go(url, () => { refetchUser(); hapticNotification('success') })
       hapticNotification('success')
+    } else {
+      payWin.cancel()
     }
-  }, [customCalc, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp])
+  }, [customCalc, provider, cur, purchaseCustomTokens, haptic, hapticNotification, webApp, refetchUser])
 
 
 
@@ -278,6 +281,8 @@ export function TopUpPage({ onBack }: Props) {
           {balance.toLocaleString()} спичек
         </div>
       </div>
+
+      <FirstTopupOfferBanner className="mb-4 animate-fade-in" />
 
 
 
@@ -535,6 +540,10 @@ export function TopUpPage({ onBack }: Props) {
 
 
 
+            {customBonus > 0 && (
+              <OfferBonusLine tokens={customCalc.tokens} bonus={customBonus} />
+            )}
+
             {!customCalc.valid && (
               <div className="text-[11px] text-red-400/80 mb-2 text-center">
                 Допустимо от {CUSTOM_MIN} до {CUSTOM_MAX.toLocaleString('ru-RU')} спичек
@@ -607,6 +616,10 @@ export function TopUpPage({ onBack }: Props) {
 
 
 
+
+        {!customMode && pkgBonus > 0 && pkg && (
+          <OfferBonusLine tokens={pkg.tokens} bonus={pkgBonus} />
+        )}
 
         {/* Кнопка оплаты пакета — скрыта в режиме «Своя сумма» */}
         {!customMode && (
@@ -683,6 +696,22 @@ export function TopUpPage({ onBack }: Props) {
           ИП Аневич А.С. · ИНН 246220127244
         </div>
       </div>
+    </div>
+  )
+}
+
+
+// Строка «+N бонусных · итого M спичек» под выбранной суммой
+function OfferBonusLine({ tokens, bonus }: { tokens: number; bonus: number }) {
+  return (
+    <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2.5 rounded-[12px] bg-amber-400/[.08] border border-amber-400/30 text-[12.5px] animate-fade-in">
+      <span className="flex items-center gap-1.5 text-amber-400 font-semibold">
+        <Gift size={13} /> +{bonus.toLocaleString('ru-RU')} бонусных
+      </span>
+      <span className="flex items-center gap-1 text-white font-semibold">
+        итого {(tokens + bonus).toLocaleString('ru-RU')}
+        <Flame size={12} className="text-red-400" />
+      </span>
     </div>
   )
 }

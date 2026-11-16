@@ -34,6 +34,11 @@ import { BotLoginButton } from './auth/BotLoginButton'
 import { EmailAuthForm } from './auth/EmailAuthForm'
 import { useAuth } from '@/hooks'
 import { Flame } from 'lucide-react'
+import { PaywallSheet } from './PaywallSheet'
+import { useUserStore } from '@/stores/user.store'
+import { toast } from '@/stores/toast.store'
+import { takeBalanceBeforePayment } from '@/lib/openPayment'
+import { useFirstTopupOfferStore } from '@/hooks/useFirstTopupOffer'
 
 /**
  * Вход по почте: форма в окне авторизации.
@@ -182,6 +187,89 @@ export function SpichkiApp() {
     }
   }, [hydrated])
 
+  // ─── Возврат с платёжки: /?payment=success|fail ───
+  // Параметр убираем из адреса сразу, а обрабатываем, когда готова авторизация
+  // (без токена баланс не обновить, а Тарифы требуют входа).
+  const [paymentResult, setPaymentResult] = useState<'success' | 'fail' | null>(null)
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const result = params.get('payment')
+      if (!result) return
+      params.delete('payment')
+      const qs = params.toString()
+      window.history.replaceState(
+        null,
+        '',
+        window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash,
+      )
+      if (result === 'success' || result === 'fail') setPaymentResult(result)
+    } catch {
+      // ignore
+    }
+  }, [hydrated])
+
+  useEffect(() => {
+    if (!paymentResult || !authReady) return
+    const result = paymentResult
+    setPaymentResult(null)
+
+    if (result === 'fail') {
+      toast.error('Оплата не прошла. Попробуйте ещё раз или выберите другой способ оплаты')
+      requireAuth('subscription', () => {
+        setPageHistory([])
+        setPage('subscription')
+      })
+      return
+    }
+
+    if (!useAuthStore.getState().token) {
+      toast.success('Оплата принята, спички появятся в течение минуты')
+      return
+    }
+
+    // Вебхук платёжки может прийти позже редиректа: сравниваем баланс
+    // с тем, что был перед оплатой, и при необходимости перезапрашиваем.
+    const before = takeBalanceBeforePayment()
+    const balanceNow = () => useUserStore.getState().user?.totalBalance
+    const credited = () => {
+      const now = balanceNow()
+      return before != null && now != null && now > before
+    }
+    const timers: number[] = []
+    let cancelled = false
+
+    ;(async () => {
+      await refetchUser()
+      if (cancelled) return
+      if (credited()) {
+        toast.success('Оплата прошла, спички начислены')
+        return
+      }
+      toast.success('Оплата принята, спички появятся в течение минуты')
+      for (const delay of [7000, 20000, 45000]) {
+        timers.push(
+          window.setTimeout(async () => {
+            if (cancelled) return
+            const prev = balanceNow()
+            await refetchUser()
+            const now = balanceNow()
+            if (!cancelled && prev != null && now != null && now > prev) {
+              cancelled = true
+              timers.forEach((t) => window.clearTimeout(t))
+              toast.success('Спички начислены')
+            }
+          }, delay),
+        )
+      }
+    })()
+
+    // Без cleanup: эффект сам сбрасывает paymentResult и перезапускается,
+    // cleanup отменил бы опрос. Опрос короткий и сам себя останавливает.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentResult, authReady])
+
   // После успешной авторизации — выполняем отложенное действие
   useEffect(() => {
     if (token && pendingNav && showAuthModal) {
@@ -295,6 +383,7 @@ export function SpichkiApp() {
         favorites: 'favorites',
         profile: 'profile',
         topup: 'topup',
+        subscription: 'subscription',
         'generation-history': 'generation-history',
       }
 
@@ -315,7 +404,7 @@ export function SpichkiApp() {
         }
 
         setPage(targetPage)
-        if (id !== 'topup') {
+        if (id !== 'topup' && id !== 'subscription') {
           setActiveNav(id)
         }
       })
@@ -332,6 +421,8 @@ export function SpichkiApp() {
     if (authReady && token) {
       refetchUser()
       loadModels()
+      // Акцию x2 подтягиваем заранее, чтобы пейволл сразу показал её
+      useFirstTopupOfferStore.getState().load()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, token])
@@ -387,7 +478,7 @@ export function SpichkiApp() {
       <DesktopSidebar active={activeNav} onChange={handleNavChange} />
 
       <div className="app-layout__main">
-        <StickyHeader />
+        <StickyHeader onBalanceClick={() => navigateTo('subscription')} />
         <OfflineBanner />
 
         {page === 'home' && (
@@ -473,7 +564,9 @@ export function SpichkiApp() {
         )}
         {page === 'topup' && <TopUpPage onBack={goBack} />}
         {page === 'transactions' && <TransactionsPage onBack={goBack} />}
-        {page === 'subscription' && <SubscriptionPage onBack={goBack} />}
+        {page === 'subscription' && (
+          <SubscriptionPage onBack={goBack} onTopUp={() => navigateTo('topup')} />
+        )}
         {page === 'referral' && <ReferralPage onBack={goBack} />}
         {page === 'favorites' && (
           <FavoritesPage
@@ -487,6 +580,12 @@ export function SpichkiApp() {
 
         <BottomNav active={activeNav} onChange={handleNavChange} />
       </div>
+
+      {/* ─── Пейволл «Спички закончились» (открывается через openPaywall) ─── */}
+      <PaywallSheet
+        onChooseTariff={() => navigateTo('subscription')}
+        onTopUp={() => navigateTo('topup')}
+      />
 
       {/* ─── Auth Modal (для неавторизованных при попытке зайти на защищённую страницу) ─── */}
       {showAuthModal && (

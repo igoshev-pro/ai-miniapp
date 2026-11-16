@@ -47,6 +47,8 @@ export const ENDPOINTS = {
   BILLING_PROMO: '/billing/promo',
   BILLING_TRANSACTIONS: '/billing/transactions',
   BILLING_PAY_TOKENS_CUSTOM: '/billing/pay/tokens-custom',
+  // x2 спичек на первое пополнение: { active, endsAt, multiplier, maxRub }
+  BILLING_FIRST_TOPUP_OFFER: '/billing/first-topup-offer',
 
   // Favorites
   FAVORITES: '/favorites',

@@ -5,6 +5,7 @@ import axios, {
 } from 'axios'
 import { useAuthStore } from '@/stores/auth.store'
 import { getInitData } from '@/lib/telegram'
+import { isInsufficientBalanceMessage } from '@/stores/paywall.store'
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
@@ -126,7 +127,8 @@ function normalizeError(error: AxiosError<{ message?: string }>): ApiError {
     status: status || 0,
     message,
     isAuth: status === 401,
-    isBalance: status === 402,
+    // Бэкенд шлёт нехватку спичек как 400 с текстом, а не 402 — ловим оба варианта
+    isBalance: status === 402 || isInsufficientBalanceMessage(message),
     isRateLimit: status === 429,
     isServer: !!status && status >= 500,
     isServiceUnavailable: status === 503,

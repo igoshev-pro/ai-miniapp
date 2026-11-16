@@ -205,7 +205,8 @@ export function ProfilePage({ onNavigate }: Props) {
             className="profile-balance__btn profile-balance__btn--primary"
             onClick={() => {
               haptic('medium')
-              onNavigate?.('topup')
+              // «Оплата» ведёт в Тарифы; разовая покупка спичек — ссылкой оттуда
+              onNavigate?.('subscription')
             }}
           >
             <Coins size={14} />

@@ -10,3 +10,8 @@ export { useModelUIConfig, type ModelUIConfig, type UIParameter } from './useMod
 export { usePriceCalculator, type PriceCalculation } from './usePriceCalculator'
 export { useAdminAuth } from './useAdminAuth'
 export { useSavedSettings } from './useSavedSettings'
+export {
+  useFirstTopupOffer,
+  calcOfferBonus,
+  type FirstTopupOffer,
+} from './useFirstTopupOffer'

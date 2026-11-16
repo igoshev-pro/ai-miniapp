@@ -31,8 +31,10 @@ import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import { toast } from '@/stores/toast.store'
+import { openPaywall } from '@/stores/paywall.store'
 import { useAuthStore } from '@/stores/auth.store'
 import { PriceTag } from './ui/PriceTag'
+import { GenerationCostHint } from './ui/GenerationCostHint'
 import { formatFreeBadge, formatFreeLabel, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
 interface Props {
@@ -114,7 +116,7 @@ function getDefaultValue(config: ModelUIConfig | null, key: string): string | un
 
 export function ImageGenerationPage({ initialModel, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
-  const { balance } = useUser()
+  const { balance, isLoaded: userLoaded } = useUser()
   const { generate, generations } = useGeneration()
   const { models: allModels } = useModels()
 
@@ -641,8 +643,7 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
 
     // 🆕 Бесплатные модели по подписке — пропускаем проверку баланса
     if (!isFreeForUser && balance < displayedCost) {
-      toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
-      hapticNotification('error')
+      openPaywall({ need: displayedCost, have: balance, reason: 'image' })
       return
     }
 
@@ -1753,6 +1754,13 @@ export function ImageGenerationPage({ initialModel, onBack }: Props) {
             )}
           </button>
         </div>
+        <GenerationCostHint
+          cost={displayedCost}
+          balance={balance}
+          isFree={isFreeForUser}
+          isLoaded={userLoaded}
+          reason="image"
+        />
       </div>
     </div>
   )

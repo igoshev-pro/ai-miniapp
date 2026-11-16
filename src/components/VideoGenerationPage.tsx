@@ -47,6 +47,8 @@ import { usePriceCalculator } from '@/hooks/usePriceCalculator'
 import { MediaResult } from '@/components/ui/MediaResult'
 import { MediaPicker } from '@/components/ui/MediaPicker'
 import { toast } from '@/stores/toast.store'
+import { openPaywall } from '@/stores/paywall.store'
+import { GenerationCostHint } from './ui/GenerationCostHint'
 import { useAuthStore } from '@/stores'
 import { formatFreeBadge, formatFreeLabel, getFreeAccessInfo } from '@/lib/api/freeAccess'
 
@@ -372,7 +374,7 @@ function isComboAllowed(
 
 export function VideoGenerationPage({ initialModel, onBack }: Props) {
   const { haptic, hapticNotification, webApp } = useTelegram()
-  const { balance } = useUser()
+  const { balance, isLoaded: userLoaded } = useUser()
   const { generate, generations } = useGeneration()
   const { models: allModels } = useModels()
 
@@ -1803,8 +1805,7 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
     }
 
     if (!isFreeForUser && balance < displayedCost) {
-      toast.warning(`Недостаточно спичек. Нужно ${displayedCost}, у вас ${balance}`)
-      hapticNotification('error')
+      openPaywall({ need: displayedCost, have: balance, reason: 'video' })
       return
     }
 
@@ -4251,6 +4252,13 @@ export function VideoGenerationPage({ initialModel, onBack }: Props) {
             {generating ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
+        <GenerationCostHint
+          cost={displayedCost}
+          balance={balance}
+          isFree={isFreeForUser}
+          isLoaded={userLoaded}
+          reason="video"
+        />
       </div>
     </div>
   )

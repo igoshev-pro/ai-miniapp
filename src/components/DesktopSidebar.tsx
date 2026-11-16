@@ -104,7 +104,8 @@ export function DesktopSidebar({ active, onChange }: Props) {
         <button
           onClick={() => {
             haptic('light')
-            onChange('topup')
+            // Ведёт в Тарифы; разовая покупка спичек — ссылкой оттуда
+            onChange('subscription')
           }}
           className="desktop-sidebar__topup-btn"
         >

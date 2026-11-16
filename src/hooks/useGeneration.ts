@@ -23,6 +23,8 @@ import { useUserStore } from '@/stores/user.store'
 import { useModelsStore } from '@/stores/models.store'
 import { toast } from '@/stores/toast.store'
 import { trackFirstGeneration } from '@/lib/metrika'
+import { openPaywall, parseNeedHave } from '@/stores/paywall.store'
+import { getFreeAccessInfo } from '@/lib/api/freeAccess'
 import { allModels as fallbackModels } from '@/lib/data'
 
 
@@ -309,8 +311,13 @@ export function useGeneration() {
       )
       const cost = modelData?.cost ?? 5
 
-      if (user && user.totalBalance < cost) {
-        toast.warning(`Недостаточно спичек. Нужно ${cost}, у вас ${user.totalBalance}`)
+      // Бесплатные по подписке модели баланс не тратят — пейволл им не нужен
+      const isFreeForUser = modelData
+        ? getFreeAccessInfo(modelData, request.settings).isFree
+        : false
+
+      if (user && !isFreeForUser && user.totalBalance < cost) {
+        openPaywall({ need: cost, have: user.totalBalance, reason: request.type })
         return null
       }
 
@@ -482,7 +489,10 @@ export function useGeneration() {
       } catch (err) {
         if (isApiError(err)) {
           if (err.isBalance) {
-            toast.warning('Недостаточно спичек')
+            openPaywall({
+              ...parseNeedHave(err.message),
+              reason: request.type,
+            })
           } else if (err.isRateLimit) {
             toast.warning('Слишком много запросов, подождите')
           } else {
